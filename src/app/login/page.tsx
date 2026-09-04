@@ -50,7 +50,6 @@ export default function LoginPage() {
   return (
     <div className="mx-auto max-w-md mt-10 rounded-2xl border bg-white p-8 dark:bg-zinc-900 dark:border-zinc-800">
       <h1 className="text-xl font-semibold">{isReg ? "Бүртгүүлэх" : "Нэвтрэх"}</h1>
-      <p className="mt-1 text-xs text-zinc-500">DB-д хадгалагдана · 100 хэрэглэгч дэмжинэ</p>
       <form onSubmit={submit} className="mt-6 grid gap-4">
         {isReg && <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Нэр" className="rounded-xl border px-4 py-3 dark:bg-zinc-800 dark:border-zinc-700" />}
         <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="И-мэйл" className="rounded-xl border px-4 py-3 dark:bg-zinc-800 dark:border-zinc-700" />

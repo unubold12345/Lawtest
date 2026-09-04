@@ -23,7 +23,6 @@ export default function HistoryPage() {
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [questionsById, setQuestionsById] = useState<Record<string, Question>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [source, setSource] = useState<"db" | "local" | "">("");
 
   useEffect(() => {
     // fetch full questions for detail rendering
@@ -42,16 +41,15 @@ export default function HistoryPage() {
     if (isAuthed) {
       fetch("/api/attempts")
         .then((r) => (r.ok ? r.json() : { attempts: [] }))
-        .then((d) => { setAttempts(d.attempts || []); setSource("db"); })
+        .then((d) => { setAttempts(d.attempts || []); })
         .catch(() => {
           const raw = localStorage.getItem("lawtest_attempts");
-          if (raw) try { setAttempts(JSON.parse(raw)); setSource("local"); } catch {}
+          if (raw) try { setAttempts(JSON.parse(raw)); } catch {}
         });
     } else {
       const raw = localStorage.getItem("lawtest_attempts");
-      if (raw) try { setAttempts(JSON.parse(raw)); setSource("local"); } catch {}
+      if (raw) try { setAttempts(JSON.parse(raw)); } catch {}
       else setAttempts([]);
-      setSource("local");
     }
   }, [isAuthed, status]);
 
@@ -72,10 +70,8 @@ export default function HistoryPage() {
     return (
       <div className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-semibold">Түүх</h1>
-        <p className="mt-1 text-xs text-zinc-500">{isAuthed ? "DB-д хадгалагдана" : "Нэвтрээгүй — localStorage-д хадгалагдана"} · {source}</p>
         <p className="mt-4 rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-900 dark:border-zinc-800">
           Одоогоор шалгалт өгөөгүй. <Link href="/quiz" className="underline">Шалгалт эхлэх</Link>
-          {!isAuthed && <span className="block mt-2">Түүхээ хадгалахын тулд <Link href="/login" className="underline">нэвтэрнэ үү</Link>.</span>}
         </p>
       </div>
     );
@@ -84,10 +80,7 @@ export default function HistoryPage() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Түүх — {attempts.length} оролдлого</h1>
-          <p className="text-xs text-zinc-500">{source === "db" ? "DB (Prisma)" : "localStorage"} · {isAuthed ? "нэвтэрсэн" : "зочин"}</p>
-        </div>
+        <h1 className="text-2xl font-semibold">Түүх — {attempts.length} оролдлого</h1>
         <button onClick={clear} className="text-sm underline text-zinc-500">Цэвэрлэх</button>
       </div>
 
