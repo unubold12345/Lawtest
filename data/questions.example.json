@@ -1,0 +1,13 @@
+[
+  {
+    "id": "example_001",
+    "category": "Example - Delete this file after you understand format",
+    "question": "Example question - replace with your real data",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "answer": 1,
+    "explanation": "Example explanation",
+    "lawRef": "Article X",
+    "difficulty": "medium",
+    "year": 2024
+  }
+]
