@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
 
 type Attempt = {
@@ -17,14 +18,15 @@ type Attempt = {
 };
 
 export default function HistoryPage() {
+  const { data: session, status } = useSession();
+  const isAuthed = !!session?.user;
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [questionsById, setQuestionsById] = useState<Record<string, Question>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [source, setSource] = useState<"db" | "local" | "">("");
 
   useEffect(() => {
-    const raw = localStorage.getItem("lawtest_attempts");
-    if (raw) try { setAttempts(JSON.parse(raw)); } catch {}
-    // fetch full questions for detail rendering (same as result view)
+    // fetch full questions for detail rendering
     fetch("/api/questions?full=1")
       .then((r) => r.json())
       .then((d) => {
@@ -35,9 +37,32 @@ export default function HistoryPage() {
       .catch(() => {});
   }, []);
 
-  const clear = () => {
-    localStorage.removeItem("lawtest_attempts");
-    setAttempts([]);
+  useEffect(() => {
+    if (status === "loading") return;
+    if (isAuthed) {
+      fetch("/api/attempts")
+        .then((r) => (r.ok ? r.json() : { attempts: [] }))
+        .then((d) => { setAttempts(d.attempts || []); setSource("db"); })
+        .catch(() => {
+          const raw = localStorage.getItem("lawtest_attempts");
+          if (raw) try { setAttempts(JSON.parse(raw)); setSource("local"); } catch {}
+        });
+    } else {
+      const raw = localStorage.getItem("lawtest_attempts");
+      if (raw) try { setAttempts(JSON.parse(raw)); setSource("local"); } catch {}
+      else setAttempts([]);
+      setSource("local");
+    }
+  }, [isAuthed, status]);
+
+  const clear = async () => {
+    if (isAuthed) {
+      await fetch("/api/attempts", { method: "DELETE" });
+      setAttempts([]);
+    } else {
+      localStorage.removeItem("lawtest_attempts");
+      setAttempts([]);
+    }
   };
 
   const letters = ["A", "B", "C", "D", "E"];
@@ -47,8 +72,10 @@ export default function HistoryPage() {
     return (
       <div className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-semibold">Түүх</h1>
+        <p className="mt-1 text-xs text-zinc-500">{isAuthed ? "DB-д хадгалагдана" : "Нэвтрээгүй — localStorage-д хадгалагдана"} · {source}</p>
         <p className="mt-4 rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-900 dark:border-zinc-800">
           Одоогоор шалгалт өгөөгүй. <Link href="/quiz" className="underline">Шалгалт эхлэх</Link>
+          {!isAuthed && <span className="block mt-2">Түүхээ хадгалахын тулд <Link href="/login" className="underline">нэвтэрнэ үү</Link>.</span>}
         </p>
       </div>
     );
@@ -57,7 +84,10 @@ export default function HistoryPage() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Түүх — {attempts.length} оролдлого</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">Түүх — {attempts.length} оролдлого</h1>
+          <p className="text-xs text-zinc-500">{source === "db" ? "DB (Prisma)" : "localStorage"} · {isAuthed ? "нэвтэрсэн" : "зочин"}</p>
+        </div>
         <button onClick={clear} className="text-sm underline text-zinc-500">Цэвэрлэх</button>
       </div>
 

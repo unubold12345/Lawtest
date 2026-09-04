@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+import { useSession, signOut } from "next-auth/react";
 
 export default function Header({ total }: { total: number }) {
-  const { user, logout } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   const pathname = usePathname();
   const linkCls = (href: string) =>
     `px-3 py-2 rounded-full text-sm font-medium transition-colors ${pathname === href ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"}`;
@@ -25,8 +26,8 @@ export default function Header({ total }: { total: number }) {
         <div className="flex items-center gap-2">
           {user ? (
             <>
-              <span className="hidden sm:inline text-sm text-zinc-600 dark:text-zinc-400">{user.name}</span>
-              <button onClick={logout} className="rounded-full border px-4 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
+              <span className="hidden sm:inline text-sm text-zinc-600 dark:text-zinc-400">{user.name || user.email}</span>
+              <button onClick={() => signOut({ callbackUrl: "/" })} className="rounded-full border px-4 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
                 Гарах
               </button>
             </>
@@ -37,7 +38,6 @@ export default function Header({ total }: { total: number }) {
           )}
         </div>
       </div>
-      {/* mobile nav */}
       <div className="sm:hidden flex gap-1 px-6 pb-3">
         <Link href="/browse" className={linkCls("/browse")}>Бүх асуулт</Link>
         <Link href="/quiz" className={linkCls("/quiz")}>Шалгалт</Link>

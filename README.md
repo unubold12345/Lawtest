@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LawTest — Хуулийн шалгалт
 
-## Getting Started
+Next.js 16 + Prisma + Auth.js (NextAuth v5) + SQLite (dev) / Postgres (prod). 123 асуулт бэлэн, localStorage fallback зочин хэрэглэгчдэд.
 
-First, run the development server:
+## Stack
+- Next.js 16 App Router, TypeScript, Tailwind 4, Turbopack
+- Prisma 6 + SQLite (dev) → Postgres (prod: Neon/Supabase) нэг schema
+- Auth.js v5 Credentials + @auth/prisma-adapter + bcryptjs
 
+## Quick start (dev — SQLite, no external DB)
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+# .env already has DATABASE_URL="file:./dev.db" + AUTH_SECRET
+npx prisma migrate dev   # dev.db үүснэ (commit-лэгдэхгүй)
+npm run dev              # http://localhost:3000
 ```
+Бүртгүүлэх → нэвтрэх → шалгалт → түүх DB-д хадгалагдана. Нэвтрээгүй зочин localStorage fallback.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Postgres рүү шилжих (100 хэрэглэгч, prod)
+1. Neon/Supabase дээр DB үүсгэ → `DATABASE_URL="postgresql://...?sslmode=require"` ав.
+2. `.env` + Vercel Env-д солино.
+3. `prisma/schema.prisma` → `provider = "postgresql"` болго.
+4. `npx prisma migrate dev --name pg_init` (эсвэл `npx prisma db push` анхны deploy)
+5. `npx prisma generate && npm run build` шалга.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`.env.example` загвар, `prisma/dev.db` gitignore-д байна.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Data
+- `data/questions.json` — асуултууд (JSON). `data/README.md` формат.
+- `GET /api/questions?full=1` — бүх асуулт (түүх дэлгэрэнгүйд).
 
-## Learn More
+## Auth API
+- `POST /api/register` { name, email, password } → bcrypt 10
+- `POST /api/auth/callback/credentials` (NextAuth) — `src/lib/auth.ts`
+- `GET/POST/DELETE /api/attempts` — JWT-тай хэрэглэгчийн оролдлогууд (Prisma Attempt)
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploy (Vercel)
+- Build: `next build` (Prisma generate автоматаар)
+- Env: `DATABASE_URL`, `AUTH_SECRET` (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`), `AUTH_URL`

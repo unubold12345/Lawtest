@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
 
 type Mode = "exam" | "study";
@@ -11,7 +12,28 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+function saveLocal(attempt: object) {
+  const raw = localStorage.getItem("lawtest_attempts");
+  const arr = raw ? JSON.parse(raw) : [];
+  arr.unshift(attempt);
+  localStorage.setItem("lawtest_attempts", JSON.stringify(arr.slice(0, 50)));
+}
+
+async function saveAttempt(payload: { category: string; mode: string; score: number; total: number; elapsed: number; answers: Record<string, number>; questionIds: string[] }, isAuthed: boolean) {
+  const localAttempt = { id: Date.now().toString(), date: new Date().toISOString(), category: payload.category, count: payload.total, mode: payload.mode, score: payload.score, total: payload.total, elapsed: payload.elapsed, answers: payload.answers, questionIds: payload.questionIds };
+  if (isAuthed) {
+    try {
+      const r = await fetch("/api/attempts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!r.ok) saveLocal(localAttempt);
+    } catch { saveLocal(localAttempt); }
+  } else {
+    saveLocal(localAttempt);
+  }
+}
+
 export default function QuizClient({ questions }: { questions: Question[] }) {
+  const { data: session } = useSession();
+  const isAuthed = !!session?.user;
   const categories = useMemo(() => [...new Set(questions.map((x) => x.category).filter(Boolean))] as string[], [questions]);
 
   const [state, setState] = useState<QuizState>("setup");
@@ -50,17 +72,13 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         const c = typeof q.answer === "number" ? q.answer : (q.answer as number[])[0];
         return acc + (a === c ? 1 : 0);
       }, 0);
-      const attempt = { id: Date.now().toString(), date: new Date().toISOString(), category, count: quizQs.length, mode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) };
-      const raw = localStorage.getItem("lawtest_attempts");
-      const arr = raw ? JSON.parse(raw) : [];
-      arr.unshift(attempt);
-      localStorage.setItem("lawtest_attempts", JSON.stringify(arr.slice(0, 50)));
+      saveAttempt({ category, mode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
       setState("result");
       return;
     }
     const id = setInterval(() => { setTimeLeft((t) => t - 1); setElapsed((e) => e + 1); }, 1000);
     return () => clearInterval(id);
-  }, [state, timeLeft, minutes, quizQs, answers, category, mode]);
+  }, [state, timeLeft, minutes, quizQs, answers, category, mode, isAuthed]);
 
   // also count elapsed when no timer
   useEffect(() => {
@@ -83,11 +101,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   }, [quizQs, answers]);
 
   const submit = () => {
-    const attempt = { id: Date.now().toString(), date: new Date().toISOString(), category, count: total, mode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) };
-    const raw = localStorage.getItem("lawtest_attempts");
-    const arr = raw ? JSON.parse(raw) : [];
-    arr.unshift(attempt);
-    localStorage.setItem("lawtest_attempts", JSON.stringify(arr.slice(0, 50)));
+    saveAttempt({ category, mode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
     setState("result");
   };
 
