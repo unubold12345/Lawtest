@@ -19,6 +19,8 @@ model User {
   accounts      Account[]
   sessions      Session[]
   attempts      Attempt[]
+  comments      Comment[]
+  savedAnswers  SavedAnswer[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -72,4 +74,30 @@ model Attempt {
   createdAt   DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  questionId String
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([questionId, createdAt])
+  @@index([userId])
+}
+
+model SavedAnswer {
+  id         String   @id @default(cuid())
+  questionId String
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answer     Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, questionId])
+  @@index([questionId])
 }

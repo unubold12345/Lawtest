@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
+import { effectiveAnswer, getAllOverrides } from "@/lib/answerOverrides";
 
 type Mode = "exam" | "study";
 type QuizState = "setup" | "running" | "result";
@@ -35,6 +36,14 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const { data: session } = useSession();
   const isAuthed = !!session?.user;
   const categories = useMemo(() => [...new Set(questions.map((x) => x.category).filter(Boolean))] as string[], [questions]);
+  const [overrides, setOverrides] = useState<Record<string, number>>({});
+  useEffect(() => {
+    setOverrides(getAllOverrides());
+    const h = () => setOverrides(getAllOverrides());
+    window.addEventListener("lawtest:overrides", h as EventListener);
+    window.addEventListener("storage", h);
+    return () => { window.removeEventListener("lawtest:overrides", h as EventListener); window.removeEventListener("storage", h); };
+  }, []);
 
   const [state, setState] = useState<QuizState>("setup");
   const [category, setCategory] = useState("all");
@@ -69,7 +78,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     if (timeLeft <= 0) {
       const s = quizQs.reduce((acc, q) => {
         const a = answers[q.id];
-        const c = typeof q.answer === "number" ? q.answer : (q.answer as number[])[0];
+        const c = effectiveAnswer(q, overrides);
+        if (c === null) return acc;
         return acc + (a === c ? 1 : 0);
       }, 0);
       saveAttempt({ category, mode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
@@ -94,11 +104,11 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     let s = 0;
     quizQs.forEach((q) => {
       const a = answers[q.id];
-      const correct = typeof q.answer === "number" ? q.answer : q.answer[0];
-      if (a === correct) s++;
+      const correct = effectiveAnswer(q, overrides);
+      if (correct !== null && a === correct) s++;
     });
     return s;
-  }, [quizQs, answers]);
+  }, [quizQs, answers, overrides]);
 
   const submit = () => {
     saveAttempt({ category, mode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
@@ -163,7 +173,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
   if (state === "running" && current) {
     const ans = answers[current.id];
-    const correct = typeof current.answer === "number" ? current.answer : (current.answer as number[])[0];
+    const correct = effectiveAnswer(current, overrides);
+    const isUnknown = correct === null;
     const answered = ans !== undefined;
     return (
       <div className="mx-auto max-w-3xl space-y-4">
@@ -175,9 +186,10 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           {minutes > 0 ? <span className={`text-sm font-mono ${timeLeft < 60 ? "text-red-600" : ""}`}>{fmt(timeLeft)}</span> : <span className="text-sm font-mono">{fmt(elapsed)}</span>}
         </div>
 
-        <div className="rounded-2xl border bg-white p-6 dark:bg-zinc-900 dark:border-zinc-800">
-          <p className="text-sm text-zinc-500">{current.category} · {current.id}</p>
+          <div className="rounded-2xl border bg-white p-6 dark:bg-zinc-900 dark:border-zinc-800">
+          <p className="text-sm text-zinc-500">{current.category} · {current.id} {correct === null ? "· хариултгүй" : overrides[current.id] !== undefined ? "· Та хадгалсан" : ""}</p>
           <h2 className="mt-2 text-lg font-medium leading-relaxed">{current.question}</h2>
+          {isUnknown && <p className="mt-2 text-xs rounded-full bg-amber-100 px-3 py-1 inline-block text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Зөв хариулт хараахан тодорхойгүй — Browse дээр хадгална уу</p>}
 
           <div className="mt-6 grid gap-3">
             {current.options.map((opt, i) => {
@@ -199,10 +211,12 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
           {mode === "study" && answered && (
             <div className="mt-4 flex gap-2">
-              {!showStudyFeedback ? (
+              {isUnknown ? (
+                <p className="text-sm text-amber-700 dark:text-amber-300">Зөв хариулт тодорхойгүй тул дүгнээгүй — Browse дээр хадгалж болно.</p>
+              ) : !showStudyFeedback ? (
                 <button onClick={() => setShowStudyFeedback(true)} className="rounded-full border px-5 py-2 text-sm dark:border-zinc-700">Хариу шалгах</button>
               ) : (
-                <p className={`text-sm font-medium ${ans === correct ? "text-green-600" : "text-red-600"}`}>{ans === correct ? "✓ Зөв!" : `✗ Буруу — зөв хариулт: ${letters[correct]}`}</p>
+                <p className={`text-sm font-medium ${ans === correct ? "text-green-600" : "text-red-600"}`}>{ans === correct ? "✓ Зөв!" : `✗ Буруу — зөв хариулт: ${letters[correct!]}`}{overrides[current.id] !== undefined ? " · Та хадгалсан" : ""}</p>
               )}
             </div>
           )}
@@ -243,19 +257,21 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       <div className="space-y-4">
         {quizQs.map((q, i) => {
           const a = answers[q.id];
-          const c = typeof q.answer === "number" ? q.answer : (q.answer as number[])[0];
-          const ok = a === c;
+          const c = effectiveAnswer(q, overrides);
+          const unknown = c === null;
+          const ok = !unknown && a === c;
           return (
-            <div key={q.id} className={`rounded-2xl border p-6 ${ok ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"} dark:bg-zinc-900`}>
-              <p className="text-sm flex justify-between"><span>{i + 1}. {q.category}</span><span className={ok ? "text-green-700" : "text-red-700"}>{ok ? "✓ Зөв" : "✗ Буруу"}</span></p>
+            <div key={q.id} className={`rounded-2xl border p-6 ${unknown ? "bg-zinc-50 border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800" : ok ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"} dark:bg-zinc-900`}>
+              <p className="text-sm flex justify-between"><span>{i + 1}. {q.category} {unknown ? "· хариултгүй" : overrides[q.id] !== undefined ? "· Та хадгалсан" : ""}</span><span className={unknown ? "text-zinc-500" : ok ? "text-green-700" : "text-red-700"}>{unknown ? "— Тодорхойгүй" : ok ? "✓ Зөв" : "✗ Буруу"}</span></p>
               <p className="mt-2 font-medium">{q.question}</p>
               <div className="mt-3 grid gap-2">
                 {q.options.map((opt, oi) => (
-                  <div key={oi} className={`rounded-xl border px-3 py-2 text-sm flex gap-2 ${oi === c ? "border-green-500 bg-green-100 dark:bg-green-900" : ""} ${oi === a && !ok ? "border-red-500 bg-red-100 dark:bg-red-900" : "bg-white dark:bg-zinc-800"}`}>
-                    <span className="font-bold">{letters[oi]}.</span>{opt} {oi === c && "✓"} {oi === a && oi !== c && "← таны сонголт"}
+                  <div key={oi} className={`rounded-xl border px-3 py-2 text-sm flex gap-2 ${!unknown && oi === c ? "border-green-500 bg-green-100 dark:bg-green-900" : ""} ${oi === a && !ok && !unknown ? "border-red-500 bg-red-100 dark:bg-red-900" : "bg-white dark:bg-zinc-800"}`}>
+                    <span className="font-bold">{letters[oi]}.</span>{opt} {!unknown && oi === c && "✓"} {!unknown && oi === c && overrides[q.id] !== undefined && <span className="text-[10px]">· Та хадгалсан</span>} {oi === a && oi !== c && !unknown && "← таны сонголт"}
                   </div>
                 ))}
               </div>
+              {unknown && <p className="mt-2 text-xs text-zinc-500">Зөв хариулт хараахан тодорхойгүй — Browse дээр A–D сонгоод хадгална уу.</p>}
             </div>
           );
         })}

@@ -4,7 +4,8 @@ export type Question = {
   question: string;
   options: string[];
   // 0-based index for single answer, array for multiple correct
-  answer: number | number[];
+  // null/undefined = unknown — user can set it in the UI (mock.json)
+  answer?: number | number[] | null;
   explanation?: string;
   lawRef?: string;
   difficulty?: "easy" | "medium" | "hard";
