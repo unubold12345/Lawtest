@@ -27,7 +27,7 @@ function parseTxtBlocks(raw: string, file: string): Question[] {
       answer = Number(answerLine);
     }
     out.push({
-      id: `${path.basename(file)}_${idx}`,
+      id: `${path.parse(file).name}_${idx}`,
       category,
       question: qLine,
       options,
@@ -42,6 +42,12 @@ function isQuestionArray(v: unknown): v is Question[] {
   return Array.isArray(v) && v.every((x) => x && typeof x.question === "string" && Array.isArray(x.options));
 }
 
+// Filename (without extension) is the category: "Эрх зүй.json" -> "Эрх зүй"
+// Legacy "questions.json" keeps per-question categories.
+function categoryFromFilename(file: string): string {
+  return path.parse(file).name;
+}
+
 export function loadQuestions(): QuestionsLoadResult {
   const result: QuestionsLoadResult = { questions: [], sources: [], errors: [] };
   if (!fs.existsSync(DATA_DIR)) {
@@ -49,10 +55,18 @@ export function loadQuestions(): QuestionsLoadResult {
     return result;
   }
   const files = fs.readdirSync(DATA_DIR).filter((f) => f.endsWith(".json") || f.endsWith(".txt"));
+  const seenIds = new Set(result.questions.map((q) => q.id));
 
   for (const file of files) {
-    // Skip example file in production count unless user keeps it
+    if (file === "questions.example.json") {
+      result.sources.push({ file, count: 0 });
+      continue;
+    }
     const full = path.join(DATA_DIR, file);
+    // Every file = one category named after the file: "Эрх зүй.json" -> "Эрх зүй"
+    // Exception: legacy "questions.json" keeps its per-question categories.
+    const fileCategory = categoryFromFilename(file);
+    const applyFileCategory = file !== "questions.json";
     try {
       if (file.endsWith(".json")) {
         const raw = fs.readFileSync(full, "utf-8");
@@ -64,20 +78,35 @@ export function loadQuestions(): QuestionsLoadResult {
         const arr = Array.isArray(parsed) ? parsed : [parsed];
         // filter example placeholder if still present
         const filtered = arr.filter((q) => q?.id !== "example_001");
-        if (file === "questions.example.json") {
-          // don't count example toward totals, just report
-          result.sources.push({ file, count: 0 });
-          continue;
-        }
         if (!isQuestionArray(filtered) && filtered.length > 0) {
           result.errors.push({ file, message: "Invalid JSON shape — expected Question[] (see data/README.md)" });
           continue;
         }
-        result.questions.push(...(filtered as Question[]));
-        result.sources.push({ file, count: (filtered as Question[]).length });
+        const normalized = (filtered as Question[]).map((q, idx) => {
+          // auto id if missing
+          let id = q.id || `${fileCategory}_${idx + 1}`;
+          // de-duplicate across files
+          if (seenIds.has(id)) id = `${fileCategory}_${id}`;
+          seenIds.add(id);
+          return {
+            ...q,
+            id,
+            // filename wins; legacy questions.json keeps embedded category
+            category: applyFileCategory ? fileCategory : q.category || fileCategory,
+          };
+        });
+        result.questions.push(...normalized);
+        result.sources.push({ file, count: normalized.length });
       } else if (file.endsWith(".txt")) {
         const raw = fs.readFileSync(full, "utf-8");
-        const parsed = parseTxtBlocks(raw, file);
+        const parsed = parseTxtBlocks(raw, file).map((q) => {
+          let id = q.id;
+          if (seenIds.has(id)) {
+            id = `${fileCategory}_${id}`;
+          }
+          seenIds.add(id);
+          return { ...q, id, category: fileCategory };
+        });
         result.questions.push(...parsed);
         result.sources.push({ file, count: parsed.length });
       }
