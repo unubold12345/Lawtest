@@ -4,6 +4,10 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
+if (process.env.AUTH_URL && !process.env.AUTH_URL.startsWith("http")) {
+  process.env.AUTH_URL = `https://${process.env.AUTH_URL}`;
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   adapter: PrismaAdapter(prisma),
