@@ -1,27 +1,25 @@
 # LawTest — Хуулийн шалгалт
 
-Next.js 16 + Prisma + Auth.js (NextAuth v5) + SQLite (dev) / Postgres (prod). 123 асуулт бэлэн, localStorage fallback зочин хэрэглэгчдэд.
+Next.js 16 + Prisma (Postgres) + Auth.js v5. 143 асуулт (123 + 20 mock), localStorage fallback зочин.
 
 ## Stack
 - Next.js 16 App Router, TypeScript, Tailwind 4, Turbopack
-- Prisma 6 + SQLite (dev) → Postgres (prod: Neon/Supabase) нэг schema
+- Prisma 6 + Postgres (Neon pooled) — `provider = "postgresql"` (`prisma/schema.prisma:5`)
 - Auth.js v5 Credentials + @auth/prisma-adapter + bcryptjs
 
-## Quick start (dev — SQLite, no external DB)
+## Quick start (Postgres — local + Vercel share)
 ```bash
 npm install
-# .env already has DATABASE_URL="file:./dev.db" + AUTH_SECRET
-npx prisma migrate dev   # dev.db үүснэ (commit-лэгдэхгүй)
-npm run dev              # http://localhost:3000
+# 1. Neon → Create project → connection string (pooled):
+#    DATABASE_URL="postgresql://user:pass@ep-xxx-pooler.neon.tech/neondb?sslmode=require"
+# 2. .env + Vercel Env-д нэм:
+#    DATABASE_URL, AUTH_SECRET, AUTH_URL=https://<your>.vercel.app
+# 3. Push schema (first time, no migration history needed):
+npx prisma db push        # or: npx prisma migrate dev --name init
+npx prisma generate
+npm run dev               # http://localhost:3000
 ```
-Бүртгүүлэх → нэвтрэх → шалгалт → түүх DB-д хадгалагдана. Нэвтрээгүй зочин localStorage fallback.
-
-## Postgres рүү шилжих (100 хэрэглэгч, prod)
-1. Neon/Supabase дээр DB үүсгэ → `DATABASE_URL="postgresql://...?sslmode=require"` ав.
-2. `.env` + Vercel Env-д солино.
-3. `prisma/schema.prisma` → `provider = "postgresql"` болго.
-4. `npx prisma migrate dev --name pg_init` (эсвэл `npx prisma db push` анхны deploy)
-5. `npx prisma generate && npm run build` шалга.
+Бүртгүүлэх → нэвтрэх → шалгалт → түүх/коммент/санал Postgres-д хуваалцагдана. `file:./dev.db` SQLite хасагдсан.
 
 `.env.example` загвар, `prisma/dev.db` gitignore-д байна.
 
