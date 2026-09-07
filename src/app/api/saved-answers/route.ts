@@ -3,15 +3,16 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const idsParam = searchParams.get("ids") || searchParams.get("questionId") || "";
-  const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean);
-  if (ids.length === 0) return NextResponse.json({ counts: {}, my: {} });
+  try {
+    const { searchParams } = new URL(req.url);
+    const idsParam = searchParams.get("ids") || searchParams.get("questionId") || "";
+    const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean);
+    if (ids.length === 0) return NextResponse.json({ counts: {}, my: {} });
 
-  const session = await auth();
-  const userId = (session?.user as unknown as { id?: string })?.id;
+    let userId: string | undefined;
+    try { const session = await auth(); userId = (session?.user as unknown as { id?: string })?.id; } catch {}
 
-  const rows = await prisma.savedAnswer.findMany({ where: { questionId: { in: ids } }, select: { questionId: true, answer: true, userId: true } });
+    const rows = await prisma.savedAnswer.findMany({ where: { questionId: { in: ids } }, select: { questionId: true, answer: true, userId: true } });
 
   const counts: Record<string, number[]> = {};
   const my: Record<string, number> = {};
@@ -24,8 +25,12 @@ export async function GET(req: Request) {
     if (userId && r.userId === userId) my[r.questionId] = r.answer;
   }
 
-  // if authed but no row, also try to ensure my empty handled; counts still valid
-  return NextResponse.json({ counts, my });
+    // if authed but no row, also try to ensure my empty handled; counts still valid
+    return NextResponse.json({ counts, my });
+  } catch (e: unknown) {
+    console.error("saved-answers GET", e);
+    return NextResponse.json({ error: e instanceof Error ? e.message.slice(0,400) : String(e).slice(0,400), counts: {}, my: {} }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
