@@ -22,7 +22,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Header total={questions.length} />
           <main className="flex-1">{children}</main>
           <footer className="border-t py-6 text-center text-xs text-zinc-500 dark:border-zinc-800">
-            LawTest · {questions.length} асуулт · data/questions.json-ээс
+            LawTest · {questions.length} асуулт · data/ файлуудаас
           </footer>
         </SessionProvider>
       </body>
