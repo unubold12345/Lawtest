@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     include: { user: { select: { id: true, name: true, email: true } } },
     take: 100,
   });
-  const comments = rows.map((r) => ({
+  const comments = rows.map((r: { id: string; questionId: string; content: string; createdAt: Date; user: { id: string; name: string | null; email: string } }) => ({
     id: r.id,
     questionId: r.questionId,
     content: r.content,
