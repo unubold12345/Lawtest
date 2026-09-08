@@ -1,10 +1,29 @@
+import fs from "node:fs";
+import path from "node:path";
 import { loadQuestions } from "@/lib/questions";
 import Link from "next/link";
 
 export default function Home() {
   const { questions, sources } = loadQuestions();
   const total = questions.length;
-  const cats = [...new Set(questions.map((q) => q.category).filter(Boolean))] as string[];
+  const byMain = new Map<string, { total: number; subs: Map<string, number> }>();
+  for (const q of questions) {
+    const main = q.category || "Бусад";
+    const sub = q.subCategory || "Ерөнхий";
+    if (!byMain.has(main)) byMain.set(main, { total: 0, subs: new Map() });
+    const g = byMain.get(main)!;
+    g.total += 1;
+    g.subs.set(sub, (g.subs.get(sub) || 0) + 1);
+  }
+  // show empty main categories (folders with no questions yet)
+  try {
+    const dataDir = path.join(process.cwd(), "data");
+    for (const e of fs.readdirSync(dataDir, { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      if (!byMain.has(e.name)) byMain.set(e.name, { total: 0, subs: new Map() });
+    }
+  } catch {}
+  const cats = [...byMain.keys()];
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
@@ -41,11 +60,25 @@ export default function Home() {
 
       <div className="mt-6 rounded-2xl border border-dashed bg-white p-6 dark:bg-zinc-900 dark:border-zinc-800">
         <h3 className="font-semibold">Ангилал</h3>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {cats.map((c) => (
-            <Link key={c} href={`/browse?cat=${encodeURIComponent(c)}`} className="rounded-full border px-4 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-700">
-              {c} · {questions.filter((q) => q.category === c).length}
-            </Link>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {[...byMain.entries()].map(([main, { total: t, subs }]) => (
+            <div key={main} className={`rounded-xl border p-4 ${t === 0 ? "bg-amber-50/60 border-amber-200 dark:bg-zinc-800 dark:border-zinc-700" : "bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700"}`}>
+              <Link href={`/browse?cat=${encodeURIComponent(main)}`} className="font-semibold hover:underline">
+                {main} · {t}
+              </Link>
+              {t === 0 && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">хоосон</span>}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {subs.size === 0 ? (
+                  <span className="text-xs text-zinc-400">Дэд ангилал байхгүй — асуулт нэмнэ үү</span>
+                ) : (
+                  [...subs.entries()].map(([sub, n]) => (
+                    <Link key={sub} href={`/browse?cat=${encodeURIComponent(main)}&sub=${encodeURIComponent(sub)}`} className="rounded-full bg-white border px-3 py-1 text-xs hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-600">
+                      {sub} · {n}
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
           ))}
         </div>
       </div>

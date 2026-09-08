@@ -35,7 +35,14 @@ async function saveAttempt(payload: { category: string; mode: string; score: num
 export default function QuizClient({ questions }: { questions: Question[] }) {
   const { data: session } = useSession();
   const isAuthed = !!session?.user;
-  const categories = useMemo(() => [...new Set(questions.map((x) => x.category).filter(Boolean))] as string[], [questions]);
+  const mainCategories = useMemo(() => [...new Set(questions.map((x) => x.category).filter(Boolean))] as string[], [questions]);
+  const [mainCategory, setMainCategory] = useState<string>("all");
+  const [subCategory, setSubCategory] = useState<string>("all");
+  const subCategories = useMemo(() => {
+    let pool: typeof questions = questions;
+    if (mainCategory !== "all") pool = pool.filter((x) => x.category === mainCategory);
+    return [...new Set(pool.map((x) => x.subCategory).filter(Boolean))] as string[];
+  }, [questions, mainCategory]);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   useEffect(() => {
     setOverrides(getAllOverrides());
@@ -46,7 +53,6 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   }, []);
 
   const [state, setState] = useState<QuizState>("setup");
-  const [category, setCategory] = useState("all");
   const [count, setCount] = useState(20);
   const [mode, setMode] = useState<Mode>("exam");
   const [minutes, setMinutes] = useState(20);
@@ -60,7 +66,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
   const start = () => {
     let pool = questions;
-    if (category !== "all") pool = pool.filter((q) => q.category === category);
+    if (mainCategory !== "all") pool = pool.filter((q) => q.category === mainCategory);
+    if (subCategory !== "all") pool = pool.filter((q) => q.subCategory === subCategory);
     const picked = shuffle(pool).slice(0, Math.min(count, pool.length));
     setQuizQs(picked);
     setAnswers({});
@@ -82,13 +89,14 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         if (c === null) return acc;
         return acc + (a === c ? 1 : 0);
       }, 0);
-      saveAttempt({ category, mode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
+      const catLabel = mainCategory === "all" ? "all" : subCategory !== "all" ? `${mainCategory} / ${subCategory}` : mainCategory;
+      saveAttempt({ category: catLabel, mode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
       setState("result");
       return;
     }
     const id = setInterval(() => { setTimeLeft((t) => t - 1); setElapsed((e) => e + 1); }, 1000);
     return () => clearInterval(id);
-  }, [state, timeLeft, minutes, quizQs, answers, category, mode, isAuthed]);
+  }, [state, timeLeft, minutes, quizQs, answers, mainCategory, subCategory, mode, isAuthed]);
 
   // also count elapsed when no timer
   useEffect(() => {
@@ -111,7 +119,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   }, [quizQs, answers, overrides]);
 
   const submit = () => {
-    saveAttempt({ category, mode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
+    const catLabel = mainCategory === "all" ? "all" : subCategory !== "all" ? `${mainCategory} / ${subCategory}` : mainCategory;
+    saveAttempt({ category: catLabel, mode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
     setState("result");
   };
 
@@ -119,18 +128,31 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   if (state === "setup") {
-    const poolSize = category === "all" ? questions.length : questions.filter((q) => q.category === category).length;
+    const pool = (() => {
+      let out = questions;
+      if (mainCategory !== "all") out = out.filter((x) => x.category === mainCategory);
+      if (subCategory !== "all") out = out.filter((x) => x.subCategory === subCategory);
+      return out;
+    })();
+    const poolSize = pool.length;
     return (
       <div className="mx-auto max-w-3xl rounded-2xl border bg-white p-8 dark:bg-zinc-900 dark:border-zinc-800">
         <h1 className="text-2xl font-semibold">Шалгалт тохиргоо</h1>
-        <p className="mt-2 text-sm text-zinc-500">{questions.length} асуулт бэлэн · {categories.join(", ")}</p>
+        <p className="mt-2 text-sm text-zinc-500">{questions.length} асуулт бэлэн · {mainCategories.join(", ")} {subCategories.length ? `· ${subCategories.join(", ")}` : ""}</p>
 
         <div className="mt-8 grid gap-6">
           <label className="grid gap-2">
-            <span className="text-sm font-medium">Ангилал</span>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className="rounded-xl border px-4 py-3 dark:bg-zinc-800 dark:border-zinc-700">
-              <option value="all">Бүх ангилал ({questions.length})</option>
-              {categories.map((c) => <option key={c} value={c}>{c} ({questions.filter((q) => q.category === c).length})</option>)}
+            <span className="text-sm font-medium">Үндсэн ангилал</span>
+            <select value={mainCategory} onChange={(e) => { setMainCategory(e.target.value); setSubCategory("all"); }} className="rounded-xl border px-4 py-3 dark:bg-zinc-800 dark:border-zinc-700">
+              <option value="all">Бүх үндсэн ({questions.length})</option>
+              {mainCategories.map((c) => <option key={c} value={c}>{c} ({questions.filter((q) => q.category === c).length})</option>)}
+            </select>
+          </label>
+          <label className="grid gap-2">
+            <span className="text-sm font-medium">Дэд ангилал</span>
+            <select value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="rounded-xl border px-4 py-3 dark:bg-zinc-800 dark:border-zinc-700">
+              <option value="all">Бүх дэд ({mainCategory === "all" ? questions.length : questions.filter((q) => q.category === mainCategory).length})</option>
+              {subCategories.map((c) => <option key={c} value={c}>{c} ({questions.filter((x) => (mainCategory === "all" || x.category === mainCategory) && x.subCategory === c).length})</option>)}
             </select>
           </label>
 
@@ -187,7 +209,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         </div>
 
           <div className="rounded-2xl border bg-white p-6 dark:bg-zinc-900 dark:border-zinc-800">
-          <p className="text-sm text-zinc-500">{current.category} · {current.id} {correct === null ? "· хариултгүй" : overrides[current.id] !== undefined ? "· Та хадгалсан" : ""}</p>
+          <p className="text-sm text-zinc-500">{current.category}{current.subCategory ? ` · ${current.subCategory}` : ""} · {current.id} {correct === null ? "· хариултгүй" : overrides[current.id] !== undefined ? "· Та хадгалсан" : ""}</p>
           <h2 className="mt-2 text-lg font-medium leading-relaxed">{current.question}</h2>
           {isUnknown && <p className="mt-2 text-xs rounded-full bg-amber-100 px-3 py-1 inline-block text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Зөв хариулт хараахан тодорхойгүй — Browse дээр хадгална уу</p>}
 
@@ -262,7 +284,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           const ok = !unknown && a === c;
           return (
             <div key={q.id} className={`rounded-2xl border p-6 ${unknown ? "bg-zinc-50 border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800" : ok ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"} dark:bg-zinc-900`}>
-              <p className="text-sm flex justify-between"><span>{i + 1}. {q.category} {unknown ? "· хариултгүй" : overrides[q.id] !== undefined ? "· Та хадгалсан" : ""}</span><span className={unknown ? "text-zinc-500" : ok ? "text-green-700" : "text-red-700"}>{unknown ? "— Тодорхойгүй" : ok ? "✓ Зөв" : "✗ Буруу"}</span></p>
+              <p className="text-sm flex justify-between"><span>{i + 1}. {q.category}{q.subCategory ? ` · ${q.subCategory}` : ""} {unknown ? "· хариултгүй" : overrides[q.id] !== undefined ? "· Та хадгалсан" : ""}</span><span className={unknown ? "text-zinc-500" : ok ? "text-green-700" : "text-red-700"}>{unknown ? "— Тодорхойгүй" : ok ? "✓ Зөв" : "✗ Буруу"}</span></p>
               <p className="mt-2 font-medium">{q.question}</p>
               <div className="mt-3 grid gap-2">
                 {q.options.map((opt, oi) => (

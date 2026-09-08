@@ -11,7 +11,8 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const { data: session } = useSession();
   const isAuthed = !!session?.user;
   const [q, setQ] = useState("");
-  const [category, setCategory] = useState<string>("all");
+  const [mainCategory, setMainCategory] = useState<string>("all");
+  const [subCategory, setSubCategory] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [myDb, setMyDb] = useState<Record<string, number>>({});
@@ -32,22 +33,29 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     };
   }, []);
 
-  const categories = useMemo(() => [...new Set(questions.map((x) => x.category).filter(Boolean))] as string[], [questions]);
+  const mainCategories = useMemo(() => [...new Set(questions.map((x) => x.category).filter(Boolean))] as string[], [questions]);
+  const subCategories = useMemo(() => {
+    let pool: typeof questions = questions;
+    if (mainCategory !== "all") pool = pool.filter((x) => x.category === mainCategory);
+    return [...new Set(pool.map((x) => x.subCategory).filter(Boolean))] as string[];
+  }, [questions, mainCategory]);
 
   const filtered = useMemo(() => {
     let out = questions;
-    if (category !== "all") out = out.filter((x) => x.category === category);
+    if (mainCategory !== "all") out = out.filter((x) => x.category === mainCategory);
+    if (subCategory !== "all") out = out.filter((x) => x.subCategory === subCategory);
     if (q.trim()) {
       const s = q.trim().toLowerCase();
       out = out.filter(
         (x) =>
           x.question.toLowerCase().includes(s) ||
           x.options.some((o) => o.toLowerCase().includes(s)) ||
-          x.category?.toLowerCase().includes(s)
+          x.category?.toLowerCase().includes(s) ||
+          x.subCategory?.toLowerCase().includes(s)
       );
     }
     return out;
-  }, [questions, q, category]);
+  }, [questions, q, mainCategory, subCategory]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -67,7 +75,8 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
 
   // reset page when filters change
   const onSearch = (v: string) => { setQ(v); setPage(1); };
-  const onCat = (v: string) => { setCategory(v); setPage(1); };
+  const onMain = (v: string) => { setMainCategory(v); setSubCategory("all"); setPage(1); };
+  const onSub = (v: string) => { setSubCategory(v); setPage(1); };
 
   const letters = ["A", "B", "C", "D", "E"];
 
@@ -83,13 +92,24 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
             className="w-full max-w-md rounded-full border px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900 dark:bg-zinc-800 dark:border-zinc-700"
           />
           <select
-            value={category}
-            onChange={(e) => onCat(e.target.value)}
+            value={mainCategory}
+            onChange={(e) => onMain(e.target.value)}
             className="rounded-full border px-4 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700"
           >
-            <option value="all">Бүх ангилал ({questions.length})</option>
-            {categories.map((c) => (
+            <option value="all">Бүх үндсэн ({questions.length})</option>
+            {mainCategories.map((c) => (
               <option key={c} value={c}>{c} ({questions.filter((x) => x.category === c).length})</option>
+            ))}
+          </select>
+          <select
+            value={subCategory}
+            onChange={(e) => onSub(e.target.value)}
+            className="rounded-full border px-4 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700"
+            disabled={mainCategory === "all" && subCategories.length === 0}
+          >
+            <option value="all">Бүх дэд ({filtered.length})</option>
+            {subCategories.map((c) => (
+              <option key={c} value={c}>{c} ({questions.filter((x) => (mainCategory === "all" || x.category === mainCategory) && x.subCategory === c).length})</option>
             ))}
           </select>
         </div>
@@ -117,7 +137,10 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
             <div key={item.id} className="rounded-2xl border bg-white p-6 dark:bg-zinc-900 dark:border-zinc-800">
               <div className="flex items-start justify-between gap-4">
                 <p className="font-medium leading-relaxed"><span className="mr-2 text-zinc-400">{globalIdx}.</span>{item.question}</p>
-                {item.category && <span className="shrink-0 rounded-full bg-zinc-100 px-3 py-1 text-xs dark:bg-zinc-800">{item.category}</span>}
+                <div className="flex gap-1.5 shrink-0 flex-wrap">
+                  {item.category && <span className="rounded-full bg-zinc-900 text-white px-3 py-1 text-xs dark:bg-white dark:text-zinc-900">{item.category}</span>}
+                  {item.subCategory && <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs dark:bg-zinc-800">{item.subCategory}</span>}
+                </div>
               </div>
               {locked && !isUnknown && (
                 <button

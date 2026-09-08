@@ -16,11 +16,14 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
+  phone         String?   @unique
+  phoneVerified DateTime?
   accounts      Account[]
   sessions      Session[]
   attempts      Attempt[]
   comments      Comment[]
   savedAnswers  SavedAnswer[]
+  otps          Otp[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -100,4 +103,21 @@ model SavedAnswer {
 
   @@unique([userId, questionId])
   @@index([questionId])
+}
+
+model Otp {
+  id        String   @id @default(cuid())
+  phone     String
+  codeHash  String
+  purpose   String   @default("login") // register | recover | login (legacy)
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([phone, expiresAt])
+  @@index([phone, createdAt])
+  @@index([phone, purpose])
 }

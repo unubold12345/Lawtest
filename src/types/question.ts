@@ -1,6 +1,9 @@
 export type Question = {
   id: string;
+  // Main category = data/<Main>/ folder name. Fallback = filename if no subfolder.
   category?: string;
+  // Subcategory = file name without extension inside data/<Main>/ . e.g. data/Гэр бүл/Хүүхэд.json -> subCategory="Хүүхэд"
+  subCategory?: string;
   question: string;
   options: string[];
   // 0-based index for single answer, array for multiple correct
