@@ -83,7 +83,8 @@ export default function QuestionDiscussion({ questionId }: { questionId: string 
                     <span className="text-[11px] text-zinc-400">{new Date(c.createdAt).toLocaleString()}</span>
                   </div>
                   <p className="mt-1 text-sm whitespace-pre-wrap break-words">{c.content}</p>
-                  {(session?.user as unknown as { id?: string })?.id === c.user.id && (
+                  {(((session?.user as unknown as { id?: string; role?: string })?.id === c.user.id) ||
+                    ((session?.user as unknown as { id?: string; role?: string })?.role === "ADMIN")) && (
                     <button onClick={() => remove(c.id)} className="mt-2 text-xs underline text-zinc-500">Устгах</button>
                   )}
                 </div>
@@ -101,7 +102,7 @@ export default function QuestionDiscussion({ questionId }: { questionId: string 
                 maxLength={2000}
                 className="w-full rounded-xl border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700"
               />
-              {err && <p className="text-xs text-red-600">{err}</p>}
+              {err && <p className="text-xs text-zinc-600 dark:text-zinc-400">{err}</p>}
               <div className="flex justify-between items-center">
                 <span className="text-xs text-zinc-400">{content.length}/2000</span>
                 <button

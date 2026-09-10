@@ -28,6 +28,7 @@ model User {
   sessions      Session[]
   attempts      Attempt[]
   comments      Comment[]
+  reports       Report[]
   savedAnswers  SavedAnswer[]
   otps          Otp[]
   createdAt     DateTime  @default(now())
@@ -96,6 +97,21 @@ model Comment {
 
   @@index([questionId, createdAt])
   @@index([userId])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  questionId String
+  type       String // WRONG_ANSWER | WRONG_OPTIONS | QUESTION_ERROR | OTHER
+  message    String
+  status     String   @default("OPEN") // OPEN | RESOLVED
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([questionId])
 }
 
 model SavedAnswer {

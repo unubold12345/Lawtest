@@ -2,8 +2,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+type NoAnswerRow = { id: string; file: string; category: string; subCategory: string; question: string; optionsCount: number; answer: number | null; reason: string };
+
 type Stats = {
-  questions: { total: number; byMain: Record<string, number>; sources: { file: string; count: number }[] };
+  questions: { total: number; byMain: Record<string, number>; sources: { file: string; count: number }[]; noAnswer: NoAnswerRow[] };
   users: number;
   attempts: number;
   comments: number;
@@ -13,11 +15,23 @@ type Stats = {
 
 type UserRow = { id: string; phone: string | null; email: string; role: string; createdAt: string; _count: { attempts: number; comments: number } };
 
+type ReportRow = { id: string; questionId: string; type: string; message: string; status: string; createdAt: string; user: { id: string; name: string | null; email: string; phone: string | null } };
+
+const REPORT_TYPES: Record<string, string> = {
+  WRONG_ANSWER: "Зөв хариулт буруу",
+  WRONG_OPTIONS: "Сонголтууд буруу / дутуу",
+  QUESTION_ERROR: "Асуултын текстэнд алдаа",
+  OTHER: "Бусад",
+};
+
 export default function AdminClient() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [attempts, setAttempts] = useState<any[]>([]);
-  const [tab, setTab] = useState<"overview" | "users" | "questions" | "attempts">("overview");
+  const [reports, setReports] = useState<ReportRow[]>([]);
+  const [openReports, setOpenReports] = useState(0);
+  const [reportFilter, setReportFilter] = useState<"OPEN" | "RESOLVED" | "all">("OPEN");
+  const [tab, setTab] = useState<"overview" | "users" | "questions" | "attempts" | "reports">("overview");
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -39,12 +53,19 @@ export default function AdminClient() {
     const d = await r.json();
     setAttempts(d.attempts);
   };
+  const fetchReports = async (f = reportFilter) => {
+    const r = await fetch(`/api/admin/reports?status=${f === "all" ? "" : f}`);
+    if (!r.ok) throw new Error("reports failed");
+    const d = await r.json();
+    setReports(d.reports);
+    setOpenReports(d.open);
+  };
 
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
-        await Promise.all([fetchStats(), fetchUsers(""), fetchAttempts()]);
+        await Promise.all([fetchStats(), fetchUsers(""), fetchAttempts(), fetchReports("OPEN")]);
       } catch (e: any) {
         setErr(e.message || "Алдаа");
       } finally {
@@ -52,6 +73,27 @@ export default function AdminClient() {
       }
     })();
   }, []);
+
+  const setReportStatus = async (id: string, status: "OPEN" | "RESOLVED") => {
+    const r = await fetch(`/api/admin/reports/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    if (!r.ok) { alert("Амжилтгүй"); return; }
+    if (reportFilter === "all") {
+      setReports((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
+    } else {
+      setReports((prev) => prev.filter((x) => x.id !== id));
+    }
+    setOpenReports((n) => n + (status === "RESOLVED" ? -1 : 1));
+  };
+  const delReport = async (id: string) => {
+    if (!confirm("Мэдээллийг устгах уу?")) return;
+    const r = await fetch(`/api/admin/reports/${id}`, { method: "DELETE" });
+    if (!r.ok) { alert("Амжилтгүй"); return; }
+    setReports((prev) => {
+      const gone = prev.find((x) => x.id === id);
+      if (gone?.status === "OPEN") setOpenReports((n) => Math.max(0, n - 1));
+      return prev.filter((x) => x.id !== id);
+    });
+  };
 
   const toggleRole = async (u: UserRow) => {
     const next = u.role === "ADMIN" ? "USER" : "ADMIN";
@@ -101,8 +143,9 @@ export default function AdminClient() {
           ["users", "Хэрэглэгчид"],
           ["questions", "Асуултууд"],
           ["attempts", "Оролдлогууд"],
+          ["reports", `Мэдээлэл${openReports > 0 ? ` (${openReports})` : ""}`],
         ].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id as any)} className={`shrink-0 rounded-full px-4 py-2.5 sm:py-2 text-xs sm:text-sm font-medium border min-h-[40px] ${tab === id ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-700"}`}>{label}</button>
+          <button key={id} onClick={() => { setTab(id as any); if (id === "reports") fetchReports(); }} className={`shrink-0 rounded-full px-4 py-2.5 sm:py-2 text-xs sm:text-sm font-medium border min-h-[40px] ${tab === id ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-700"}`}>{label}</button>
         ))}
       </div>
 
@@ -175,12 +218,77 @@ export default function AdminClient() {
       )}
 
       {tab === "questions" && stats && (
-        <div className="mt-4 rounded-2xl border bg-white p-4 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800">
+        <div className="mt-4 grid gap-4">
+        {(stats.questions.noAnswer?.length || 0) > 0 && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 sm:p-5 dark:bg-red-950/20 dark:border-red-900">
+            <h3 className="font-semibold text-sm text-red-800 dark:text-red-200">Хариултгүй / буруу хариулттай асуулт ({stats.questions.noAnswer.length})</h3>
+            <p className="mt-1 text-xs text-red-600 dark:text-red-300">Эдгээр нь шалгалтад оноо өгөхгүй — JSON файл дээр нь засаарай.</p>
+            <div className="mt-3 space-y-2">
+              {stats.questions.noAnswer.map((r) => (
+                <div key={`${r.file}::${r.id}`} className="rounded-xl border border-red-200 bg-white p-3 dark:bg-zinc-900 dark:border-red-900">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-medium text-white">{r.reason}</span>
+                    <span className="font-mono text-[10px] text-zinc-500">{r.id} · {r.optionsCount} сонголт</span>
+                  </div>
+                  <p className="mt-1.5 text-[13px] font-medium leading-snug break-words">{r.question}</p>
+                  <p className="mt-1 text-[11px] text-zinc-500 break-all">{r.file}{r.subCategory ? ` · ${r.subCategory}` : ""}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="rounded-2xl border bg-white p-4 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">Нийт {stats.questions.total} асуулт. Жагсаалтыг дэлгэрэнгүй харах бол <Link href="/browse" className="underline">Бүх асуулт</Link> руу орно уу. Доор файл тус бүрээр харуулав.</p>
           <div className="mt-3 space-y-2">
             {stats.questions.sources.sort((a,b)=>collator.compare(a.file,b.file)).map(s=>(
               <div key={s.file} className="flex justify-between gap-2 rounded-xl border px-3 py-2 text-sm dark:border-zinc-700"><span className="break-all">{s.file}</span><b className="shrink-0">{s.count}</b></div>
             ))}
+          </div>
+        </div>
+        </div>
+      )}
+
+      {tab === "reports" && (
+        <div className="mt-4 rounded-2xl border bg-white p-4 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold text-sm">Хэрэглэгчдийн мэдээлсэн алдаа{openReports > 0 ? ` · ${openReports} нээлттэй` : ""}</h3>
+            <div className="flex gap-1.5">
+              {(["OPEN", "RESOLVED", "all"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => { setReportFilter(f); fetchReports(f); }}
+                  className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs min-h-[32px] ${reportFilter === f ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "dark:border-zinc-700"}`}
+                >
+                  {f === "OPEN" ? "Нээлттэй" : f === "RESOLVED" ? "Шийдэгдсэн" : "Бүгд"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2">
+            {reports.map((r) => (
+              <div key={r.id} className="rounded-xl border p-3 dark:border-zinc-700">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${r.status === "OPEN" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-zinc-100 dark:bg-zinc-800"}`}>
+                      {r.status === "OPEN" ? "Нээлттэй" : "Шийдэгдсэн"}
+                    </span>
+                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] dark:bg-zinc-800">{REPORT_TYPES[r.type] || r.type}</span>
+                  </div>
+                  <span className="font-mono text-[10px] text-zinc-500 break-all">{r.questionId}</span>
+                </div>
+                <p className="mt-1.5 text-[13px] leading-snug break-words whitespace-pre-wrap">{r.message}</p>
+                <p className="mt-1 text-[11px] text-zinc-500">{r.user?.phone || r.user?.name || r.user?.email} · {new Date(r.createdAt).toLocaleString("mn-MN")}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {r.status === "OPEN" ? (
+                    <button onClick={() => setReportStatus(r.id, "RESOLVED")} className="rounded-full bg-zinc-900 px-4 py-1.5 text-[11px] sm:text-xs text-white dark:bg-white dark:text-zinc-900 min-h-[32px]">Шийдэгдсэн болгох</button>
+                  ) : (
+                    <button onClick={() => setReportStatus(r.id, "OPEN")} className="rounded-full border px-4 py-1.5 text-[11px] sm:text-xs dark:border-zinc-700 min-h-[32px]">Дахин нээх</button>
+                  )}
+                  <button onClick={() => delReport(r.id)} className="rounded-full border px-4 py-1.5 text-[11px] sm:text-xs dark:border-zinc-700 min-h-[32px]">Устгах</button>
+                </div>
+              </div>
+            ))}
+            {reports.length === 0 && <p className="text-sm text-zinc-500 text-center py-6">Мэдээлэл алга</p>}
           </div>
         </div>
       )}

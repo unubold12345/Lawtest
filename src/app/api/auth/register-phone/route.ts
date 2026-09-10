@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone, verifyCode } from "@/lib/otp";
+import { nextUserName } from "@/lib/usernames";
 
 export async function POST(req: Request) {
   try {
@@ -41,9 +42,10 @@ export async function POST(req: Request) {
     const finalEmail = existsEmail ? `${phone.replace("+", "")}-${Date.now()}@phone.local` : cleanEmail;
 
     const hashed = await bcrypt.hash(String(password), 10);
+    const displayName = await nextUserName();
     const user = await prisma.user.create({
       data: {
-        name: phone,
+        name: displayName,
         email: finalEmail,
         password: hashed,
         phone,

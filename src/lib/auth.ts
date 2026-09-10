@@ -4,6 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { normalizePhone, verifyCode } from "./otp";
+import { nextUserName } from "./usernames";
 
 if (process.env.AUTH_URL && !process.env.AUTH_URL.startsWith("http")) {
   process.env.AUTH_URL = `https://${process.env.AUTH_URL}`;
@@ -65,7 +66,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const existingEmail = await prisma.user.findUnique({ where: { email } });
           const finalEmail = existingEmail ? `${phone.replace("+", "")}-${Date.now()}@phone.local` : email;
           user = await prisma.user.create({
-            data: { phone, phoneVerified: new Date(), email: finalEmail, name: phone },
+            data: { phone, phoneVerified: new Date(), email: finalEmail, name: await nextUserName() },
           });
         } else if (!user.phoneVerified) {
           user = await prisma.user.update({ where: { id: user.id }, data: { phoneVerified: new Date() } });
@@ -80,11 +81,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = (user as { id: string }).id;
         token.role = (user as unknown as { role?: string }).role;
       }
-      // refresh role from DB on each jwt call (handles promotion without relogin after next refresh)
+      // refresh role + display name from DB (handles promotion/rename without relogin after next refresh)
       if (token.id) {
         try {
-          const db = await prisma.user.findUnique({ where: { id: token.id as string }, select: { role: true } });
-          if (db) token.role = db.role;
+          const db = await prisma.user.findUnique({ where: { id: token.id as string }, select: { role: true, name: true } });
+          if (db) {
+            token.role = db.role;
+            if (db.name) token.name = db.name;
+          }
         } catch {}
       }
       return token;

@@ -14,6 +14,8 @@ export type Question = {
   difficulty?: "easy" | "medium" | "hard";
   year?: number;
   tags?: string[];
+  // data file rel path (set by loader, e.g. "2. Хувийн эрх зүй/2.2 ....json") — for admin/debugging
+  source?: string;
 };
 
 export type QuestionsLoadResult = {

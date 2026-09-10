@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 export default function Header({ total }: { total: number }) {
   const { data: session, update } = useSession();
   const user = session?.user as unknown as { name?: string | null; email?: string | null; role?: string } | undefined;
+  // show auto display name (user01, ...) — never a phone number (legacy names stay hidden)
+  const displayName = user?.name && !/^[+\d]/.test(user.name.trim()) ? user.name : null;
   const [adminOverride, setAdminOverride] = useState(false);
   // refresh JWT once after promotion so Админ appears without manual re-login
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function Header({ total }: { total: number }) {
         <div className="flex items-center gap-2 shrink-0">
           {user ? (
             <>
-              <span className="hidden lg:inline text-sm text-zinc-600 dark:text-zinc-400 max-w-[140px] truncate">{user.name || user.email}</span>
+              {displayName && <span className="hidden lg:inline text-sm text-zinc-600 dark:text-zinc-400 max-w-[140px] truncate">{displayName}</span>}
               <button onClick={() => signOut({ callbackUrl: "/" })} className="hidden sm:inline-flex rounded-full border px-4 py-2.5 sm:py-2 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 min-h-[40px] items-center">
                 Гарах
               </button>
@@ -73,8 +75,8 @@ export default function Header({ total }: { total: number }) {
           <div className="pt-2 border-t dark:border-zinc-800">
             {user ? (
               <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-600 dark:text-zinc-400 truncate pr-2">{user.name || user.email}</span>
-                <button onClick={() => signOut({ callbackUrl: "/" })} className="rounded-full border px-4 py-2.5 text-sm dark:border-zinc-700 min-h-[44px]">
+                {displayName && <span className="text-sm text-zinc-600 dark:text-zinc-400 truncate pr-2">{displayName}</span>}
+                <button onClick={() => signOut({ callbackUrl: "/" })} className="rounded-full border px-4 py-2.5 text-sm dark:border-zinc-700 min-h-[44px] ml-auto">
                   Гарах
                 </button>
               </div>

@@ -105,6 +105,7 @@ export function loadQuestions(): QuestionsLoadResult {
             id,
             category: isLegacy ? q.category || fileCat : fileCat,
             subCategory: isLegacy ? q.subCategory : fileSub ?? q.subCategory,
+            source: rel,
           };
         });
         result.questions.push(...normalized);
@@ -116,7 +117,7 @@ export function loadQuestions(): QuestionsLoadResult {
           let id = q.id;
           if (seenIds.has(id)) id = `${fileSub ? `${fileCat}_${fileSub}` : fileCat}_${id}`;
           seenIds.add(id);
-          return { ...q, id, category: fileCat, subCategory: fileSub };
+          return { ...q, id, category: fileCat, subCategory: fileSub, source: rel };
         });
         result.questions.push(...parsed);
         result.sources.push({ file: rel, count: parsed.length });

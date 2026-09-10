@@ -94,6 +94,38 @@ export default function Home() {
         </div>
       </div>
 
+      {/* EXAM INFO */}
+      <div className="rounded-xl sm:rounded-2xl border border-amber-300 bg-amber-50 p-3 sm:p-6 dark:bg-amber-950/30 dark:border-amber-800">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 text-[10px] sm:text-xs font-semibold text-amber-800 dark:text-amber-200">
+            Хуульчийн шалгалт 2026
+          </span>
+          <span className="rounded-full bg-white/60 border border-amber-500/20 px-2.5 py-1 text-[10px] sm:text-xs text-amber-700 dark:bg-transparent dark:text-amber-300">
+            Албан ёсны бүртгэл нээлттэй
+          </span>
+        </div>
+        <div className="mt-2 sm:mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+          <div className="rounded-lg bg-white/70 border border-amber-200 p-2.5 sm:p-4 dark:bg-zinc-900 dark:border-amber-800">
+            <p className="text-[11px] sm:text-xs font-medium text-amber-700 dark:text-amber-300">Шалгалтын өдөр</p>
+            <p className="mt-0.5 font-bold text-[15px] sm:text-xl">10-р сарын 28, 29, 30</p>
+          </div>
+          <div className="rounded-lg bg-white/70 border border-amber-200 p-2.5 sm:p-4 dark:bg-zinc-900 dark:border-amber-800">
+            <p className="text-[11px] sm:text-xs font-medium text-amber-700 dark:text-amber-300">Бүртгэл (8.14 – 9.27)</p>
+            <a
+              href="https://burtgel.mglbar.mn/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-0.5 block font-bold text-[15px] sm:text-xl text-zinc-900 dark:text-white hover:underline break-all"
+            >
+              burtgel.mglbar.mn →
+            </a>
+          </div>
+        </div>
+        <p className="mt-2 text-[11px] sm:text-sm text-amber-700 dark:text-amber-300 leading-snug">
+          Бүртгэл 9-р сарын 27-нд хаагдана — шалгалтдаа одоо бэлдэж эхэл.
+        </p>
+      </div>
+
       <HomeContinue />
 
       {/* STATS */}
