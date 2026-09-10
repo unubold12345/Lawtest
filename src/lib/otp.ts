@@ -41,9 +41,9 @@ export async function sendSms(phone: string, code: string): Promise<{ mocked: bo
   const res = await client.send(
     new PublishCommand({
       PhoneNumber: phone,
-      Message: `LawTest код: ${code} (5 мин хүчинтэй)`,
+      Message: `Lexlab код: ${code} (5 мин хүчинтэй)`,
       MessageAttributes: {
-        "AWS.SNS.SMS.SenderID": { DataType: "String", StringValue: process.env.SNS_SENDER_ID || "LawTest" },
+        "AWS.SNS.SMS.SenderID": { DataType: "String", StringValue: process.env.SNS_SENDER_ID || "Lexlab" },
         "AWS.SNS.SMS.SMSType": { DataType: "String", StringValue: "Transactional" },
       },
     })

@@ -30,7 +30,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user || !user.password) return null;
         const ok = await bcrypt.compare(password, user.password);
         if (!ok) return null;
-        return { id: user.id, name: user.name, email: user.email };
+        return { id: user.id, name: user.name, email: user.email, role: (user as unknown as { role: string }).role };
       },
     }),
     Credentials({
@@ -78,12 +78,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = (user as { id: string }).id;
+        token.role = (user as unknown as { role?: string }).role;
+      }
+      // refresh role from DB on each jwt call (handles promotion without relogin after next refresh)
+      if (token.id) {
+        try {
+          const db = await prisma.user.findUnique({ where: { id: token.id as string }, select: { role: true } });
+          if (db) token.role = db.role;
+        } catch {}
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
         (session.user as unknown as { id: string }).id = token.id as string;
+        (session.user as unknown as { role: string }).role = (token.role as string) || "USER";
       }
       return session;
     },

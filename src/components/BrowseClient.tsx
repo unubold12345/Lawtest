@@ -33,12 +33,13 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     };
   }, []);
 
-  const mainCategories = useMemo(() => [...new Set(questions.map((x) => x.category).filter(Boolean))] as string[], [questions]);
+  const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }), []);
+  const mainCategories = useMemo(() => ([...new Set(questions.map((x) => x.category).filter(Boolean))] as string[]).sort((a, b) => collator.compare(a, b)), [questions, collator]);
   const subCategories = useMemo(() => {
     let pool: typeof questions = questions;
     if (mainCategory !== "all") pool = pool.filter((x) => x.category === mainCategory);
-    return [...new Set(pool.map((x) => x.subCategory).filter(Boolean))] as string[];
-  }, [questions, mainCategory]);
+    return ([...new Set(pool.map((x) => x.subCategory).filter(Boolean))] as string[]).sort((a, b) => collator.compare(a, b));
+  }, [questions, mainCategory, collator]);
 
   const filtered = useMemo(() => {
     let out = questions;
@@ -81,20 +82,20 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const letters = ["A", "B", "C", "D", "E"];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6 px-3 sm:px-0">
       {/* controls */}
-      <div className="rounded-2xl border bg-white p-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between dark:bg-zinc-900 dark:border-zinc-800">
-        <div className="flex flex-1 items-center gap-3">
-          <input
-            value={q}
-            onChange={(e) => onSearch(e.target.value)}
-            placeholder="Хайх... асуулт эсвэл хариулт"
-            className="w-full max-w-md rounded-full border px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900 dark:bg-zinc-800 dark:border-zinc-700"
-          />
+      <div className="rounded-xl sm:rounded-2xl border bg-white p-3 sm:p-4 dark:bg-zinc-900 dark:border-zinc-800 space-y-2 sm:space-y-3">
+        <input
+          value={q}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder="Хайх... асуулт эсвэл хариулт"
+          className="w-full rounded-full border px-3 py-2 sm:px-4 sm:py-2 text-[13px] sm:text-sm outline-none focus:ring-2 focus:ring-zinc-900 dark:bg-zinc-800 dark:border-zinc-700"
+        />
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
           <select
             value={mainCategory}
             onChange={(e) => onMain(e.target.value)}
-            className="rounded-full border px-4 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700"
+            className="w-full rounded-lg sm:rounded-full border px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[44px]"
           >
             <option value="all">Бүх үндсэн ({questions.length})</option>
             {mainCategories.map((c) => (
@@ -104,7 +105,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
           <select
             value={subCategory}
             onChange={(e) => onSub(e.target.value)}
-            className="rounded-full border px-4 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700"
+            className="w-full rounded-lg sm:rounded-full border px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[44px]"
             disabled={mainCategory === "all" && subCategories.length === 0}
           >
             <option value="all">Бүх дэд ({filtered.length})</option>
@@ -115,9 +116,9 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
         </div>
       </div>
 
-      <p className="text-sm text-zinc-500">{filtered.length} асуулт олдлоо · {totalPages} хуудас</p>
+      <p className="text-[11px] sm:text-sm text-zinc-500 px-1">{filtered.length} асуулт · {totalPages} хуудас</p>
 
-      <div className="grid gap-4">
+      <div className="grid gap-2 sm:gap-4">
         {paged.map((item, idx) => {
           const locked = fileHasAnswer(item);
           const dbAns = myDb[item.id];
@@ -134,76 +135,76 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
           const voteCounts: number[] = counts[item.id] || [];
           const totalVotes = voteCounts.reduce((a, b) => a + b, 0);
           return (
-            <div key={item.id} className="rounded-2xl border bg-white p-6 dark:bg-zinc-900 dark:border-zinc-800">
-              <div className="flex items-start justify-between gap-4">
-                <p className="font-medium leading-relaxed"><span className="mr-2 text-zinc-400">{globalIdx}.</span>{item.question}</p>
-                <div className="flex gap-1.5 shrink-0 flex-wrap">
-                  {item.category && <span className="rounded-full bg-zinc-900 text-white px-3 py-1 text-xs dark:bg-white dark:text-zinc-900">{item.category}</span>}
-                  {item.subCategory && <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs dark:bg-zinc-800">{item.subCategory}</span>}
+            <div key={item.id} className="rounded-xl sm:rounded-2xl border bg-white p-3 sm:p-6 dark:bg-zinc-900 dark:border-zinc-800">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-4">
+                <p className="font-medium leading-snug text-[13px] sm:text-base break-words"><span className="mr-1.5 text-zinc-400 text-[11px] sm:text-sm">{globalIdx}.</span>{item.question}</p>
+                <div className="flex gap-1 shrink-0 flex-wrap">
+                  {item.category && <span className="rounded-full bg-zinc-900 text-white px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-white dark:text-zinc-900">{item.category}</span>}
+                  {item.subCategory && <span className="rounded-full bg-zinc-100 px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-zinc-800">{item.subCategory}</span>}
                 </div>
               </div>
               {locked && !isUnknown && (
                 <button
                   onClick={() => setRevealed((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
-                  className="mt-3 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  className="mt-2 sm:mt-3 rounded-full border px-2.5 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                 >
                   {isRevealed ? "Нуух" : "Зөв хариулт харах"}
                 </button>
               )}
-              <div className="mt-4 grid gap-2">
+              <div className="mt-3 sm:mt-4 grid gap-1.5 sm:gap-2">
                 {item.options.map((opt, i) => {
                   const isCorrect = eff !== null && i === eff;
                   return (
                     <div
                       key={i}
-                      className={`rounded-xl border px-4 py-3 text-sm flex gap-3 ${isRevealed && isCorrect ? "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950" : "border-zinc-200 dark:border-zinc-700"}`}
+                      className={`rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm flex gap-2 sm:gap-3 ${isRevealed && isCorrect ? "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950" : "border-zinc-200 dark:border-zinc-700"}`}
                     >
-                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isRevealed && isCorrect ? "bg-green-600 text-white" : "bg-zinc-100 dark:bg-zinc-800"}`}>{letters[i]}</span>
-                      <span>{opt}</span>
-                      {isRevealed && isCorrect && <span className="ml-auto text-green-700 dark:text-green-300 font-medium">✓ Зөв</span>}
-                      {isRevealed && hasOverride && isCorrect && <span className="ml-auto text-[10px] leading-none rounded-full bg-amber-100 px-2 py-1 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Та хадгалсан</span>}
+                      <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${isRevealed && isCorrect ? "bg-green-600 text-white" : "bg-zinc-100 dark:bg-zinc-800"}`}>{letters[i]}</span>
+                      <span className="leading-snug">{opt}</span>
+                      {isRevealed && isCorrect && <span className="ml-auto text-green-700 dark:text-green-300 font-medium text-xs">✓</span>}
+                      {isRevealed && hasOverride && isCorrect && <span className="ml-auto text-[9px] leading-none rounded-full bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Та хадгалсан</span>}
                     </div>
                   );
                 })}
               </div>
-              {isRevealed && item.explanation && <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">Тайлбар: {item.explanation}</p>}
+              {isRevealed && item.explanation && <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Тайлбар: {item.explanation}</p>}
 
               {/* Discussion for saveable questions */}
               {!locked && <QuestionDiscussion questionId={item.id} />}
 
               {/* Only questions with no file answer can be assigned a correct answer */}
               {!locked && (
-                <div className="mt-4 rounded-xl border border-dashed p-3 dark:border-zinc-700">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl border border-dashed p-2.5 sm:p-3 dark:border-zinc-700">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <p className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400">
                       {isUnknown ? "Зөв хариулт тодорхойгүй — сонгоод хадгална уу:" : `Та энэ хариултыг хадгалсан: ${letters[eff!]} — өөрчлөх:`}
                     </p>
                     {hasOverride && (
                       <button
                         onClick={() => setPendingClear(item.id)}
-                        className="text-xs underline text-zinc-500"
+                        className="text-[11px] sm:text-xs underline text-zinc-500"
                       >
                         Арилгах
                       </button>
                     )}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="mt-1.5 sm:mt-2 flex flex-wrap gap-1.5 sm:gap-2">
                     {item.options.map((_, i) => {
                       const c = voteCounts[i] || 0;
                       return (
                         <button
                           key={i}
                           onClick={() => setPending({ id: item.id, index: i })}
-                          className={`rounded-full px-4 py-2 text-sm border flex items-center gap-1.5 ${eff === i ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-50 dark:border-zinc-700"}`}
+                          className={`rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-sm border flex items-center gap-1 min-h-[32px] sm:min-h-[44px] ${eff === i ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-50 dark:border-zinc-700"}`}
                         >
                           <span>{letters[i]}</span>
-                          <span className={`text-xs ${eff === i ? "text-white/70 dark:text-zinc-500" : "text-zinc-500"}`}>· {c}</span>
+                          <span className={`text-[11px] sm:text-xs ${eff === i ? "text-white/70 dark:text-zinc-500" : "text-zinc-500"}`}>· {c}</span>
                         </button>
                       );
                     })}
                   </div>
                   {totalVotes > 0 && (
-                    <p className="mt-2 text-xs text-zinc-500">
+                    <p className="mt-1.5 text-[10px] sm:text-xs text-zinc-500">
                       Нийт {totalVotes} хүн санал өгсөн
                       {(() => {
                         let max = -1, maxIdx = -1;
@@ -213,7 +214,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                       })()}
                     </p>
                   )}
-                  {!isUnknown && hasOverride && <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">Та энэ хариултыг хадгалсан — хүссэн үедээ сольж болно.</p>}
+                  {!isUnknown && hasOverride && <p className="mt-1 text-[10px] sm:text-[11px] text-amber-700 dark:text-amber-300">Та энэ хариултыг хадгалсан — хүссэн үедээ сольж болно.</p>}
                 </div>
               )}
 
@@ -226,10 +227,10 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
       {filtered.length === 0 && <p className="text-center py-12 text-zinc-500">Илэрц олдсонгүй.</p>}
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <button disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded-full border px-4 py-2 text-sm disabled:opacity-40 dark:border-zinc-700">Өмнөх</button>
-          <span className="text-sm">{page} / {totalPages}</span>
-          <button disabled={page === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="rounded-full border px-4 py-2 text-sm disabled:opacity-40 dark:border-zinc-700">Дараах</button>
+        <div className="flex items-center justify-center gap-2 py-2">
+          <button disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded-full border px-5 py-3 sm:py-2 text-sm disabled:opacity-40 dark:border-zinc-700 min-h-[44px]">Өмнөх</button>
+          <span className="text-sm min-w-[60px] text-center">{page} / {totalPages}</span>
+          <button disabled={page === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="rounded-full border px-5 py-3 sm:py-2 text-sm disabled:opacity-40 dark:border-zinc-700 min-h-[44px]">Дараах</button>
         </div>
       )}
 

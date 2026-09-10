@@ -1,4 +1,4 @@
-# LawTest — Хуулийн шалгалт
+# Lexlab — Хуулийн шалгалт
 
 Next.js 16 + Prisma (Postgres) + Auth.js v5. 143 асуулт (123 + 20 mock), localStorage fallback зочин.
 

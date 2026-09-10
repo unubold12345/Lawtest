@@ -68,8 +68,8 @@ export default function HistoryPage() {
 
   if (attempts.length === 0) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="text-2xl font-semibold">Түүх</h1>
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-10">
+        <h1 className="text-xl sm:text-2xl font-semibold">Түүх</h1>
         <p className="mt-4 rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-900 dark:border-zinc-800">
           Одоогоор шалгалт өгөөгүй. <Link href="/quiz" className="underline">Шалгалт эхлэх</Link>
         </p>
@@ -78,10 +78,10 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Түүх — {attempts.length} оролдлого</h1>
-        <button onClick={clear} className="text-sm underline text-zinc-500">Цэвэрлэх</button>
+    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-10">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="text-xl sm:text-2xl font-semibold">Түүх — {attempts.length}</h1>
+        <button onClick={clear} className="text-sm underline text-zinc-500 min-h-[44px] px-2">Цэвэрлэх</button>
       </div>
 
       <div className="mt-6 grid gap-4">
@@ -90,13 +90,13 @@ export default function HistoryPage() {
           const pct = Math.round((a.score / a.total) * 100);
           return (
             <div key={a.id} className="rounded-2xl border bg-white dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden">
-              <button onClick={() => setExpanded(isOpen ? null : a.id)} className="w-full p-4 flex justify-between items-center text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                <div>
-                  <p className="font-medium">{a.score} / {a.total} · {pct}%</p>
-                  <p className="text-xs text-zinc-500">{new Date(a.date).toLocaleString()} · {a.category} · {fmt(a.elapsed)} · {a.mode === "study" ? "Сургалт" : "Шалгалт"}</p>
+              <button onClick={() => setExpanded(isOpen ? null : a.id)} className="w-full p-3 sm:p-4 flex justify-between items-center text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 gap-2 min-h-[56px]">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm sm:text-base">{a.score} / {a.total} · {pct}%</p>
+                  <p className="text-xs text-zinc-500 break-words">{new Date(a.date).toLocaleString()} · {a.category} · {fmt(a.elapsed)} · {a.mode === "study" ? "Сургалт" : "Шалгалт"}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`rounded-full px-3 py-1 text-xs font-medium ${a.score / a.total >= 0.6 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                  <span className={`rounded-full px-2.5 sm:px-3 py-1 text-xs font-medium ${a.score / a.total >= 0.6 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
                     {a.score / a.total >= 0.6 ? "Тэнцсэн" : "Унасан"}
                   </span>
                   <span className="text-sm text-zinc-400">{isOpen ? "▲" : "▼"}</span>

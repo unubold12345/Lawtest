@@ -1,6 +1,10 @@
-# Data Folder — LawTest Questions
+# Data Folder — Lexlab Questions
 
 Drop your 4,500 test data files here. The app auto-loads from `data/` recursively.
+
+> **Vision AI (images → JSON)?** This file IS the prompt: [`data/README_IMAGE_AI.md`](./README_IMAGE_AI.md) — attach it + your images to ChatGPT/Claude/Gemini. Set TARGET FILE at the bottom before sending.
+
+
 
 ---
 
@@ -9,7 +13,7 @@ Drop your 4,500 test data files here. The app auto-loads from `data/` recursivel
 > **Use this prompt when you give images to ChatGPT / Claude / Gemini:**
 
 ```
-You are converting LAW EXAM images into JSON for LawTest.
+You are converting LAW EXAM images into JSON for Lexlab.
 
 RULES — FOLLOW STRICTLY OR FILE WILL FAIL:
 

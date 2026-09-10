@@ -45,7 +45,7 @@ function walkDataFiles(dir: string, base: string = dir): { full: string; rel: st
     const full = path.join(dir, e.name);
     const rel = path.relative(base, full);
     if (e.isDirectory()) out.push(...walkDataFiles(full, base));
-    else if (e.isFile() && (e.name.endsWith(".json") || e.name.endsWith(".txt")))
+    else if (e.isFile() && (e.name.toLowerCase().endsWith(".json") || e.name.toLowerCase().endsWith(".txt")))
       out.push({ full, rel });
   }
   return out;
@@ -80,7 +80,7 @@ export function loadQuestions(): QuestionsLoadResult {
       continue;
     }
     try {
-      if (full.endsWith(".json")) {
+      if (full.toLowerCase().endsWith(".json")) {
         const raw = fs.readFileSync(full, "utf-8").replace(/^\uFEFF/, "");
         if (!raw.trim() || raw.trim() === "[]") {
           result.sources.push({ file: rel, count: 0 });
@@ -109,7 +109,7 @@ export function loadQuestions(): QuestionsLoadResult {
         });
         result.questions.push(...normalized);
         result.sources.push({ file: rel, count: normalized.length });
-      } else if (full.endsWith(".txt")) {
+      } else if (full.toLowerCase().endsWith(".txt")) {
         const raw = fs.readFileSync(full, "utf-8").replace(/^\uFEFF/, "");
         const { category: fileCat, subCategory: fileSub } = categoriesFromRel(rel);
         const parsed = parseTxtBlocks(raw, file).map((q) => {
