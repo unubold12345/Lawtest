@@ -23,7 +23,6 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const [mainCategory, setMainCategory] = useState<string>(() => searchParams.get("cat") || "all");
   const [subCategory, setSubCategory] = useState<string>(() => searchParams.get("sub") || "all");
   const [status, setStatus] = useState<Status>("all");
-  const [rapid, setRapid] = useState(false);
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -175,25 +174,8 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     window.setTimeout(() => setFlash((p) => { const n = { ...p }; delete n[id]; return n; }), 2600);
   };
 
-  // rapid mode: save instantly, then jump to next unanswered on this page
-  const rapidSave = async (id: string, index: number) => {
-    await persistAnswer(id, index);
-    flashSaved(id, `✓ ${LETTERS[index]} хадгалагдлаа`);
-    const at = paged.findIndex((x) => x.id === id);
-    const ordered = [...paged.slice(at + 1), ...paged.slice(0, at + 1)];
-    const nxt = ordered.find((x) => x.id !== id && !fileHasAnswer(x) && effOf(x) === null && !(isAuthed ? typeof myDb[x.id] === "number" : typeof overrides[x.id] === "number"));
-    if (nxt) {
-      setExpanded((p) => ({ ...p, [nxt.id]: true }));
-      setActiveId(nxt.id);
-      requestAnimationFrame(() => document.getElementById(`qrow-${nxt.id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
-    } else {
-      flashSaved(id, "✓ Хадгалагдлаа · энэ хуудсанд хариултгүй дууслаа");
-    }
-  };
-
   const chooseAnswer = (id: string, index: number) => {
-    if (rapid) void rapidSave(id, index);
-    else setPending({ id, index });
+    setPending({ id, index });
   };
 
   const toggleExpand = (id: string) => {
@@ -201,7 +183,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     setActiveId(id);
   };
 
-  // ---- keyboard: / search · J/K move · A–D rapid save · Esc close ----
+  // ---- keyboard: / search · J/K move · Esc close ----
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -237,19 +219,11 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
         requestAnimationFrame(() => document.getElementById(`qrow-${prv.id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
         return;
       }
-      const li = LETTERS.indexOf(e.key.toUpperCase());
-      if (li >= 0 && rapid && activeId) {
-        const item = paged.find((x) => x.id === activeId);
-        if (item && !fileHasAnswer(item) && li < item.options.length) {
-          e.preventDefault();
-          void rapidSave(activeId, li);
-        }
-      }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rapid, activeId, paged, myDb, overrides, isAuthed, pending, pendingClear]);
+  }, [activeId, paged, myDb, overrides, isAuthed, pending, pendingClear]);
 
   // quiz link preserves current view (prep flow)
   const quizHref = (() => {
@@ -281,7 +255,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
           ref={searchRef}
           value={q}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Хайх... асуулт эсвэл хариулт  ( / )"
+          placeholder="Хайх... асуулт эсвэл хариулт"
           className="w-full rounded-full border px-3 py-2 sm:px-4 sm:py-2 text-[13px] sm:text-sm outline-none focus:ring-2 focus:ring-zinc-900 dark:bg-zinc-800 dark:border-zinc-700"
         />
         <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
@@ -318,19 +292,8 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2 dark:border-zinc-800">
-          <button
-            onClick={() => {
-              const next = !rapid;
-              setRapid(next);
-              if (next) { setStatus("unanswered"); setPage(1); }
-            }}
-            className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] ${rapid ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-100 dark:border-zinc-700"}`}
-            title="Хариултгүй асуултуудыг A/B/C/D товчлуураар шууд хадгалж, автоматаар дараагийнх руу шилжинэ"
-          >
-            {rapid ? "⚡ Шуурхай хадгалах: АСААЛТТАЙ" : "⚡ Шуурхай хадгалах"}
-          </button>
-          <span className="hidden sm:inline text-[11px] text-zinc-400">Товчлол: / хайлт · J/K шилжих · A–D хадгалах · Esc хаах</span>
+        <div className="hidden sm:flex flex-wrap items-center justify-end gap-2 border-t pt-2 dark:border-zinc-800">
+          <span className="text-[11px] text-zinc-400">Товчлол: / хайлт · J/K шилжих · Esc хаах</span>
         </div>
       </div>
 
@@ -349,9 +312,6 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
         >
           Энэ шүүлтүүрээр шалгалт өгөх → <span className="opacity-70">({filteredBase.length})</span>
         </Link>
-        {rapid && (
-          <p className="mt-2 text-[11px] sm:text-xs text-zinc-500">⚡ Шуурхай горим: хариултгүй асуулт дээр A/B/C/D дархад шууд хадгалагдаж, дараагийнх руу шилжинэ. Алдвал дээр нь дараад сольж болно.</p>
-        )}
       </div>
 
       <p className="text-[11px] sm:text-sm text-zinc-500 px-1">● хариулттай · ○ хариултгүй · ✓ миний хадгалсан — мөр дээр дарж нээнэ</p>
@@ -421,11 +381,9 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                   {!locked && (
                     <div className="mt-3 rounded-lg border border-dashed p-2.5 sm:p-3 dark:border-zinc-700">
                       <p className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                        {rapid
-                          ? "⚡ Шуурхай: дархад шууд хадгалагдаж дараагийн хариултгүй рүү шилжинэ"
-                          : eff === null
-                            ? "Зөв хариулт тодорхойгүй — сонгоод хадгална уу:"
-                            : `Таны хадгалсан: ${LETTERS[eff]} — солих:`}
+                        {eff === null
+                          ? "Зөв хариулт тодорхойгүй — сонгоод хадгална уу:"
+                          : `Таны хадгалсан: ${LETTERS[eff]} — солих:`}
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {item.options.map((_, i) => {

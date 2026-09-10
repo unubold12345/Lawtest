@@ -1,12 +1,31 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
 import { effectiveAnswer, getAllOverrides } from "@/lib/answerOverrides";
 
 type Mode = "exam" | "study";
 type QuizState = "setup" | "running" | "result";
+
+type Attempt = {
+  id: string;
+  date: string;
+  category: string;
+  mode: string;
+  score: number;
+  total: number;
+  elapsed?: number;
+};
+
+function readLocalAttempts(): Attempt[] {
+  try {
+    const raw = localStorage.getItem("lawtest_attempts");
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -63,6 +82,20 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const [state, setState] = useState<QuizState>("setup");
   const [count, setCount] = useState(20);
   const [customCount, setCustomCount] = useState("");
+  const [lastExam, setLastExam] = useState<Attempt | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const pick = (arr: Attempt[]) => arr.find((a) => a.mode === "exam") ?? null;
+    if (isAuthed) {
+      fetch("/api/attempts")
+        .then((r) => (r.ok ? r.json() : { attempts: [] }))
+        .then((d) => { if (!cancelled) setLastExam(pick(d.attempts || [])); })
+        .catch(() => { if (!cancelled) setLastExam(pick(readLocalAttempts())); });
+    } else {
+      setLastExam(pick(readLocalAttempts()));
+    }
+    return () => { cancelled = true; };
+  }, [isAuthed]);
   const [subPick, setSubPick] = useState("");
   const [subDropOpen, setSubDropOpen] = useState(false);
   const [histAttempts, setHistAttempts] = useState<Array<{ category: string; score: number; total: number }>>([]);
@@ -309,6 +342,21 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         <div className="flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl border border-dashed bg-white px-3.5 py-2.5 sm:px-5 sm:py-3 dark:bg-zinc-900 dark:border-zinc-700">
           <p className="min-w-0 truncate text-[12px] sm:text-sm">Шүүлтүүр: “{query.trim()}” — {poolSize} асуулт</p>
           <button onClick={() => setQuery("")} className="shrink-0 rounded-full border px-3 py-1 text-[11px] sm:text-xs dark:border-zinc-700">Арилгах</button>
+        </div>
+      )}
+      {lastExam && (
+        <div className="flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl border bg-white px-3.5 py-2.5 sm:px-5 sm:py-3 dark:bg-zinc-900 dark:border-zinc-800">
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-xs text-zinc-500">Сүүлийн шалгалт</p>
+            <p className="truncate text-[12px] sm:text-sm font-medium">
+              {lastExam.category} · {lastExam.score}/{lastExam.total}
+              {lastExam.total > 0 ? ` (${Math.round((lastExam.score / lastExam.total) * 100)}%)` : ""}
+              <span className="font-normal text-zinc-500"> · {new Date(lastExam.date).toLocaleString()}</span>
+            </p>
+          </div>
+          <Link href="/history" className="shrink-0 rounded-full bg-zinc-900 px-4 py-1.5 sm:py-2 text-[11px] sm:text-xs font-medium text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900">
+            Түүх →
+          </Link>
         </div>
       )}
 
