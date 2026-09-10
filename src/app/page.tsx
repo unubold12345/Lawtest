@@ -91,7 +91,6 @@ export default function Home() {
           <div className="flex items-end justify-between gap-2">
             <div>
               <h2 className="font-semibold text-[13px] sm:text-lg">Их асуулттай ангилал</h2>
-              <p className="text-[11px] sm:text-sm text-zinc-500">Шууд сонгоод бэлдэж эхэл</p>
             </div>
             <Link href="/browse" className="shrink-0 text-[11px] sm:text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white">
               Бүгд →
@@ -117,8 +116,7 @@ export default function Home() {
       <div className="rounded-xl sm:rounded-2xl border border-dashed bg-white p-3 sm:p-6 dark:bg-zinc-900 dark:border-zinc-800">
         <div className="flex items-end justify-between gap-2">
           <div>
-            <h2 className="font-semibold text-[13px] sm:text-base">Бүх ангилал</h2>
-            <p className="text-[11px] sm:text-sm text-zinc-500">Үндсэн → дэд ангиллаар шүүж үзээрэй</p>
+              <h2 className="font-semibold text-[13px] sm:text-base">Бүх ангилал</h2>
           </div>
           <Link href="/browse" className="shrink-0 text-[11px] sm:text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white">
             Хайлт →

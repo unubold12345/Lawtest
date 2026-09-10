@@ -90,46 +90,40 @@ export default function LoginPage() {
 
       {tab === "login" && (
         <>
-          <h1 className="mt-2 sm:mt-3 text-[15px] sm:text-xl font-semibold">Нэвтрэх — утас + нууц үг</h1>
-          <p className="text-[11px] sm:text-xs text-zinc-500">Утас OTP зөвхөн бүртгэл/сэргээхэд, нэвтрэх нь утас+нууц үг</p>
           <form onSubmit={submitLogin} className="mt-3 sm:mt-4 grid gap-2 sm:gap-3">
-            <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+976 9911 2233" className="rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
+            <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Утас" inputMode="tel" className="rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
             <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Нууц үг" className="rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
             <button disabled={loading} type="submit" className="rounded-full bg-zinc-900 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900 min-h-[38px] sm:min-h-[48px]">{loading ? "..." : "Нэвтрэх"}</button>
           </form>
-          <p className="mt-2 sm:mt-3 text-center text-[11px] sm:text-xs text-zinc-500"><button onClick={() => setTab("recover")} className="underline">Нууц үгээ мартсан?</button> · <button onClick={() => setTab("register")} className="underline">Бүртгүүлэх</button></p>
+          <p className="mt-2 sm:mt-3 text-center text-[11px] sm:text-xs text-zinc-500"><button onClick={() => setTab("recover")} className="underline">Нууц үгээ мартсан?</button></p>
         </>
       )}
 
       {tab === "register" && (
         <>
-          <h1 className="mt-2 sm:mt-3 text-[15px] sm:text-xl font-semibold">Бүртгүүлэх — утас + OTP + нууц үг</h1>
-          <p className="text-[11px] sm:text-xs text-zinc-500">Утас баталгаажуулна · OTP 5 мин · SNS $0.045 танд үнэ төлбөргүй</p>
           <form onSubmit={submitRegister} className="mt-3 sm:mt-4 grid gap-2 sm:gap-3">
             <div className="flex gap-1.5 sm:gap-2">
-              <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+976 9911 2233" className="flex-1 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
-              <button type="button" onClick={() => sendOtp("register")} disabled={loading || cooldown > 0} className="rounded-full bg-zinc-900 px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-xs font-medium text-white disabled:opacity-40 dark:bg-white dark:text-zinc-900 min-h-[36px] sm:min-h-[48px] shrink-0">{cooldown > 0 ? `${cooldown}с` : "Код"}</button>
+              <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Утас" inputMode="tel" className="flex-1 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
+              <button type="button" onClick={() => sendOtp("register")} disabled={loading || cooldown > 0} className="rounded-full border px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-xs font-medium disabled:opacity-40 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px] shrink-0">{cooldown > 0 ? `${cooldown}с` : "Код авах"}</button>
             </div>
-            {otpSent && <input required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6 оронтой код" inputMode="numeric" className="rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-center tracking-[0.3em] text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />}
-            {devCode && <p className="rounded-lg sm:rounded-xl bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-[12px] sm:text-sm text-amber-800 break-all">devCode: <b className="tracking-widest">{devCode}</b></p>}
-            <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Нууц үг (≥6)" className="rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
-            <button disabled={loading || !otpSent || code.length !== 6} type="submit" className="rounded-full bg-zinc-900 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900 min-h-[38px] sm:min-h-[48px]">{loading ? "..." : "Баталгаажуулж бүртгүүлэх"}</button>
+            {otpSent && <input required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Баталгаажуулах код" inputMode="numeric" className="rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-center tracking-[0.3em] text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />}
+            {devCode && <p className="rounded-lg sm:rounded-xl border border-dashed px-2.5 py-1.5 text-[12px] sm:text-sm text-zinc-500 break-all dark:border-zinc-700">Код: <b className="tracking-widest text-zinc-900 dark:text-white">{devCode}</b></p>}
+            <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Нууц үг" className="rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
+            <button disabled={loading || !otpSent || code.length !== 6} type="submit" className="rounded-full bg-zinc-900 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900 min-h-[38px] sm:min-h-[48px]">{loading ? "..." : "Бүртгүүлэх"}</button>
           </form>
         </>
       )}
 
       {tab === "recover" && (
         <>
-          <h1 className="mt-2 sm:mt-3 text-[15px] sm:text-xl font-semibold">Нууц үг сэргээх</h1>
-          <p className="text-[11px] sm:text-xs text-zinc-500">Утас руу OTP · баталгаажаад шинэ нууц үг тогтооно</p>
           <form onSubmit={submitRecover} className="mt-3 sm:mt-4 grid gap-2 sm:gap-3">
             <div className="flex gap-1.5 sm:gap-2">
-              <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+976 9911 2233" className="flex-1 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
-              <button type="button" onClick={() => sendOtp("recover")} disabled={loading || cooldown > 0} className="rounded-full bg-zinc-900 px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-xs font-medium text-white disabled:opacity-40 dark:bg-white dark:text-zinc-900 min-h-[36px] sm:min-h-[48px] shrink-0">{cooldown > 0 ? `${cooldown}с` : "Код"}</button>
+              <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Утас" inputMode="tel" className="flex-1 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
+              <button type="button" onClick={() => sendOtp("recover")} disabled={loading || cooldown > 0} className="rounded-full border px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-xs font-medium disabled:opacity-40 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px] shrink-0">{cooldown > 0 ? `${cooldown}с` : "Код авах"}</button>
             </div>
-            {devCode && <p className="rounded-lg sm:rounded-xl bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-[12px] sm:text-sm text-amber-800 break-all">devCode: <b className="tracking-widest">{devCode}</b></p>}
-            <input required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6 оронтой код" inputMode="numeric" className="rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-center tracking-[0.3em] text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
-            <input required type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Шинэ нууц үг (≥6)" className="rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
+            {devCode && <p className="rounded-lg sm:rounded-xl border border-dashed px-2.5 py-1.5 text-[12px] sm:text-sm text-zinc-500 break-all dark:border-zinc-700">Код: <b className="tracking-widest text-zinc-900 dark:text-white">{devCode}</b></p>}
+            {otpSent && <input required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Баталгаажуулах код" inputMode="numeric" className="rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-center tracking-[0.3em] text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />}
+            <input required type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Шинэ нууц үг" className="rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]" />
             <button disabled={loading || code.length !== 6} type="submit" className="rounded-full bg-zinc-900 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900 min-h-[38px] sm:min-h-[48px]">{loading ? "..." : "Сэргээх"}</button>
           </form>
         </>

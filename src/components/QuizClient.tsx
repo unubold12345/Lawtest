@@ -369,7 +369,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
               <h1 className="text-[16px] sm:text-2xl font-semibold break-words">Шалгалт тохиргоо</h1>
               <button onClick={() => setSettingsOpen(false)} aria-label="Хаах" className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full border text-[13px] dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800">✕</button>
             </div>
-        <p className="mt-1 text-[11px] sm:text-sm text-zinc-500 leading-snug">{questions.length} асуулт бэлэн</p>
+        
 
         <div className="mt-4 sm:mt-8 grid gap-4 sm:gap-6 min-w-0">
           <label className="grid gap-1.5 sm:gap-2 min-w-0">
@@ -388,7 +388,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           </label>
 
           <div className="grid gap-1.5 sm:gap-2 min-w-0">
-            <span className="text-[12px] sm:text-sm font-medium">Асуултын тоо (available: {poolSize})</span>
+            <span className="text-[12px] sm:text-sm font-medium">Асуултын тоо · {poolSize}</span>
             <div className="flex flex-wrap gap-1.5 sm:gap-2 min-w-0">
               {[10, 20, 30, 50, poolSize].filter((v, i, a) => a.indexOf(v) === i).map((n) => (
                 <button key={n} onClick={() => { setCount(n); setCustomCount(""); }} className={`rounded-full px-3 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm border min-h-[32px] sm:min-h-[44px] shrink-0 ${customCount === "" && count === n ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-50 dark:border-zinc-700"}`}>{n === poolSize ? `Бүгд (${n})` : n}</button>
@@ -427,7 +427,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
               </div>
             </label>
             <label className={`grid gap-1.5 sm:gap-2 min-w-0 ${mode === "study" ? "opacity-50" : ""}`}>
-              <span className="text-[12px] sm:text-sm font-medium">{mode === "study" ? "Хугацаа — түгжигдсэн · 00:00-ээс явна ⏱" : "Хугацаа (мин) — 0 = хязгааргүй"}</span>
+              <span className="text-[12px] sm:text-sm font-medium">Хугацаа</span>
               <select value={minutes} disabled={mode === "study"} onChange={(e) => setMinutes(Number(e.target.value))} className="w-full min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px] disabled:cursor-not-allowed">
                 <option value={0}>Хязгааргүй</option>
                 <option value={10}>10 мин</option>
@@ -449,7 +449,6 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
       <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border bg-white p-4 sm:p-8 dark:bg-zinc-900 dark:border-zinc-800">
         <h2 className="text-[14px] sm:text-xl font-semibold break-words">Дэд ангиллаар шалгалт</h2>
-        <p className="mt-1 text-[11px] sm:text-sm text-zinc-500 leading-snug">Зөвхөн нэг дэд ангилал сонгоод шалгалт өгнө — дүн хадгалагдаж, статистик нь энд харагдана{isAuthed ? "" : " (нэвтрээгүй үед энэ төхөөрөмжид хадгалагдана)"}.</p>
 
         <div className="mt-3 sm:mt-4 grid gap-1.5 sm:gap-2 min-w-0">
           <span className="text-[12px] sm:text-sm font-medium">Дэд ангилал</span>

@@ -292,9 +292,6 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
             </button>
           ))}
         </div>
-        <div className="hidden sm:flex flex-wrap items-center justify-end gap-2 border-t pt-2 dark:border-zinc-800">
-          <span className="text-[11px] text-zinc-400">Товчлол: / хайлт · J/K шилжих · Esc хаах</span>
-        </div>
       </div>
 
       {/* readiness + practice */}
@@ -313,8 +310,6 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
           Энэ шүүлтүүрээр шалгалт өгөх → <span className="opacity-70">({filteredBase.length})</span>
         </Link>
       </div>
-
-      <p className="text-[11px] sm:text-sm text-zinc-500 px-1">● хариулттай · ○ хариултгүй · ✓ миний хадгалсан — мөр дээр дарж нээнэ</p>
 
       {/* compact rows */}
       <div className="grid gap-1.5 sm:gap-2">
