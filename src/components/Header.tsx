@@ -3,8 +3,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
+import ThemeToggle from "@/components/ThemeToggle";
 
-export default function Header({ total }: { total: number }) {
+export default function Header() {
   const { data: session, update } = useSession();
   const user = session?.user as unknown as { name?: string | null; email?: string | null; role?: string } | undefined;
   // show auto display name (user01, ...) — never a phone number (legacy names stay hidden)
@@ -32,7 +33,7 @@ export default function Header({ total }: { total: number }) {
       <div className="mx-auto max-w-6xl px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-6 min-w-0">
           <Link href="/" className="text-[15px] sm:text-lg font-bold tracking-tight shrink-0">
-            Lexlab <span className="ml-1 sm:ml-2 text-[10px] sm:text-xs font-normal text-zinc-500">{total}</span>
+            Lexlab
           </Link>
           <nav className="hidden sm:flex items-center gap-1">
             <Link href="/browse" className={linkCls("/browse")}>Бүх асуулт</Link>
@@ -42,6 +43,7 @@ export default function Header({ total }: { total: number }) {
           </nav>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <ThemeToggle />
           {user ? (
             <>
               {displayName && <span className="hidden lg:inline text-sm text-zinc-600 dark:text-zinc-400 max-w-[140px] truncate">{displayName}</span>}

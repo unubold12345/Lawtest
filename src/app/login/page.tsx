@@ -1,8 +1,18 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
+import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
+import { firebaseAuth, firebaseConfigured } from "@/lib/firebaseClient";
+
+// Local number → E.164 (+976...) for Firebase SMS
+function toE164(raw: string): string | null {
+  const d = raw.replace(/\D/g, "");
+  if (d.length === 8) return "+976" + d;
+  if (d.length === 11 && d.startsWith("976")) return "+" + d;
+  return null;
+}
 
 export default function LoginPage() {
   const { data: session } = useSession();
@@ -18,6 +28,9 @@ export default function LoginPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [devCode, setDevCode] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  const [fbConfirm, setFbConfirm] = useState<ConfirmationResult | null>(null);
+  const [fbSentTo, setFbSentTo] = useState<string | null>(null);
+  const verifierRef = useRef<RecaptchaVerifier | null>(null);
 
   if (session?.user) {
     return (
@@ -28,20 +41,57 @@ export default function LoginPage() {
     );
   }
 
+  const startCooldown = () => {
+    setCooldown(60);
+    const id = setInterval(() => setCooldown((c) => { if (c <= 1) { clearInterval(id); return 0; } return c - 1; }), 1000);
+  };
+
+  // Firebase SMS (Google sends the code) — used when configured
+  const sendFirebaseSms = async () => {
+    const e164 = toE164(phone);
+    if (!e164) { setErr("Утас буруу — 8 оронтой дугаар оруулна уу"); return; }
+    try {
+      const auth = firebaseAuth();
+      if (!verifierRef.current) {
+        verifierRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+      }
+      const conf = await signInWithPhoneNumber(auth, e164, verifierRef.current);
+      setFbConfirm(conf);
+      setFbSentTo(e164);
+      setOtpSent(true);
+      setOk("SMS код илгээлээ");
+      startCooldown();
+    } catch {
+      try { verifierRef.current?.clear(); } catch {}
+      verifierRef.current = null;
+      setErr("SMS илгээж чадсангүй — дугаараа шалгаад дахин оролдоно уу");
+    }
+  };
+
   const sendOtp = async (purpose: "register" | "recover") => {
-    setErr(""); setOk(""); setDevCode(null);
+    setErr(""); setOk(""); setDevCode(null); setFbConfirm(null); setFbSentTo(null);
     if (!phone.trim()) { setErr("Утас оруулна уу"); return; }
     setLoading(true);
     try {
+      if (firebaseConfigured()) { await sendFirebaseSms(); return; }
       const r = await fetch("/api/otp/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, purpose }) });
       const d = await r.json();
       if (!r.ok) { setErr(d.error || "Илгээж чадсангүй"); return; }
       setOtpSent(true);
       if (d.devCode) setDevCode(d.devCode);
       setOk(purpose === "register" ? "Бүртгэлийн код илгээлээ" : "Сэргээх код илгээлээ");
-      setCooldown(60);
-      const id = setInterval(() => setCooldown((c) => { if (c <= 1) { clearInterval(id); return 0; } return c - 1; }), 1000);
+      startCooldown();
     } catch { setErr("Серверийн алдаа"); } finally { setLoading(false); }
+  };
+
+  // Confirm Firebase SMS code → ID token for our API (null = legacy OTP path)
+  const confirmFirebase = async (): Promise<string | null> => {
+    if (!fbConfirm) return null;
+    if (toE164(phone) !== fbSentTo) { setErr("Дугаар солигдсон — код дахин авна уу"); return null; }
+    try {
+      const cred = await fbConfirm.confirm(code);
+      return await cred.user.getIdToken();
+    } catch { setErr("Код буруу"); return null; }
   };
 
   const submitLogin = async (e: React.FormEvent) => {
@@ -56,7 +106,13 @@ export default function LoginPage() {
   const submitRegister = async (e: React.FormEvent) => {
     e.preventDefault(); setErr(""); setOk(""); setLoading(true);
     try {
-      const r = await fetch("/api/auth/register-phone", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, code, password }) });
+      const body: Record<string, string> = { phone, code, password };
+      if (fbConfirm) {
+        const token = await confirmFirebase();
+        if (!token) { setLoading(false); return; }
+        body.firebaseToken = token;
+      }
+      const r = await fetch("/api/auth/register-phone", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const d = await r.json();
       if (!r.ok) { setErr(d.error || "Бүртгэл амжилтгүй"); return; }
       setOk("Бүртгүүллээ — нэвтэрч байна...");
@@ -69,7 +125,13 @@ export default function LoginPage() {
   const submitRecover = async (e: React.FormEvent) => {
     e.preventDefault(); setErr(""); setOk(""); setLoading(true);
     try {
-      const r = await fetch("/api/auth/recover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, code, newPassword }) });
+      const body: Record<string, string> = { phone, code, newPassword };
+      if (fbConfirm) {
+        const token = await confirmFirebase();
+        if (!token) { setLoading(false); return; }
+        body.firebaseToken = token;
+      }
+      const r = await fetch("/api/auth/recover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const d = await r.json();
       if (!r.ok) { setErr(d.error || "Сэргээж чадсангүй"); return; }
       setOk("Нууц үг шинэчлэгдлээ — нэвтэрнэ үү");
@@ -79,6 +141,7 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto max-w-md mt-4 sm:mt-10 mx-3 sm:mx-auto rounded-xl sm:rounded-2xl border bg-white p-4 sm:p-8 dark:bg-zinc-900 dark:border-zinc-800">
+      <div id="recaptcha-container" />
       <div className="flex gap-1 mb-3 sm:mb-4">
         <button onClick={() => { setTab("login"); setOtpSent(false); setErr(""); setOk(""); }} className={`flex-1 rounded-full py-2 sm:py-2 text-[11px] sm:text-xs font-medium border min-h-[34px] sm:min-h-0 ${tab === "login" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-50 dark:border-zinc-700"}`}>Нэвтрэх</button>
         <button onClick={() => { setTab("register"); setOtpSent(false); setErr(""); setOk(""); }} className={`flex-1 rounded-full py-2 sm:py-2 text-[11px] sm:text-xs font-medium border min-h-[34px] sm:min-h-0 ${tab === "register" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-50 dark:border-zinc-700"}`}>Бүртгүүлэх</button>
