@@ -9,10 +9,10 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://lexlab.site"),
-  title: "Lexlab — Хуулийн шалгалт",
+  title: "Хуульчийн мэргэжлийн шалгалтын сорилго",
   description: "Хуульчийн мэргэжлийн шалгалтын сорилго — үндсэн ангилал, дэд ангилал, шалгалт ба сургалт.",
   openGraph: {
-    title: "Lexlab — Хуулийн шалгалт",
+    title: "Хуульчийн мэргэжлийн шалгалтын сорилго",
     description: "Хуульчийн мэргэжлийн шалгалтын сорилго — үндсэн ангилал, дэд ангилал, шалгалт ба сургалт.",
     url: "/",
     siteName: "Lexlab",
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Lexlab — Хуулийн шалгалт",
+    title: "Хуульчийн мэргэжлийн шалгалтын сорилго",
     description: "Хуульчийн мэргэжлийн шалгалтын сорилго — үндсэн ангилал, дэд ангилал, шалгалт ба сургалт.",
   },
 };

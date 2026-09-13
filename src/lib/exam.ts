@@ -1,7 +1,7 @@
 // Exam banner config — single place to roll dates each year so the
 // homepage never shows a stale exam date after the exam has passed.
 export const EXAM = {
-  label: "Хуульчийн шалгалт · 2026",
+  label: "Хуульчийн мэргэжлийн шалгалт · 2026",
   dates: "10-р сарын 28, 29, 30",
   regOpenText: "Бүртгэл 9-р сарын 27-нд хаагдана",
   regClosedText: "Бүртгэл хаагдсан",
