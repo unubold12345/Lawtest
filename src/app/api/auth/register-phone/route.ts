@@ -6,6 +6,7 @@ import { verifyFirebaseToken } from "@/lib/firebaseAdmin";
 import { nextUserName } from "@/lib/usernames";
 
 export async function POST(req: Request) {
+  let step = "body";
   try {
     const { password, phone: rawPhone, code, firebaseToken } = await req.json();
     if (!rawPhone || !password) return NextResponse.json({ error: "Утас, нууц үг шаардлагатай" }, { status: 400 });
@@ -14,6 +15,7 @@ export async function POST(req: Request) {
     if (String(password).length < 6) return NextResponse.json({ error: "Нууц үг ≥6" }, { status: 400 });
 
     // Firebase SMS path: verified ID token replaces our OTP code
+    step = "firebase";
     if (firebaseToken) {
       const fbPhone = await verifyFirebaseToken(String(firebaseToken));
       if (!fbPhone || normalizePhone(fbPhone) !== phone) {
@@ -43,6 +45,7 @@ export async function POST(req: Request) {
       if (!verified) return NextResponse.json({ error: "OTP баталгаажаагүй — кодоо шалгана уу" }, { status: 400 });
     }
 
+    step = "exists";
     const existsPhone = await prisma.user.findFirst({ where: { phone } });
     if (existsPhone) return NextResponse.json({ error: "Энэ утас бүртгэлтэй" }, { status: 409 });
 
@@ -50,6 +53,7 @@ export async function POST(req: Request) {
     const existsEmail = await prisma.user.findUnique({ where: { email: cleanEmail } });
     const finalEmail = existsEmail ? `${phone.replace("+", "")}-${Date.now()}@phone.local` : cleanEmail;
 
+    step = "create";
     const hashed = await bcrypt.hash(String(password), 10);
     const displayName = await nextUserName();
     const user = await prisma.user.create({
@@ -63,7 +67,8 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ ok: true, id: user.id, email: user.email });
   } catch (e) {
-    console.error("register-phone", e);
-    return NextResponse.json({ error: "Серверийн алдаа" }, { status: 500 });
+    console.error("register-phone", step, e);
+    // step code is a temporary diagnostic (which stage threw), no secrets
+    return NextResponse.json({ error: `Серверийн алдаа (${step})` }, { status: 500 });
   }
 }
