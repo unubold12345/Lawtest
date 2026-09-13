@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
-import { fileHasAnswer, getAllOverrides, setOverride } from "@/lib/answerOverrides";
+import { fileHasAnswer } from "@/lib/answerOverrides";
 import QuestionDiscussion from "@/components/QuestionDiscussion";
 import QuestionReport from "@/components/QuestionReport";
 
@@ -26,25 +26,12 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [myDb, setMyDb] = useState<Record<string, number>>({});
   const [counts, setCounts] = useState<Record<string, number[]>>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [flash, setFlash] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<{ id: string; index: number } | null>(null);
   const [pendingClear, setPendingClear] = useState<string | null>(null);
-
-  useEffect(() => {
-    setOverrides(getAllOverrides());
-    const onStorage = () => setOverrides(getAllOverrides());
-    const onCustom = () => setOverrides(getAllOverrides());
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("lawtest:overrides", onCustom as EventListener);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("lawtest:overrides", onCustom as EventListener);
-    };
-  }, []);
 
   const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }), []);
   const mainCategories = useMemo(() => ([...new Set(questions.map((x) => x.category).filter(Boolean))] as string[]).sort((a, b) => collator.compare(a, b)), [questions, collator]);
@@ -78,12 +65,12 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
       if (Array.isArray(item.answer)) return (item.answer as number[])[0] ?? null;
       return null;
     }
-    if (isAuthed) return typeof myDb[item.id] === "number" ? (myDb[item.id] as number) : null;
-    return typeof overrides[item.id] === "number" ? (overrides[item.id] as number) : null;
+    if (!isAuthed) return null;
+    return typeof myDb[item.id] === "number" ? (myDb[item.id] as number) : null;
   };
   const mineOf = (item: Question): boolean => {
     if (fileHasAnswer(item)) return false;
-    return isAuthed ? typeof myDb[item.id] === "number" : typeof overrides[item.id] === "number";
+    return isAuthed && typeof myDb[item.id] === "number";
   };
   const statusOf = (item: Question): "answered" | "unanswered" | "mine" =>
     mineOf(item) ? "mine" : effOf(item) === null ? "unanswered" : "answered";
@@ -116,13 +103,13 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return { answered, unanswered, mine, total: filteredBase.length };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredBase, myDb, overrides, isAuthed]);
+  }, [filteredBase, myDb, isAuthed]);
 
   const filtered = useMemo(() => {
     if (status === "all") return filteredBase;
     return filteredBase.filter((x) => statusOf(x) === status);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredBase, status, myDb, overrides, isAuthed]);
+  }, [filteredBase, status, myDb, isAuthed]);
 
   const readyPct = statusCounts.total === 0 ? 0 : Math.round(((statusCounts.answered + statusCounts.mine) / statusCounts.total) * 100);
 
@@ -151,22 +138,18 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
 
   // ---- saving ----
   const persistAnswer = async (id: string, index: number | null) => {
-    if (isAuthed) {
-      try {
-        const r = await fetch("/api/saved-answers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ questionId: id, answer: index }) });
-        if (r.ok) {
-          if (index === null) {
-            setMyDb((prev) => { const n = { ...prev }; delete n[id]; return n; });
-          } else {
-            setMyDb((prev) => ({ ...prev, [id]: index }));
-          }
-          fetch(`/api/saved-answers?ids=${encodeURIComponent(id)}`).then((rr) => rr.json()).then((d) => { if (d.counts) setCounts((p) => ({ ...p, ...d.counts })); }).catch(() => {});
-          return;
+    if (!isAuthed) return;
+    try {
+      const r = await fetch("/api/saved-answers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ questionId: id, answer: index }) });
+      if (r.ok) {
+        if (index === null) {
+          setMyDb((prev) => { const n = { ...prev }; delete n[id]; return n; });
+        } else {
+          setMyDb((prev) => ({ ...prev, [id]: index }));
         }
-      } catch { /* fall through to local */ }
-    }
-    setOverride(id, index);
-    setOverrides(getAllOverrides());
+        fetch(`/api/saved-answers?ids=${encodeURIComponent(id)}`).then((rr) => rr.json()).then((d) => { if (d.counts) setCounts((p) => ({ ...p, ...d.counts })); }).catch(() => {});
+      }
+    } catch { /* ignore */ }
   };
 
   const flashSaved = (id: string, text: string) => {
@@ -175,6 +158,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   };
 
   const chooseAnswer = (id: string, index: number) => {
+    if (!isAuthed) return;
     setPending({ id, index });
   };
 
@@ -223,7 +207,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId, paged, myDb, overrides, isAuthed, pending, pendingClear]);
+  }, [activeId, paged, myDb, isAuthed, pending, pendingClear]);
 
   // quiz link preserves current view (prep flow)
   const quizHref = (() => {
@@ -373,7 +357,13 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                   </div>
                   {isRevealed && item.explanation && <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Тайлбар: {item.explanation}</p>}
 
-                  {!locked && (
+                  {!locked && !isAuthed && (
+                    <div className="mt-3 rounded-lg border border-dashed p-2.5 sm:p-3 text-[11px] sm:text-xs text-zinc-500 dark:border-zinc-700">
+                      Зөв хариулт хадгалахын тулд <Link href="/login" className="font-medium text-zinc-900 underline dark:text-white">нэвтэрнэ үү</Link>.
+                    </div>
+                  )}
+
+                  {!locked && isAuthed && (
                     <div className="mt-3 rounded-lg border border-dashed p-2.5 sm:p-3 dark:border-zinc-700">
                       <p className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400">
                         {eff === null

@@ -12,7 +12,7 @@ export default function QuizPage() {
     );
   }
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8">
+    <div className="mx-auto max-w-6xl px-1 sm:px-6 py-6 sm:py-8">
       <Suspense fallback={<p className="py-10 text-center text-sm text-zinc-500">Ачааллаж байна…</p>}>
         <QuizClient questions={questions} />
       </Suspense>

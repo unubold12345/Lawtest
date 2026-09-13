@@ -12,7 +12,7 @@ export default function BrowsePage() {
     );
   }
   return (
-    <div className="mx-auto max-w-6xl px-3 sm:px-6 py-4 sm:py-8">
+    <div className="mx-auto max-w-6xl px-1 sm:px-6 py-4 sm:py-8">
       <h1 className="text-[18px] sm:text-2xl font-semibold">Бүх асуулт</h1>
       <div className="mt-3 sm:mt-6">
         <Suspense fallback={<p className="py-10 text-center text-sm text-zinc-500">Ачааллаж байна…</p>}>

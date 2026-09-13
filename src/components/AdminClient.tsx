@@ -109,13 +109,13 @@ export default function AdminClient() {
     setUsers((prev) => prev.filter((x) => x.id !== u.id));
   };
 
-  if (loading) return <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8"><p className="text-sm text-zinc-500">Ачаалж байна…</p></div>;
-  if (err) return <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8"><p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{err}</p></div>;
+  if (loading) return <div className="mx-auto max-w-6xl px-2 sm:px-6 py-8"><p className="text-sm text-zinc-500">Ачаалж байна…</p></div>;
+  if (err) return <div className="mx-auto max-w-6xl px-2 sm:px-6 py-8"><p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{err}</p></div>;
 
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8">
+    <div className="mx-auto max-w-6xl px-2 sm:px-6 py-6 sm:py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold">Админ</h1>
         <div className="flex gap-2 text-xs">

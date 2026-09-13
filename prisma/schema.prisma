@@ -30,6 +30,7 @@ model User {
   comments      Comment[]
   reports       Report[]
   savedAnswers  SavedAnswer[]
+  savedExams    SavedExam[]
   otps          Otp[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -142,4 +143,16 @@ model Otp {
   @@index([phone, expiresAt])
   @@index([phone, createdAt])
   @@index([phone, purpose])
+}
+
+model SavedExam {
+  id        String   @id @default(cuid())
+  userId    String
+  key       String
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
 }

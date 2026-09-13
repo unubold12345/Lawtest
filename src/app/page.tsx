@@ -39,7 +39,7 @@ export default function Home() {
   const topMains = [...mains].sort((a, b) => b.total - a.total).slice(0, 3);
 
   return (
-    <div className="mx-auto max-w-6xl px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-8">
+    <div className="mx-auto max-w-6xl px-2 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-8">
       {/* EXAM INFO */}
       <div className="rounded-xl sm:rounded-2xl border bg-white p-3.5 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-6">

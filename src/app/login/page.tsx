@@ -153,7 +153,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="mx-auto max-w-md mt-4 sm:mt-10 mx-3 sm:mx-auto rounded-xl sm:rounded-2xl border bg-white p-4 sm:p-8 dark:bg-zinc-900 dark:border-zinc-800">
+    <div className="mx-auto max-w-md mt-4 sm:mt-10 mx-2 sm:mx-auto rounded-xl sm:rounded-2xl border bg-white p-4 sm:p-8 dark:bg-zinc-900 dark:border-zinc-800">
       <div id="recaptcha-container" />
       <div className="flex gap-1 mb-3 sm:mb-4">
         <button onClick={() => { setTab("login"); setOtpSent(false); setErr(""); setOk(""); }} className={`flex-1 rounded-full py-2 sm:py-2 text-[11px] sm:text-xs font-medium border min-h-[34px] sm:min-h-0 ${tab === "login" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-50 dark:border-zinc-700"}`}>Нэвтрэх</button>

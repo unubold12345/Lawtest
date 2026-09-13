@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
 import { effectiveAnswer, getAllOverrides } from "@/lib/answerOverrides";
+import { readLocalSavedExams, writeLocalSavedExam, removeLocalSavedExam, type SavedExam } from "@/lib/savedExams";
 
 type Mode = "exam" | "study";
 type QuizState = "setup" | "running" | "result";
@@ -54,7 +55,7 @@ async function saveAttempt(payload: { category: string; mode: string; score: num
 
 export default function QuizClient({ questions }: { questions: Question[] }) {
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const isAuthed = !!session?.user;
   const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }), []);
   const mainCategories = useMemo(() => ([...new Set(questions.map((x) => x.category).filter(Boolean))] as string[]).sort((a, b) => collator.compare(a, b)), [questions, collator]);
@@ -108,6 +109,9 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const [optionOrder, setOptionOrder] = useState<Record<string, number[]>>({});
   const [showStudyFeedback, setShowStudyFeedback] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
+  const [pendingDeleteExam, setPendingDeleteExam] = useState<string | null>(null);
+  const [examsModalOpen, setExamsModalOpen] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0); // seconds
   const [elapsed, setElapsed] = useState(0);
@@ -115,6 +119,30 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const [examTag, setExamTag] = useState<string | null>(null);
+  const [runLabel, setRunLabel] = useState<string>("all");
+  const [savedExams, setSavedExams] = useState<Record<string, SavedExam>>({});
+
+  // load saved (paused) exams: local always, DB merge when authed
+  useEffect(() => {
+    if (state !== "setup") return;
+    const local = readLocalSavedExams();
+    setSavedExams(local);
+    if (isAuthed) {
+      fetch("/api/saved-exams")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!d?.exams) return;
+          const merged: Record<string, SavedExam> = { ...local };
+          (d.exams as Array<{ key: string; data: SavedExam; updatedAt: number }>).forEach((row) => {
+            const rec: SavedExam = { ...row.data, key: row.key, updatedAt: row.updatedAt };
+            const cur = merged[row.key];
+            if (!cur || (row.updatedAt || 0) > (cur.updatedAt || 0)) merged[row.key] = rec;
+          });
+          setSavedExams(merged);
+        })
+        .catch(() => {});
+    }
+  }, [state, isAuthed]);
 
   // text pre-filter from /browse (?q=): narrows pool to matching questions
   const applyQuery = (pool: Question[]) => {
@@ -129,27 +157,91 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subCategories]);
 
+  // saved-exam helpers — one paused exam per category key
+  const buildRecord = (): SavedExam | null => {
+    if (state !== "running" || quizQs.length === 0) return null;
+    return { key: runLabel, tag: examTag, mode, minutes, ids: quizQs.map((q) => q.id), answers, optionOrder, idx, timeLeft, elapsed, updatedAt: Date.now() };
+  };
+
+  const liveRef = useRef<SavedExam | null>(null);
+  useEffect(() => {
+    liveRef.current = buildRecord();
+  });
+
+  // keep the running exam in localStorage if the tab closes / user navigates away
+  useEffect(() => {
+    return () => { if (liveRef.current) writeLocalSavedExam(liveRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveExamNow = () => {
+    const rec = buildRecord();
+    if (!rec) return;
+    writeLocalSavedExam(rec);
+    setSavedExams((prev) => ({ ...prev, [rec.key]: rec }));
+    if (isAuthed) {
+      fetch("/api/saved-exams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: rec.key, data: rec }) }).catch(() => {});
+    }
+  };
+
+  const deleteSaved = (key: string) => {
+    removeLocalSavedExam(key);
+    setSavedExams((prev) => { if (!prev[key]) return prev; const n = { ...prev }; delete n[key]; return n; });
+    if (isAuthed) {
+      fetch("/api/saved-exams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, data: null }) }).catch(() => {});
+    }
+  };
+
+  const resume = (rec: SavedExam) => {
+    const qs = rec.ids.map((id) => questions.find((x) => x.id === id)).filter((x): x is Question => !!x);
+    if (qs.length === 0) return;
+    setMode(rec.mode);
+    setExamTag(rec.tag);
+    setRunLabel(rec.key);
+    setMinutes(rec.minutes);
+    setQuizQs(qs);
+    setAnswers(rec.answers || {});
+    setOptionOrder(rec.optionOrder || {});
+    setIdx(Math.min(rec.idx || 0, qs.length - 1));
+    setTimeLeft(rec.timeLeft || 0);
+    setElapsed(rec.elapsed || 0);
+    setShowStudyFeedback(false);
+    setConfirmExit(false);
+    setPaused(false);
+    setReviewFilter("review");
+    setExpanded({});
+    setState("running");
+    window.scrollTo({ top: 0 });
+  };
+
   const start = (o: { main?: string; sub?: string; n?: number; mins?: number; m?: Mode; tag?: string } = {}) => {
+    if (!isAuthed) return;
     const mc = o.main ?? mainCategory;
     const sc = o.sub ?? subCategory;
     const nn = o.n ?? count;
-    const mm = o.mins ?? minutes;
     if (o.m) setMode(o.m);
     setExamTag(o.tag ?? null);
+    const label = o.tag ?? (mc === "all" ? "all" : sc !== "all" ? `${mc} / ${sc}` : mc);
+    setRunLabel(label);
+    deleteSaved(label);
     let pool = questions;
     if (mc !== "all") pool = pool.filter((q) => q.category === mc);
     if (sc !== "all") pool = pool.filter((q) => q.subCategory === sc);
     pool = applyQuery(pool);
     const picked = shuffle(pool).slice(0, Math.min(nn, pool.length));
+    // 1 minute per question in exam mode; study mode is untimed
+    const dur = (o.m ?? mode) === "study" ? 0 : o.mins ?? Math.max(picked.length, 1);
     const order: Record<string, number[]> = {};
     picked.forEach((q) => { order[q.id] = shuffle(q.options.map((_, oi) => oi)); });
     setOptionOrder(order);
     setQuizQs(picked);
     setAnswers({});
     setConfirmExit(false);
+    setPaused(false);
     setSettingsOpen(false);
     setIdx(0);
-    setTimeLeft(mm * 60);
+    setMinutes(dur);
+    setTimeLeft(dur * 60);
     setElapsed(0);
     setShowStudyFeedback(false);
     setState("running");
@@ -206,7 +298,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
   // timer
   useEffect(() => {
-    if (state !== "running") return;
+    if (state !== "running" || paused) return;
     if (minutes === 0) return; // no timer
     if (timeLeft <= 0) {
       const s = quizQs.reduce((acc, q) => {
@@ -215,9 +307,9 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         if (c === null) return acc;
         return acc + (a === c ? 1 : 0);
       }, 0);
-      const catLabel = examTag ?? (mainCategory === "all" ? "all" : subCategory !== "all" ? `${mainCategory} / ${subCategory}` : mainCategory);
       // study mode never saves statistics
-      if (mode === "exam") saveAttempt({ category: catLabel, mode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
+      if (mode === "exam") saveAttempt({ category: runLabel, mode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
+      deleteSaved(runLabel);
       setReviewFilter("review");
       setExpanded({});
       setState("result");
@@ -225,19 +317,23 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     }
     const id = setInterval(() => { setTimeLeft((t) => t - 1); setElapsed((e) => e + 1); }, 1000);
     return () => clearInterval(id);
-  }, [state, timeLeft, minutes, quizQs, answers, mainCategory, subCategory, mode, isAuthed, examTag]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, timeLeft, minutes, quizQs, answers, mode, isAuthed, runLabel, paused]);
 
   // also count elapsed when no timer
   useEffect(() => {
-    if (state !== "running" || minutes !== 0) return;
+    if (state !== "running" || minutes !== 0 || paused) return;
     const id = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(id);
-  }, [state, minutes]);
+  }, [state, minutes, paused]);
 
-  // ask permission on accidental reload/close during exam
+  // ask permission on accidental reload/close during exam + autosave it
   useEffect(() => {
     if (state !== "running") return;
-    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    const h = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      if (liveRef.current) writeLocalSavedExam(liveRef.current);
+    };
     window.addEventListener("beforeunload", h);
     return () => window.removeEventListener("beforeunload", h);
   }, [state]);
@@ -285,9 +381,9 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   }, [quizQs, answers, overrides, collator]);
 
   const submit = () => {
-    const catLabel = mainCategory === "all" ? "all" : subCategory !== "all" ? `${mainCategory} / ${subCategory}` : mainCategory;
     // study mode never saves statistics
-    if (mode === "exam") saveAttempt({ category: catLabel, mode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
+    if (mode === "exam") saveAttempt({ category: runLabel, mode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
+    deleteSaved(runLabel);
     setReviewFilter("review");
     setExpanded({});
     setState("result");
@@ -307,6 +403,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     setTimeLeft(minutes * 60);
     setElapsed(0);
     setShowStudyFeedback(false);
+    setPaused(false);
     setState("running");
     window.scrollTo({ top: 0 });
   };
@@ -320,6 +417,24 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const letters = ["A", "B", "C", "D", "E"];
   const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
+  if (state === "setup" && sessionStatus === "loading") {
+    return <div className="py-24 text-center text-[13px] text-zinc-400">Ачааллаж байна…</div>;
+  }
+
+  if (state === "setup" && !isAuthed) {
+    return (
+      <div className="mx-auto max-w-md w-full px-3 sm:px-0">
+        <div className="rounded-xl sm:rounded-2xl border bg-white p-6 sm:p-8 text-center dark:bg-zinc-900 dark:border-zinc-800">
+          <h1 className="text-[16px] sm:text-lg font-semibold">Шалгалт өгөхийн тулд нэвтэрнэ үү</h1>
+          <p className="mt-1.5 text-[12px] sm:text-sm text-zinc-500">Шалгалт өгөх, дүн харах, үргэлжлүүлэх нь бүртгэлтэй хэрэглэгчид л боломжтой.</p>
+          <Link href="/login" className="mt-5 flex w-full items-center justify-center rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">
+            Нэвтрэх →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (state === "setup") {
     const pool = (() => {
       let out = questions;
@@ -328,7 +443,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       return applyQuery(out);
     })();
     const poolSize = pool.length;
-    const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${count} асуулт · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${minutes === 0 ? "Хязгааргүй" : `${minutes} мин`}`;
+    const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${count} асуулт · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
     return (
       <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0">
       <button onClick={() => setSettingsOpen(true)} className="w-full rounded-xl sm:rounded-2xl border bg-white p-3.5 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden text-left hover:border-zinc-400 transition-colors min-w-0">
@@ -357,6 +472,94 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           <Link href="/history" className="shrink-0 rounded-full bg-zinc-900 px-4 py-1.5 sm:py-2 text-[11px] sm:text-xs font-medium text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900">
             Түүх →
           </Link>
+        </div>
+      )}
+
+      {Object.keys(savedExams).length > 0 && (
+        <div className="rounded-xl sm:rounded-2xl border border-dashed bg-white p-3 sm:p-4 dark:bg-zinc-900 dark:border-zinc-700">
+          <p className="text-[11px] sm:text-xs font-medium text-zinc-500">⏸ Хадгалсан шалгалтууд</p>
+          <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2">
+            {Object.values(savedExams)
+              .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+              .slice(0, 4)
+              .map((rec) => {
+                const done = Object.keys(rec.answers || {}).length;
+                const timeTxt = rec.minutes > 0 ? fmt(Math.max(rec.timeLeft, 0)) : `⏱ ${fmt(rec.elapsed || 0)}`;
+                return (
+                  <div key={rec.key} className="rounded-lg sm:rounded-xl border bg-zinc-50 px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700 min-w-0">
+                    <div className="min-w-0">
+                      <p className="text-[12px] sm:text-sm font-medium break-words sm:truncate">{rec.tag ?? rec.key}</p>
+                      <p className="text-[10px] sm:text-xs text-zinc-500">
+                        {done}/{rec.ids.length} хариулсан · {timeTxt} · {rec.mode === "exam" ? "Шалгалт" : "Сургалт"}
+                      </p>
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <button onClick={() => resume(rec)} className="flex-1 min-w-0 rounded-full bg-zinc-900 px-2 py-1.5 text-[11px] font-medium text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 truncate">
+                        Үргэлжлүүлэх →
+                      </button>
+                      <button onClick={() => setPendingDeleteExam(rec.key)} aria-label="Устгах" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[12px] text-zinc-500 hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-700">✕</button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+          {Object.keys(savedExams).length > 4 && (
+            <button onClick={() => setExamsModalOpen(true)} className="mt-2 w-full rounded-full border py-2 text-[12px] sm:text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 min-h-[36px]">
+              +{Object.keys(savedExams).length - 4} илүү үзэх ↓
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* confirm delete saved exam */}
+      {pendingDeleteExam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button aria-label="close" onClick={() => setPendingDeleteExam(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+            <h3 className="font-semibold text-[14px] sm:text-base">Хадгалсан шалгалтыг устгах уу?</h3>
+            <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">«{savedExams[pendingDeleteExam]?.tag ?? pendingDeleteExam}» устаж, буцаах боломжгүй болно.</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setPendingDeleteExam(null)} className="rounded-full border px-5 py-2 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[36px]">Цуцлах</button>
+              <button onClick={() => { deleteSaved(pendingDeleteExam); setPendingDeleteExam(null); }} className="rounded-full bg-zinc-900 px-5 py-2 text-[13px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[36px]">Устгах</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* all saved exams modal */}
+      {examsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button aria-label="close" onClick={() => setExamsModalOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md max-h-[80vh] overflow-auto rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-semibold text-[14px] sm:text-base">⏸ Хадгалсан шалгалтууд ({Object.keys(savedExams).length})</h3>
+              <button onClick={() => setExamsModalOpen(false)} aria-label="Хаах" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[13px] text-zinc-500 dark:border-zinc-700">✕</button>
+            </div>
+            <div className="mt-3 grid gap-1.5">
+              {Object.values(savedExams)
+                .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+                .map((rec) => {
+                  const done = Object.keys(rec.answers || {}).length;
+                  const timeTxt = rec.minutes > 0 ? fmt(Math.max(rec.timeLeft, 0)) : `⏱ ${fmt(rec.elapsed || 0)}`;
+                  return (
+                    <div key={rec.key} className="rounded-lg border bg-zinc-50 px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700 min-w-0">
+                      <div className="min-w-0">
+                        <p className="text-[12px] sm:text-sm font-medium break-words">{rec.tag ?? rec.key}</p>
+                        <p className="text-[10px] sm:text-xs text-zinc-500">
+                          {done}/{rec.ids.length} хариулсан · {timeTxt} · {rec.mode === "exam" ? "Шалгалт" : "Сургалт"}
+                        </p>
+                      </div>
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <button onClick={() => { setExamsModalOpen(false); resume(rec); }} className="flex-1 min-w-0 rounded-full bg-zinc-900 px-2 py-1.5 text-[11px] font-medium text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 truncate">
+                          Үргэлжлүүлэх →
+                        </button>
+                        <button onClick={() => setPendingDeleteExam(rec.key)} aria-label="Устгах" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[12px] text-zinc-500 hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-700">✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -422,21 +625,16 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
             <label className="grid gap-1.5 sm:gap-2 min-w-0">
               <span className="text-[12px] sm:text-sm font-medium">Горим</span>
               <div className="flex gap-1.5 sm:gap-2 min-w-0">
-                <button onClick={() => { setMode("exam"); setMinutes((m) => (m === 0 ? 20 : m)); }} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${mode === "exam" ? "bg-zinc-900 text-white" : "dark:border-zinc-700"}`}>Шалгалт</button>
+                <button onClick={() => setMode("exam")} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${mode === "exam" ? "bg-zinc-900 text-white" : "dark:border-zinc-700"}`}>Шалгалт</button>
                 <button onClick={() => { setMode("study"); setMinutes(0); }} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${mode === "study" ? "bg-zinc-900 text-white" : "dark:border-zinc-700"}`}>Сургалт</button>
               </div>
             </label>
-            <label className={`grid gap-1.5 sm:gap-2 min-w-0 ${mode === "study" ? "opacity-50" : ""}`}>
+            <div className={`grid gap-1.5 sm:gap-2 min-w-0 ${mode === "study" ? "opacity-50" : ""}`}>
               <span className="text-[12px] sm:text-sm font-medium">Хугацаа</span>
-              <select value={minutes} disabled={mode === "study"} onChange={(e) => setMinutes(Number(e.target.value))} className="w-full min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px] disabled:cursor-not-allowed">
-                <option value={0}>Хязгааргүй</option>
-                <option value={10}>10 мин</option>
-                <option value={20}>20 мин</option>
-                <option value={30}>30 мин</option>
-                <option value={60}>60 мин</option>
-                <option value={200}>200 мин (үндсэн)</option>
-              </select>
-            </label>
+              <div className="w-full min-w-0 rounded-lg sm:rounded-xl border bg-zinc-50 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800/60 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px] flex items-center text-zinc-500">
+                {mode === "exam" ? `${Math.min(count, poolSize)} мин · 1 мин/асуулт` : "Хязгааргүй"}
+              </div>
+            </div>
           </div>
 
           <button onClick={() => start()} disabled={poolSize === 0} className="w-full rounded-full bg-zinc-900 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white hover:bg-zinc-800 disabled:opacity-40 dark:bg-white dark:text-zinc-900 min-h-[40px] sm:min-h-[48px]">
@@ -466,7 +664,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                       <p className="truncate px-3 pt-2 pb-0.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{m}</p>
                       {subPairs.map((p, i) => p.main === m ? (
                         <button key={i} type="button" title={`${p.sub} (${p.count})`} onClick={() => { setSubPick(String(i)); setSubDropOpen(false); }} className={`block w-full truncate px-3 py-2 text-left text-[12px] sm:text-[13px] hover:bg-zinc-100 dark:hover:bg-zinc-700 ${subPick === String(i) ? "bg-zinc-100 dark:bg-zinc-700 font-medium" : ""}`}>
-                          {p.sub} ({p.count})
+                          {savedExams[`${p.main} / ${p.sub}`] ? "⏸ " : ""}{p.sub} ({p.count})
                         </button>
                       ) : null)}
                     </div>
@@ -557,8 +755,22 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
             <div className="h-full bg-zinc-900 dark:bg-white transition-all" style={{ width: `${((idx + 1) / total) * 100}%` }} />
           </div>
           {minutes > 0 ? <span className={`text-[12px] sm:text-sm font-mono shrink-0 ${timeLeft < 60 ? "text-red-600" : ""}`}>{fmt(timeLeft)}</span> : <span title="Зарцуулсан хугацаа" className="text-[12px] sm:text-sm font-mono shrink-0">⏱ {fmt(elapsed)}</span>}
+          <button onClick={() => setPaused(true)} aria-label="Түр зогсоох" title="Түр зогсоох" className="shrink-0 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border text-[12px] sm:text-sm dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800">⏸</button>
           <button onClick={() => setConfirmExit(true)} aria-label="Шалгалт цуцлах" title="Шалгалт цуцлах" className="shrink-0 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border text-[12px] sm:text-sm dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800">✕</button>
         </div>
+
+        {/* pause overlay: hides the question while timer is stopped */}
+        {paused && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm dark:bg-zinc-950/95" />
+            <div className="relative w-full max-w-sm rounded-2xl border bg-white p-6 text-center shadow-xl dark:bg-zinc-900 dark:border-zinc-800">
+              <p className="text-3xl">⏸</p>
+              <h3 className="mt-2 font-semibold text-[15px] sm:text-lg">Түр зогссон</h3>
+              <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Хугацаа зогссон · {minutes > 0 ? fmt(timeLeft) : fmt(elapsed)}</p>
+              <button onClick={() => setPaused(false)} className="mt-4 w-full rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">Үргэлжлүүлэх ▶</button>
+            </div>
+          </div>
+        )}
 
           <div className="rounded-xl sm:rounded-2xl border bg-white p-3 sm:p-6 dark:bg-zinc-900 dark:border-zinc-800 min-w-0 overflow-hidden">
           <h2 className="text-[14px] sm:text-lg font-medium leading-snug sm:leading-relaxed break-words [overflow-wrap:anywhere] min-w-0">{current.question}</h2>
@@ -605,16 +817,16 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           </div>
         </div>
 
-        {/* confirm exit exam (no save) */}
+        {/* confirm exit exam (save & continue later) */}
         {confirmExit && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button aria-label="close" onClick={() => setConfirmExit(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
-              <h3 className="font-semibold text-[14px] sm:text-base">Шалгалтыг цуцлах уу?</h3>
-              <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Дүн хадгалагдахгүй — хариултууд устаж, тохиргоо руу буцна.</p>
+              <h3 className="font-semibold text-[14px] sm:text-base">Шалгалтыг түр зогсоох уу?</h3>
+              <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Хариултууд хадгалагдаж, явсан газраасаа үргэлжлүүлнэ.</p>
               <div className="mt-4 flex justify-end gap-2">
                 <button onClick={() => setConfirmExit(false)} className="rounded-full border px-5 py-2 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[36px]">Үргэлжлүүлэх</button>
-                <button onClick={() => { setConfirmExit(false); setShowStudyFeedback(false); setState("setup"); }} className="rounded-full bg-red-600 px-5 py-2 text-[13px] sm:text-sm font-medium text-white min-h-[36px]">Цуцлах</button>
+                <button onClick={() => { saveExamNow(); setConfirmExit(false); setShowStudyFeedback(false); setState("setup"); }} className="rounded-full bg-zinc-900 px-5 py-2 text-[13px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[36px]">Хадгалах</button>
               </div>
             </div>
           </div>

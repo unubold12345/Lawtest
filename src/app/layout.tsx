@@ -35,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SessionProvider>
           <Header />
           <main className="flex-1 w-full min-w-0 overflow-x-hidden">{children}</main>
-          <footer className="border-t py-4 sm:py-6 text-center text-xs text-zinc-500 dark:border-zinc-800 px-4">
+          <footer className="border-t py-4 sm:py-6 text-center text-xs text-zinc-500 dark:border-zinc-800 px-2">
             Lexlab · {questions.length} асуулт · data/ файлуудаас
           </footer>
         </SessionProvider>
