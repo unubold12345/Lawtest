@@ -61,9 +61,6 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
         {busy ? "Илгээж байна…" : "Төлбөр төлсөн — эрх нээх хүсэлт илгээх"}
       </button>
       {err && <p className="mt-2 text-center text-[12px] sm:text-sm text-red-600">{err}</p>}
-      <p className="mt-2 text-center text-[11px] sm:text-xs text-zinc-500">
-        Аль хэдийн төлсөн бол <Link href="/login" className="underline">нэвтэрч орж</Link> хүсэлтээ илгээнэ үү.
-      </p>
     </div>
   );
 }

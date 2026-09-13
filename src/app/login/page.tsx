@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
@@ -32,6 +32,11 @@ export default function LoginPage() {
   const [fbSentTo, setFbSentTo] = useState<string | null>(null);
   const verifierRef = useRef<RecaptchaVerifier | null>(null);
 
+  // Already logged in → bounce straight home, no flash of the form.
+  useEffect(() => {
+    if (session?.user) router.replace("/");
+  }, [session, router]);
+
   // Switching views starts with empty inputs — typed text must not leak
   // into the other form (shared phone/password state).
   const switchView = (v: "login" | "register" | "recover") => {
@@ -49,12 +54,7 @@ export default function LoginPage() {
   };
 
   if (session?.user) {
-    return (
-      <div className="mx-auto max-w-md mt-6 sm:mt-10 mx-4 sm:mx-auto rounded-2xl border bg-white p-6 sm:p-8 text-center dark:bg-zinc-900 dark:border-zinc-800">
-        <p className="text-sm sm:text-base break-words">Нэвтэрсэн: <b>{session.user.name || session.user.email}</b> ({session.user.email})</p>
-        <button onClick={() => router.push("/")} className="mt-4 rounded-full bg-zinc-900 px-6 py-3 sm:py-2 text-sm text-white dark:bg-white dark:text-zinc-900 min-h-[44px]">Нүүр рүү</button>
-      </div>
-    );
+    return null;
   }
 
   const startCooldown = () => {

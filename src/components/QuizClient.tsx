@@ -244,6 +244,11 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       setPaywallNote(true);
       return;
     }
+    // main exam is paid-only for unpaid users
+    if (!fullAccess && o.tag === "Үндсэн шалгалт") {
+      setPaywallNote(true);
+      return;
+    }
     const nn = o.n ?? count;
     if (o.m) setMode(o.m);
     setExamTag(o.tag ?? null);
@@ -472,12 +477,13 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
     return (
       <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0">
-      <button onClick={() => setSettingsOpen(true)} className="w-full rounded-xl sm:rounded-2xl border bg-white p-3.5 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden text-left hover:border-zinc-400 transition-colors min-w-0">
+      <button onClick={() => (fullAccess ? setSettingsOpen(true) : setPaywallNote(true))} className="w-full rounded-xl sm:rounded-2xl border bg-white p-3.5 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden text-left hover:border-zinc-400 transition-colors min-w-0">
         <div className="flex items-center justify-between gap-2 min-w-0">
-          <span className="font-semibold text-[14px] sm:text-base truncate">⚙ Шалгалт тохиргоо</span>
+          <span className="font-semibold text-[14px] sm:text-base truncate">{fullAccess ? "⚙" : "🔒"} Шалгалт тохиргоо</span>
           <span className="text-[11px] sm:text-xs text-zinc-500 shrink-0">Өөрчлөх →</span>
         </div>
         <p className="mt-1 text-[11px] sm:text-sm text-zinc-500 break-words leading-snug">{settingsSummary}</p>
+        {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Тохиргоо өөрчлөх нь Эрх авах төлөвлөгөөнд багтдаг — үнэгүй эрхээр дэд ангиллаар шалгалт өгнө.</p>}
       </button>
       {query.trim() && (
         <div className="flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl border border-dashed bg-white px-3.5 py-2.5 sm:px-5 sm:py-3 dark:bg-zinc-900 dark:border-zinc-700">
@@ -544,12 +550,12 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
             <p className="text-3xl">🔒</p>
             <h3 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй эрх шаардлагатай</h3>
-            <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Бусад ангиллаар шалгалт өгөх, хадгалах нь 40,000₮-ийн бүтэн эрхэд багтдаг.</p>
-            <Link href="/plan" className="mt-4 flex w-full items-center justify-center rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах →</Link>
-            <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border py-2.5 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[40px]">Хаах</button>
+              <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Үндсэн шалгалт, шалгалт тохиргоо, бусад ангилал болон хадгалах нь 40,000₮-ийн бүтэн эрхэд багтдаг.</p>
+              <Link href="/plan" className="mt-4 flex w-full items-center justify-center rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах →</Link>
+              <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border py-2.5 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[40px]">Хаах</button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* confirm delete saved exam */}
       {pendingDeleteExam && (
@@ -604,7 +610,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0 items-start">
-      {settingsOpen && (
+      {settingsOpen && fullAccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           <button aria-label="close" onClick={() => setSettingsOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
           <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl sm:rounded-2xl bg-white p-4 sm:p-8 shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
@@ -766,7 +772,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       <div className="w-full min-w-0 rounded-xl sm:rounded-2xl bg-zinc-950 border border-zinc-800 p-4 sm:p-8 text-white dark:bg-zinc-900 dark:border-zinc-700 overflow-hidden">
         <h2 className="text-[14px] sm:text-xl font-semibold break-words">Үндсэн шалгалт</h2>
         <p className="mt-1 text-[11px] sm:text-sm leading-snug text-zinc-300">Бодит шалгалтын форматаар — бүх сангаас 200 сорилго, 200 минут, шалгалтын горим. Үсэг нуугдаж, хариултууд холигдоно.</p>
-        {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Эрхгүй үед зөвхөн {FREE_CATEGORY} ангиллаас бүрдэнэ.</p>}
+        {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Үндсэн шалгалт нь Эрх авах төлөвлөгөөнд багтдаг.</p>}
         <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-1.5 sm:gap-2 text-center">
           <div className="rounded-lg bg-white/10 p-2 sm:p-3">
             <p className="text-[16px] sm:text-2xl font-bold leading-none">200</p>
@@ -784,13 +790,22 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         {mainExamStats.n > 0 && mainExamStats.best && mainExamStats.last && (
           <p className="mt-2 text-center text-[11px] sm:text-xs text-zinc-300">Оролдлого: {mainExamStats.n} · Шилдэг: {mainExamStats.best.score}/{mainExamStats.best.total} · Сүүлд: {mainExamStats.last.score}/{mainExamStats.last.total}</p>
         )}
-        <button
-          onClick={() => { setMainCategory("all"); setSubCategory("all"); setCount(200); setCustomCount(""); setMinutes(200); start({ main: "all", sub: "all", n: 200, mins: 200, m: "exam", tag: "Үндсэн шалгалт" }); }}
-          disabled={questions.length === 0}
-          className="mt-3 sm:mt-4 w-full rounded-full bg-white py-2.5 sm:py-3 font-semibold text-[13px] sm:text-base text-zinc-900 hover:bg-zinc-100 disabled:opacity-40 min-h-[40px] sm:min-h-[48px]"
-        >
-          Үндсэн шалгалт эхлэх
-        </button>
+        {!fullAccess ? (
+          <button
+            onClick={() => setPaywallNote(true)}
+            className="mt-3 sm:mt-4 w-full rounded-full bg-white py-2.5 sm:py-3 font-semibold text-[13px] sm:text-base text-zinc-900 hover:bg-zinc-100 disabled:opacity-40 min-h-[40px] sm:min-h-[48px]"
+          >
+            🔒 Үндсэн шалгалт эхлэх
+          </button>
+        ) : (
+          <button
+            onClick={() => { setMainCategory("all"); setSubCategory("all"); setCount(200); setCustomCount(""); setMinutes(200); start({ main: "all", sub: "all", n: 200, mins: 200, m: "exam", tag: "Үндсэн шалгалт" }); }}
+            disabled={questions.length === 0}
+            className="mt-3 sm:mt-4 w-full rounded-full bg-white py-2.5 sm:py-3 font-semibold text-[13px] sm:text-base text-zinc-900 hover:bg-zinc-100 disabled:opacity-40 min-h-[40px] sm:min-h-[48px]"
+          >
+            Үндсэн шалгалт эхлэх
+          </button>
+        )}
       </div>
       </div>
       </div>
