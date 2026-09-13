@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
+import BrandMark from "@/components/BrandMark";
 
 export default function Header() {
   const { data: session, update } = useSession();
@@ -51,7 +52,7 @@ export default function Header() {
             <span className="text-[15px] leading-none">☰</span>
           </button>
           <Link href="/" className="hidden sm:flex items-center gap-1.5 shrink-0" aria-label="Lexlab нүүр">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-[13px] font-bold leading-none text-white dark:bg-white dark:text-zinc-900">§</span>
+            <BrandMark />
             <span className="text-[15px] sm:text-lg font-extrabold tracking-tighter">
               Lex<span className="font-medium">lab</span>
             </span>
@@ -65,7 +66,7 @@ export default function Header() {
           </nav>
         </div>
         <Link href="/" className="sm:hidden absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5" aria-label="Lexlab нүүр">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-[13px] font-bold leading-none text-white dark:bg-white dark:text-zinc-900">§</span>
+          <BrandMark />
           <span className="text-[15px] font-extrabold tracking-tighter">
             Lex<span className="font-medium">lab</span>
           </span>
@@ -99,7 +100,7 @@ export default function Header() {
       >
         <div className="flex items-center justify-between px-4 py-3 border-b dark:border-zinc-800">
           <span className="flex items-center gap-1.5 font-extrabold tracking-tighter">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-[13px] font-bold leading-none text-white dark:bg-white dark:text-zinc-900">§</span>
+            <BrandMark />
             Lex<span className="font-medium">lab</span>
           </span>
           <button
