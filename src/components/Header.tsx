@@ -61,6 +61,7 @@ export default function Header() {
             <Link href="/browse" className={linkCls("/browse")}>Бүх сорилго</Link>
             <Link href="/quiz" className={linkCls("/quiz")}>Шалгалт</Link>
             <Link href="/history" className={linkCls("/history")}>Түүх</Link>
+            <Link href="/calendar" className={linkCls("/calendar")}>Календар</Link>
             {user?.hasPaid !== true && <Link href="/plan" className={linkCls("/plan")}>Эрх авах</Link>}
             {isAdmin && <Link href="/admin" className={linkCls("/admin")}>Админ</Link>}
           </nav>
@@ -117,6 +118,7 @@ export default function Header() {
             { href: "/browse", label: "Бүх сорилго" },
             { href: "/quiz", label: "Шалгалт" },
             { href: "/history", label: "Түүх" },
+            { href: "/calendar", label: "Календар" },
             ...(user?.hasPaid === true ? [] : [{ href: "/plan", label: "Эрх авах" }]),
             ...(isAdmin ? [{ href: "/admin", label: "Админ" }] : []),
           ].map((l) => (

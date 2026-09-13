@@ -133,6 +133,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const [examTag, setExamTag] = useState<string | null>(null);
   const [runLabel, setRunLabel] = useState<string>("all");
   const [savedExams, setSavedExams] = useState<Record<string, SavedExam>>({});
+  const [mistakes, setMistakes] = useState<Record<string, { wrongCount: number; manual: boolean }>>({});
+  const [mistakesOpen, setMistakesOpen] = useState(false);
 
   // load saved (paused) exams: local always, DB merge when authed
   useEffect(() => {
@@ -155,6 +157,56 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         .catch(() => {});
     }
   }, [state, isAuthed]);
+
+  // mistakes (Их алддаг сорилгууд): wrongCount>=2 or manually added shows in section
+  useEffect(() => {
+    if (!isAuthed) { setMistakes({}); return; }
+    fetch("/api/mistakes")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d?.mistakes) return;
+        const m: Record<string, { wrongCount: number; manual: boolean }> = {};
+        (d.mistakes as Array<{ questionId: string; wrongCount: number; manual: boolean }>).forEach((row) => {
+          m[row.questionId] = { wrongCount: row.wrongCount, manual: row.manual };
+        });
+        setMistakes(m);
+      })
+      .catch(() => {});
+  }, [isAuthed]);
+
+  const mistakeList = useMemo(() => Object.entries(mistakes)
+    .filter(([, v]) => v.wrongCount >= 2 || v.manual)
+    .map(([id, v]) => ({ id, q: questions.find((x) => x.id === id) ?? null, wrongCount: v.wrongCount, manual: v.manual }))
+    .filter((e): e is { id: string; q: Question; wrongCount: number; manual: boolean } => !!e.q),
+  [mistakes, questions]);
+
+  const recordMistakes = (ids: string[]) => {
+    if (!isAuthed || ids.length === 0) return;
+    fetch("/api/mistakes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d?.mistakes) return;
+        setMistakes((prev) => {
+          const n = { ...prev };
+          (d.mistakes as Array<{ questionId: string; wrongCount: number; manual: boolean }>).forEach((row) => {
+            n[row.questionId] = { wrongCount: row.wrongCount, manual: row.manual };
+          });
+          return n;
+        });
+      })
+      .catch(() => {});
+  };
+
+  const addManualMistake = (id: string) => {
+    if (!isAuthed) return;
+    setMistakes((prev) => ({ ...prev, [id]: { wrongCount: prev[id]?.wrongCount ?? 0, manual: true } }));
+    fetch("/api/mistakes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ questionId: id, manual: true }) }).catch(() => {});
+  };
+
+  const deleteMistake = (id: string) => {
+    setMistakes((prev) => { if (!prev[id]) return prev; const n = { ...prev }; delete n[id]; return n; });
+    if (isAuthed) fetch(`/api/mistakes?questionId=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+  };
 
   // text pre-filter from /browse (?q=): narrows pool to matching questions
   const applyQuery = (pool: Question[]) => {
@@ -235,17 +287,17 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     window.scrollTo({ top: 0 });
   };
 
-  const start = (o: { main?: string; sub?: string; n?: number; mins?: number; m?: Mode; tag?: string } = {}) => {
+  const start = (o: { main?: string; sub?: string; n?: number; mins?: number; m?: Mode; tag?: string; ids?: string[] } = {}) => {
     if (!isAuthed) return;
     const mc = o.main ?? mainCategory;
     const sc = o.sub ?? subCategory;
     // paid categories are locked for unpaid users
-    if (!fullAccess && mc !== "all" && mc !== FREE_CATEGORY) {
+    if (!o.ids && !fullAccess && mc !== "all" && mc !== FREE_CATEGORY) {
       setPaywallNote(true);
       return;
     }
     // main exam is paid-only for unpaid users
-    if (!fullAccess && o.tag === "Үндсэн шалгалт") {
+    if (!o.ids && !fullAccess && o.tag === "Үндсэн шалгалт") {
       setPaywallNote(true);
       return;
     }
@@ -254,11 +306,22 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     setExamTag(o.tag ?? null);
     const label = o.tag ?? (mc === "all" ? "all" : sc !== "all" ? `${mc} / ${sc}` : mc);
     setRunLabel(label);
-    deleteSaved(label);
     let pool = poolBase;
-    if (mc !== "all") pool = pool.filter((q) => q.category === mc);
-    if (sc !== "all") pool = pool.filter((q) => q.subCategory === sc);
-    pool = applyQuery(pool);
+    if (o.ids) {
+      // explicit question set (Их алддаг exam) — unpaid users keep free-category only
+      const set = new Set(o.ids);
+      pool = questions.filter((q) => set.has(q.id));
+      if (!fullAccess) pool = pool.filter((q) => q.category === FREE_CATEGORY);
+      if (pool.length === 0) {
+        if (!fullAccess) setPaywallNote(true);
+        return;
+      }
+    } else {
+      if (mc !== "all") pool = pool.filter((q) => q.category === mc);
+      if (sc !== "all") pool = pool.filter((q) => q.subCategory === sc);
+      pool = applyQuery(pool);
+    }
+    deleteSaved(label);
     const picked = shuffle(pool).slice(0, Math.min(nn, pool.length));
     // 1 minute per question in exam mode; study mode is untimed
     const dur = (o.m ?? mode) === "study" ? 0 : o.mins ?? Math.max(picked.length, 1);
@@ -276,6 +339,13 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     setElapsed(0);
     setShowStudyFeedback(false);
     setState("running");
+  };
+
+  // exam with only the mistake-section questions
+  const startMistakeExam = () => {
+    const ids = mistakeList.map((m) => m.id);
+    if (ids.length === 0) return;
+    start({ tag: "Их алддаг", ids, n: ids.length, m: "exam", mins: ids.length });
   };
 
   // subcategory-only section: load saved attempts (DB if authed + local guest history)
@@ -327,6 +397,14 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     return { n: list.length, best, avg: Math.round((sum / list.length) * 100), last: list[0] as { score: number; total: number } };
   }, [histAttempts]);
 
+  // questions answered wrong in the current run (known answer only) — for mistake tracking
+  const examWrongIds = () =>
+    quizQs.filter((q) => {
+      const a = answers[q.id];
+      const c = effectiveAnswer(q, overrides);
+      return c !== null && a !== undefined && a !== c;
+    }).map((q) => q.id);
+
   // timer
   useEffect(() => {
     if (state !== "running" || paused) return;
@@ -340,6 +418,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       }, 0);
       // study mode never saves statistics
       if (mode === "exam") saveAttempt({ category: runLabel, mode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
+      if (mode === "exam") recordMistakes(examWrongIds());
       deleteSaved(runLabel);
       setReviewFilter("review");
       setExpanded({});
@@ -414,6 +493,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const submit = () => {
     // study mode never saves statistics
     if (mode === "exam") saveAttempt({ category: runLabel, mode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
+    if (mode === "exam") recordMistakes(examWrongIds());
     deleteSaved(runLabel);
     setReviewFilter("review");
     setExpanded({});
@@ -769,6 +849,43 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         ))}
       </div>
 
+      {/* Их алддаг сорилгууд — always visible on setup; collapsed, questions hidden until tapped */}
+      {mistakeList.length > 0 ? (
+        <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border bg-white dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden">
+          <button onClick={() => setMistakesOpen((o) => !o)} className="w-full flex items-center justify-between gap-2 p-3.5 sm:p-5 text-left min-w-0 min-h-[48px]">
+            <span className="font-semibold text-[14px] sm:text-base truncate">Их алддаг сорилгууд · {mistakeList.length}</span>
+            <span className="shrink-0 text-[11px] sm:text-xs text-zinc-500">{mistakesOpen ? "Нуух ▾" : "Сорилгуудыг харах ▸"}</span>
+          </button>
+          {mistakesOpen && (
+            <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+              <button onClick={startMistakeExam} className="w-full rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">
+                Эдгээрээр шалгалт өгөх →
+              </button>
+              <div className="mt-2 grid gap-1.5">
+                {mistakeList.map(({ id, q, wrongCount, manual }) => (
+                  <div key={id} className="flex items-center gap-2 rounded-lg border bg-zinc-50 px-2.5 py-2 dark:bg-zinc-800 dark:border-zinc-700 min-w-0">
+                    <p className="flex-1 min-w-0 text-[12px] sm:text-sm leading-snug break-words line-clamp-2">{q.question}</p>
+                    <span className="shrink-0 rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
+                      {wrongCount > 0 ? `✗ ${wrongCount}` : "гараар"}
+                    </span>
+                    <button onClick={() => deleteMistake(id)} aria-label="Устгах" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[12px] text-zinc-500 hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-700">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border bg-white dark:bg-zinc-900 dark:border-zinc-800 p-3.5 sm:p-5">
+          <p className="font-semibold text-[14px] sm:text-base">Их алддаг сорилгууд</p>
+          <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">
+            {isAuthed
+              ? "Хоёр ба түүнээс дээш удаа алдсан сорилго энд гарна."
+              : "Нэвтэрч орвол алдсан сорилгууд чинь энд цугларна."}
+          </p>
+        </div>
+      )}
+
       <div className="w-full min-w-0 rounded-xl sm:rounded-2xl bg-zinc-950 border border-zinc-800 p-4 sm:p-8 text-white dark:bg-zinc-900 dark:border-zinc-700 overflow-hidden">
         <h2 className="text-[14px] sm:text-xl font-semibold break-words">Үндсэн шалгалт</h2>
         <p className="mt-1 text-[11px] sm:text-sm leading-snug text-zinc-300">Бодит шалгалтын форматаар — бүх сангаас 200 сорилго, 200 минут, шалгалтын горим. Үсэг нуугдаж, хариултууд холигдоно.</p>
@@ -887,7 +1004,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           </div>
         </div>
 
-        {/* paywall notice (paid category / paid save action) */}
+      {/* paywall notice (paid category / paid save action) */}
         {paywallNote && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button aria-label="close" onClick={() => setPaywallNote(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
@@ -1049,6 +1166,11 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                       </div>
                     ))}
                   </div>
+                  {isAuthed && (st === "wrong" || st === "unanswered") && (
+                    mistakes[q.id] && (mistakes[q.id].wrongCount >= 2 || mistakes[q.id].manual)
+                      ? <p className="mt-2 text-[11px] sm:text-xs text-zinc-500">✓ Их алддагт нэмэгдсэн{mistakes[q.id].wrongCount > 0 ? ` · ✗ ${mistakes[q.id].wrongCount}` : ""}</p>
+                      : <button onClick={() => addManualMistake(q.id)} className="mt-2 rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 min-h-[36px]">+ Их алддагт нэмэх</button>
+                  )}
                   {unknown && <p className="mt-1.5 text-[11px] sm:text-xs text-zinc-500 break-words">Зөв хариулт хараахан тодорхойгүй — Browse дээр A–D сонгоод хадгална уу.</p>}
                 </div>
               )}

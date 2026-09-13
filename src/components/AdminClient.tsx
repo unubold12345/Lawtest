@@ -2,10 +2,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-type NoAnswerRow = { id: string; file: string; category: string; subCategory: string; question: string; optionsCount: number; answer: number | null; reason: string };
+type ErrorRow = { id: string; file: string; category: string; subCategory: string; question: string; optionsCount: number; answer: number | null; reason: string };
 
 type Stats = {
-  questions: { total: number; byMain: Record<string, number>; sources: { file: string; count: number }[]; noAnswer: NoAnswerRow[] };
+  questions: { total: number; byMain: Record<string, number>; sources: { file: string; count: number }[]; errors: ErrorRow[] };
   users: number;
   attempts: number;
   comments: number;
@@ -249,20 +249,37 @@ export default function AdminClient() {
 
       {tab === "questions" && stats && (
         <div className="mt-4 grid gap-4">
-        {(stats.questions.noAnswer?.length || 0) > 0 && (
+        {(stats.questions.errors?.length || 0) > 0 && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 sm:p-5 dark:bg-red-950/20 dark:border-red-900">
-            <h3 className="font-semibold text-sm text-red-800 dark:text-red-200">Хариултгүй / буруу хариулттай сорилго ({stats.questions.noAnswer.length})</h3>
-            <p className="mt-1 text-xs text-red-600 dark:text-red-300">Эдгээр нь шалгалтад оноо өгөхгүй — JSON файл дээр нь засаарай.</p>
+            <h3 className="font-semibold text-sm text-red-800 dark:text-red-200">Алдаатай сорилго ({stats.questions.errors.length})</h3>
+            <p className="mt-1 text-xs text-red-600 dark:text-red-300">Хариулт хоосон/буруу эсвэл 4-өөс өөр сонголттой — JSON файл дээр нь засаарай. Файл тус бүрээр бүлэглэв.</p>
             <div className="mt-3 space-y-2">
-              {stats.questions.noAnswer.map((r) => (
-                <div key={`${r.file}::${r.id}`} className="rounded-xl border border-red-200 bg-white p-3 dark:bg-zinc-900 dark:border-red-900">
-                  <div className="flex flex-wrap items-center justify-between gap-1.5">
-                    <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-medium text-white">{r.reason}</span>
-                    <span className="font-mono text-[10px] text-zinc-500">{r.id} · {r.optionsCount} сонголт</span>
+              {Object.entries(
+                stats.questions.errors.reduce<Record<string, ErrorRow[]>>((m, r) => {
+                  (m[r.file] = m[r.file] || []).push(r);
+                  return m;
+                }, {})
+              )
+                .sort(([a], [b]) => collator.compare(a, b))
+                .map(([file, rows]) => (
+                <details key={file} className="overflow-hidden rounded-xl border border-red-200 bg-white dark:bg-zinc-900 dark:border-red-900">
+                  <summary className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2.5 text-sm min-h-[44px]">
+                    <span className="break-all font-medium">{file}</span>
+                    <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-medium text-white">{rows.length}</span>
+                  </summary>
+                  <div className="space-y-2 border-t border-red-100 p-3 dark:border-red-900">
+                    {rows.map((r) => (
+                      <div key={`${r.file}::${r.id}`}>
+                        <div className="flex flex-wrap items-center justify-between gap-1.5">
+                          <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-medium text-white">{r.reason}</span>
+                          <span className="font-mono text-[10px] text-zinc-500">{r.id} · {r.optionsCount} сонголт</span>
+                        </div>
+                        <p className="mt-1.5 text-[13px] font-medium leading-snug break-words">{r.question}</p>
+                        {r.subCategory ? <p className="mt-1 text-[11px] text-zinc-500 break-all">{r.subCategory}</p> : null}
+                      </div>
+                    ))}
                   </div>
-                  <p className="mt-1.5 text-[13px] font-medium leading-snug break-words">{r.question}</p>
-                  <p className="mt-1 text-[11px] text-zinc-500 break-all">{r.file}{r.subCategory ? ` · ${r.subCategory}` : ""}</p>
-                </div>
+                </details>
               ))}
             </div>
           </div>

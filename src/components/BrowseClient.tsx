@@ -7,12 +7,13 @@ import type { Question } from "@/types/question";
 import { fileHasAnswer } from "@/lib/answerOverrides";
 import { FREE_CATEGORY } from "@/lib/access";
 import QuestionDiscussion from "@/components/QuestionDiscussion";
+import QuestionNote from "@/components/QuestionNote";
 import QuestionReport from "@/components/QuestionReport";
 
 const PAGE_SIZE = 20;
 const LETTERS = ["A", "B", "C", "D", "E"];
 
-type Status = "all" | "answered" | "unanswered" | "mine";
+type Status = "all" | "answered" | "unanswered" | "mine" | "noted";
 
 export default function BrowseClient({ questions }: { questions: Question[] }) {
   const searchParams = useSearchParams();
@@ -33,6 +34,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
   const [myDb, setMyDb] = useState<Record<string, number>>({});
+  const [notedIds, setNotedIds] = useState<Set<string>>(new Set());
   const [counts, setCounts] = useState<Record<string, number[]>>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [flash, setFlash] = useState<Record<string, string>>({});
@@ -81,6 +83,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     if (fileHasAnswer(item)) return false;
     return isAuthed && typeof myDb[item.id] === "number";
   };
+  const notedOf = (item: Question): boolean => isAuthed && notedIds.has(item.id);
   const statusOf = (item: Question): "answered" | "unanswered" | "mine" =>
     mineOf(item) ? "mine" : effOf(item) === null ? "unanswered" : "answered";
 
@@ -103,23 +106,25 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   }, [questions, q, mainCategory, subCategory, fullAccess]);
 
   const statusCounts = useMemo(() => {
-    let answered = 0, unanswered = 0, mine = 0;
+    let answered = 0, unanswered = 0, mine = 0, noted = 0;
     filteredBase.forEach((x) => {
       const s = statusOf(x);
       if (s === "mine") mine++;
       else if (s === "answered") answered++;
       else unanswered++;
+      if (notedOf(x)) noted++;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    return { answered, unanswered, mine, total: filteredBase.length };
+    return { answered, unanswered, mine, noted, total: filteredBase.length };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredBase, myDb, isAuthed]);
+  }, [filteredBase, myDb, notedIds, isAuthed]);
 
   const filtered = useMemo(() => {
     if (status === "all") return filteredBase;
+    if (status === "noted") return filteredBase.filter((x) => notedOf(x));
     return filteredBase.filter((x) => statusOf(x) === status);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredBase, status, myDb, isAuthed]);
+  }, [filteredBase, status, myDb, notedIds, isAuthed]);
 
   const readyPct = statusCounts.total === 0 ? 0 : Math.round(((statusCounts.answered + statusCounts.mine) / statusCounts.total) * 100);
 
@@ -140,6 +145,15 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paged.map((x) => x.id).join(",")]);
+
+  // fetch all my noted question ids once (for the Тэмдэглэлтэй filter + badges)
+  useEffect(() => {
+    if (!isAuthed) { setNotedIds(new Set()); return; }
+    fetch("/api/notes")
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d.ids)) setNotedIds(new Set(d.ids as string[])); })
+      .catch(() => {});
+  }, [isAuthed]);
 
   const onSearch = (v: string) => { setQ(v); setPage(1); };
   const onMain = (v: string) => { setMainCategory(v); setSubCategory("all"); setPage(1); };
@@ -239,6 +253,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     { id: "answered", label: "● Хариулттай", n: statusCounts.answered + statusCounts.mine },
     { id: "unanswered", label: "○ Хариултгүй", n: statusCounts.unanswered },
     { id: "mine", label: "✓ Минийх", n: statusCounts.mine },
+    ...(isAuthed ? [{ id: "noted" as Status, label: "✎ Тэмдэглэлтэй", n: statusCounts.noted }] : []),
   ];
 
   return (
@@ -352,7 +367,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                 <span className={`shrink-0 pt-0.5 text-[13px] sm:text-sm ${st === "unanswered" ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-900 dark:text-white"} ${st === "mine" ? "font-bold" : ""}`}>{mark}</span>
                 <span className="min-w-0 flex-1">
                   <span className={`block leading-snug break-words ${isOpen ? "text-[13px] sm:text-[15px] font-medium" : "text-[12px] sm:text-sm line-clamp-2"}`}>{item.question}</span>
-                  <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] text-zinc-400">{item.category}{item.subCategory ? ` · ${item.subCategory}` : ""}{!locked && eff !== null ? ` · ${LETTERS[eff]}` : ""}</span>
+                  <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] text-zinc-400">{item.category}{item.subCategory ? ` · ${item.subCategory}` : ""}{!locked && eff !== null ? ` · ${LETTERS[eff]}` : ""}{!locked && notedIds.has(item.id) ? " · ✎" : ""}</span>
                 </span>
                 <span className="shrink-0 pt-1 text-[10px] text-zinc-400">{isOpen ? "▴" : "▾"}</span>
               </button>
@@ -446,9 +461,13 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                     </div>
                   )}
 
-                  {!locked && <QuestionDiscussion questionId={item.id} />}
-
-                  <div className="mt-2.5">
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {!locked && <QuestionDiscussion questionId={item.id} />}
+                    <QuestionNote
+                      questionId={item.id}
+                      initialHas={notedIds.has(item.id)}
+                      onChange={(id, has) => setNotedIds((prev) => { const n = new Set(prev); if (has) n.add(id); else n.delete(id); return n; })}
+                    />
                     <QuestionReport questionId={item.id} />
                   </div>
                 </div>

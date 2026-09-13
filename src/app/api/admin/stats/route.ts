@@ -26,18 +26,20 @@ export async function GET() {
   const recentAttempts = await prisma.attempt.findMany({ orderBy: { createdAt: "desc" }, take: 5, include: { user: { select: { phone: true, email: true } } } });
 
   const letters = ["A", "B", "C", "D", "E"];
-  const noAnswer = questions
-    .filter((q) => {
-      const a = Array.isArray(q.answer) ? q.answer[0] : q.answer;
-      return !Number.isInteger(a) || (a as number) < 0 || (a as number) >= q.options.length;
-    })
+  const errors = questions
     .map((q) => {
       const a = Array.isArray(q.answer) ? q.answer[0] : q.answer;
       const n = q.options.length;
-      const reason =
-        a === null || a === undefined
-          ? "Хариулт хоосон"
-          : `Хариулт (${typeof a === "number" && a < letters.length ? letters[a] : a}) сонголтоос хэтэрсэн — ${n} сонголттой`;
+      const reasons: string[] = [];
+      if (a === null || a === undefined) {
+        reasons.push("Хариулт хоосон");
+      } else if (!Number.isInteger(a) || (a as number) < 0 || (a as number) >= n) {
+        reasons.push(
+          `Хариулт (${typeof a === "number" && a < letters.length ? letters[a] : a}) сонголтоос хэтэрсэн — ${n} сонголттой`
+        );
+      }
+      if (n !== 4) reasons.push(`${n} сонголттой — 4 байх ёстой`);
+      if (reasons.length === 0) return null;
       return {
         id: q.id,
         file: (q as { source?: string }).source || "",
@@ -46,12 +48,13 @@ export async function GET() {
         question: q.question.length > 200 ? q.question.slice(0, 200) + "…" : q.question,
         optionsCount: n,
         answer: a ?? null,
-        reason,
+        reason: reasons.join(" · "),
       };
-    });
+    })
+    .filter((r) => r !== null);
 
   return NextResponse.json({
-    questions: { total: questions.length, byMain: Object.fromEntries(byMain), sources, noAnswer },
+    questions: { total: questions.length, byMain: Object.fromEntries(byMain), sources, errors },
     users,
     attempts,
     comments,

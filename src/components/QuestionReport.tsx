@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 
@@ -19,6 +19,18 @@ export default function QuestionReport({ questionId }: { questionId: string }) {
   const [sending, setSending] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
   const send = async () => {
     if (message.trim().length < 3 || sending) return;
@@ -53,57 +65,64 @@ export default function QuestionReport({ questionId }: { questionId: string }) {
 
   if (done) {
     return (
-      <div className="rounded-lg border border-dashed p-2.5 sm:p-3 dark:border-zinc-700">
-        <p className="text-[12px] sm:text-sm font-medium">✓ Мэдээлэл админд илгээгдлээ — баярлалаа.</p>
-        <button onClick={() => setOpen(false)} className="mt-1 text-[11px] sm:text-xs underline text-zinc-500">Хаах</button>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Алдаа мэдээлэх">
+        <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
+        <div className="relative w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl sm:p-5 dark:bg-zinc-900 dark:border dark:border-zinc-700">
+          <p className="text-sm sm:text-base font-semibold">✓ Мэдээлэл админд илгээгдлээ — баярлалаа.</p>
+          <button onClick={() => setOpen(false)} className="mt-3 rounded-full border px-5 py-2 text-[12px] sm:text-sm font-medium dark:border-zinc-700 min-h-[36px]">Хаах</button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-dashed p-2.5 sm:p-3 dark:border-zinc-700">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[12px] sm:text-sm font-medium">⚑ Админд мэдээлэх</p>
-        <button onClick={() => setOpen(false)} aria-label="Хаах" className="inline-flex h-7 w-7 items-center justify-center rounded-full border text-[12px] dark:border-zinc-700">✕</button>
-      </div>
-      {!isAuthed ? (
-        <p className="mt-2 text-[12px] sm:text-sm text-zinc-500">
-          Мэдээлэхийн тулд <Link href="/login" className="underline font-medium text-zinc-900 dark:text-white">нэвтэрнэ үү</Link>.
-        </p>
-      ) : (
-        <div className="mt-2 grid gap-2">
-          <div className="flex flex-wrap gap-1.5">
-            {TYPES.map(([v, label]) => (
-              <button
-                key={v}
-                onClick={() => setType(v)}
-                className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs min-h-[32px] ${type === v ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Яг юу нь буруу вэ? (жишээ: зөв хариулт нь B байх ёстой…)"
-            rows={2}
-            maxLength={1000}
-            className="w-full rounded-lg border px-3 py-2 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700"
-          />
-          {err && <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-zinc-400">{err}</p>}
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] text-zinc-400">{message.length}/1000</span>
-            <button
-              onClick={send}
-              disabled={sending || message.trim().length < 3}
-              className="rounded-full bg-zinc-900 px-5 py-1.5 text-[12px] sm:text-sm font-medium text-white disabled:opacity-40 dark:bg-white dark:text-zinc-900 min-h-[32px]"
-            >
-              {sending ? "…" : "Илгээх"}
-            </button>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Алдаа мэдээлэх">
+      <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
+      <div className="relative w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl sm:p-5 dark:bg-zinc-900 dark:border dark:border-zinc-700">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm sm:text-base font-semibold">⚑ Админд мэдээлэх</p>
+          <button onClick={() => setOpen(false)} aria-label="Хаах" className="inline-flex h-8 w-8 items-center justify-center rounded-full border text-[13px] dark:border-zinc-700">✕</button>
         </div>
-      )}
+        {!isAuthed ? (
+          <p className="mt-3 text-[13px] sm:text-sm text-zinc-500">
+            Мэдээлэхийн тулд <Link href="/login" className="underline font-medium text-zinc-900 dark:text-white">нэвтэрнэ үү</Link>.
+          </p>
+        ) : (
+          <div className="mt-3 grid gap-2.5">
+            <div className="flex flex-wrap gap-1.5">
+              {TYPES.map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => setType(v)}
+                  className={`rounded-full border px-3 py-2 text-[11px] sm:text-xs min-h-[36px] ${type === v ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Яг юу нь буруу вэ? (жишээ: зөв хариулт нь B байх ёстой…)"
+              rows={4}
+              maxLength={1000}
+              autoFocus
+              className="w-full rounded-xl border px-3 py-2 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700"
+            />
+            {err && <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-zinc-400">{err}</p>}
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] sm:text-xs text-zinc-400">{message.length}/1000</span>
+              <button
+                onClick={send}
+                disabled={sending || message.trim().length < 3}
+                className="rounded-full bg-zinc-900 px-5 py-2 text-[12px] sm:text-sm font-medium text-white disabled:opacity-40 dark:bg-white dark:text-zinc-900 min-h-[36px]"
+              >
+                {sending ? "…" : "Илгээх"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

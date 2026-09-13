@@ -30,6 +30,8 @@ model User {
   attempts      Attempt[]
   comments      Comment[]
   reports       Report[]
+  notes         QuestionNote[]
+  mistakes      Mistake[]
   savedAnswers  SavedAnswer[]
   savedExams    SavedExam[]
   paymentRequests PaymentRequest[]
@@ -114,6 +116,35 @@ model Report {
   updatedAt  DateTime @updatedAt
 
   @@index([status, createdAt])
+  @@index([questionId])
+}
+
+model QuestionNote {
+  id         String   @id @default(cuid())
+  questionId String
+  content    String
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, questionId])
+  @@index([userId])
+  @@index([questionId])
+}
+
+model Mistake {
+  id         String   @id @default(cuid())
+  questionId String
+  wrongCount Int      @default(0)
+  manual     Boolean  @default(false)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, questionId])
+  @@index([userId])
   @@index([questionId])
 }
 
