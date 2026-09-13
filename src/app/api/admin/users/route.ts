@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     where,
     orderBy: { createdAt: "desc" },
     take,
-    select: { id: true, phone: true, email: true, role: true, createdAt: true, _count: { select: { attempts: true, comments: true } } },
+    select: { id: true, phone: true, email: true, role: true, paidAt: true, createdAt: true, _count: { select: { attempts: true, comments: true } } },
   });
   return NextResponse.json({ users });
 }
@@ -23,8 +23,18 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   const check = await requireAdmin();
   if (!check.ok) return NextResponse.json({ error: check.error }, { status: check.status });
-  const { id, role } = await req.json();
-  if (!id || !["USER", "ADMIN"].includes(role)) return NextResponse.json({ error: "role USER|ADMIN required" }, { status: 400 });
+  const { id, role, paid } = await req.json();
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  // manual plan grant / revoke (төлбөрийг гараар баталгаажуулах)
+  if (typeof paid === "boolean") {
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { paidAt: paid ? new Date() : null },
+      select: { id: true, paidAt: true },
+    });
+    return NextResponse.json({ user: updated });
+  }
+  if (!["USER", "ADMIN"].includes(role)) return NextResponse.json({ error: "role USER|ADMIN required" }, { status: 400 });
   const updated = await prisma.user.update({ where: { id }, data: { role }, select: { id: true, role: true } });
   return NextResponse.json({ user: updated });
 }

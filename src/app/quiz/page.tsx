@@ -7,7 +7,7 @@ export default function QuizPage() {
   if (questions.length === 0) {
     return (
       <div className="mx-auto max-w-6xl px-6 py-10">
-        <p className="rounded-xl border p-4 text-sm">Шалгалт өгөх асуулт алга.</p>
+        <p className="rounded-xl border p-4 text-sm">Шалгалт өгөх сорилго алга.</p>
       </div>
     );
   }

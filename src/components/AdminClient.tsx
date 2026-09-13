@@ -13,14 +13,16 @@ type Stats = {
   otps: number;
 };
 
-type UserRow = { id: string; phone: string | null; email: string; role: string; createdAt: string; _count: { attempts: number; comments: number } };
+type UserRow = { id: string; phone: string | null; email: string; role: string; paidAt: string | null; createdAt: string; _count: { attempts: number; comments: number } };
+
+type PaymentRow = { id: string; status: string; createdAt: string; decidedAt: string | null; user: { id: string; name: string | null; phone: string | null; email: string; paidAt: string | null } };
 
 type ReportRow = { id: string; questionId: string; type: string; message: string; status: string; createdAt: string; user: { id: string; name: string | null; email: string; phone: string | null } };
 
 const REPORT_TYPES: Record<string, string> = {
   WRONG_ANSWER: "Зөв хариулт буруу",
   WRONG_OPTIONS: "Сонголтууд буруу / дутуу",
-  QUESTION_ERROR: "Асуултын текстэнд алдаа",
+  QUESTION_ERROR: "Сорилгын текстэнд алдаа",
   OTHER: "Бусад",
 };
 
@@ -31,7 +33,10 @@ export default function AdminClient() {
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [openReports, setOpenReports] = useState(0);
   const [reportFilter, setReportFilter] = useState<"OPEN" | "RESOLVED" | "all">("OPEN");
-  const [tab, setTab] = useState<"overview" | "users" | "questions" | "attempts" | "reports">("overview");
+  const [tab, setTab] = useState<"overview" | "users" | "questions" | "attempts" | "reports" | "payments">("overview");
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [pendingPayments, setPendingPayments] = useState(0);
+  const [paymentFilter, setPaymentFilter] = useState<"PENDING" | "all">("PENDING");
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -60,12 +65,19 @@ export default function AdminClient() {
     setReports(d.reports);
     setOpenReports(d.open);
   };
+  const fetchPayments = async (f = paymentFilter) => {
+    const r = await fetch(`/api/admin/payments${f === "all" ? "" : `?status=${f}`}`);
+    if (!r.ok) throw new Error("payments failed");
+    const d = await r.json();
+    setPayments(d.requests);
+    setPendingPayments(d.pending);
+  };
 
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
-        await Promise.all([fetchStats(), fetchUsers(""), fetchAttempts(), fetchReports("OPEN")]);
+        await Promise.all([fetchStats(), fetchUsers(""), fetchAttempts(), fetchReports("OPEN"), fetchPayments("PENDING")]);
       } catch (e: any) {
         setErr(e.message || "Алдаа");
       } finally {
@@ -102,6 +114,21 @@ export default function AdminClient() {
     if (!r.ok) { alert("Амжилтгүй"); return; }
     setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role: next } : x)));
   };
+  const togglePaid = async (u: UserRow) => {
+    const next = !u.paidAt;
+    if (!confirm(`${u.phone || u.email} → төлбөртэй эрх ${next ? "НЭЭХ" : "ХААХ"} уу?`)) return;
+    const r = await fetch("/api/admin/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: u.id, paid: next }) });
+    if (!r.ok) { alert("Амжилтгүй"); return; }
+    const d = await r.json();
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, paidAt: d.user.paidAt } : x)));
+  };
+  const decidePayment = async (id: string, action: "approve" | "reject") => {
+    if (!confirm(action === "approve" ? "Төлбөр баталгаажиж, эрхийг НЭЭХ үү?" : "Хүсэлтийг татгалзах уу?")) return;
+    const r = await fetch("/api/admin/payments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action }) });
+    if (!r.ok) { alert("Амжилтгүй"); return; }
+    fetchPayments();
+    fetchUsers();
+  };
   const delUser = async (u: UserRow) => {
     if (!confirm(`${u.phone || u.email} устгах уу?`)) return;
     const r = await fetch(`/api/admin/users?id=${u.id}`, { method: "DELETE" });
@@ -120,14 +147,14 @@ export default function AdminClient() {
         <h1 className="text-xl sm:text-2xl font-bold">Админ</h1>
         <div className="flex gap-2 text-xs">
           <Link href="/" className="rounded-full border px-4 py-2 hover:bg-zinc-50 dark:border-zinc-700">Нүүр</Link>
-          <Link href="/browse" className="rounded-full border px-4 py-2 hover:bg-zinc-50 dark:border-zinc-700">Асуулт</Link>
+          <Link href="/browse" className="rounded-full border px-4 py-2 hover:bg-zinc-50 dark:border-zinc-700">Сорилго</Link>
         </div>
       </div>
 
       {/* stats cards */}
       {stats && (
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
-          <div className="rounded-2xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800"><p className="text-2xl font-bold">{stats.questions.total}</p><p className="text-xs text-zinc-500">Асуулт</p></div>
+          <div className="rounded-2xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800"><p className="text-2xl font-bold">{stats.questions.total}</p><p className="text-xs text-zinc-500">Сорилго</p></div>
           <div className="rounded-2xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800"><p className="text-2xl font-bold">{stats.users}</p><p className="text-xs text-zinc-500">Хэрэглэгч</p></div>
           <div className="rounded-2xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800"><p className="text-2xl font-bold">{stats.attempts}</p><p className="text-xs text-zinc-500">Оролдлого</p></div>
           <div className="rounded-2xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800"><p className="text-2xl font-bold">{stats.comments}</p><p className="text-xs text-zinc-500">Сэтгэгдэл</p></div>
@@ -141,11 +168,12 @@ export default function AdminClient() {
         {[
           ["overview", "Тойм"],
           ["users", "Хэрэглэгчид"],
-          ["questions", "Асуултууд"],
+          ["payments", pendingPayments > 0 ? `Төлбөр (${pendingPayments})` : "Төлбөр"],
+          ["questions", "Сорилгууд"],
           ["attempts", "Оролдлогууд"],
           ["reports", `Мэдээлэл${openReports > 0 ? ` (${openReports})` : ""}`],
         ].map(([id, label]) => (
-          <button key={id} onClick={() => { setTab(id as any); if (id === "reports") fetchReports(); }} className={`shrink-0 rounded-full px-4 py-2.5 sm:py-2 text-xs sm:text-sm font-medium border min-h-[40px] ${tab === id ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-700"}`}>{label}</button>
+          <button key={id} onClick={() => { setTab(id as any); if (id === "reports") fetchReports(); if (id === "payments") fetchPayments(); }} className={`shrink-0 rounded-full px-4 py-2.5 sm:py-2 text-xs sm:text-sm font-medium border min-h-[40px] ${tab === id ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-700"}`}>{label}</button>
         ))}
       </div>
 
@@ -188,10 +216,11 @@ export default function AdminClient() {
                 {users.map(u=>(
                   <tr key={u.id} className="border-t dark:border-zinc-800">
                     <td className="py-2"><div className="font-mono text-xs">{u.phone || "—"}</div><div className="text-xs text-zinc-500 truncate max-w-[220px]">{u.email}</div></td>
-                    <td className="py-2"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${u.role==='ADMIN' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30' : 'bg-zinc-100 dark:bg-zinc-800'}`}>{u.role}</span></td>
+                    <td className="py-2"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${u.role==='ADMIN' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30' : 'bg-zinc-100 dark:bg-zinc-800'}`}>{u.role}</span>{u.paidAt && <span className="ml-1 rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">💰 Эрхтэй</span>}</td>
                     <td className="py-2 text-xs text-zinc-500">{new Date(u.createdAt).toLocaleDateString("mn-MN")}</td>
                     <td className="py-2 text-xs">{u._count.attempts} / {u._count.comments}</td>
                     <td className="py-2 text-right flex gap-1 justify-end">
+                      <button onClick={()=>togglePaid(u)} className="rounded-full border px-3 py-1.5 text-xs hover:bg-zinc-50 dark:border-zinc-700">{u.paidAt ? 'Эрх хаах' : 'Эрх нээх'}</button>
                       <button onClick={()=>toggleRole(u)} className="rounded-full border px-3 py-1.5 text-xs hover:bg-zinc-50 dark:border-zinc-700">{u.role==='ADMIN' ? 'USER болгох' : 'ADMIN болгох'}</button>
                       <button onClick={()=>delUser(u)} className="rounded-full border border-red-200 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50">Устгах</button>
                     </td>
@@ -203,10 +232,11 @@ export default function AdminClient() {
           <div className="mt-4 grid gap-2 sm:hidden">
             {users.map(u=>(
               <div key={u.id} className="rounded-xl border p-3 dark:border-zinc-700">
-                <div className="flex justify-between gap-2"><span className="font-mono text-xs truncate">{u.phone || u.email}</span><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${u.role==='ADMIN'?'bg-violet-100 text-violet-700':'bg-zinc-100 dark:bg-zinc-800'}`}>{u.role}</span></div>
+                <div className="flex justify-between gap-2"><span className="font-mono text-xs truncate">{u.phone || u.email}</span><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${u.role==='ADMIN'?'bg-violet-100 text-violet-700':'bg-zinc-100 dark:bg-zinc-800'}`}>{u.role}{u.paidAt ? ' · 💰' : ''}</span></div>
                 <p className="text-xs text-zinc-500 break-all">{u.email}</p>
                 <p className="text-xs text-zinc-500 mt-1">{new Date(u.createdAt).toLocaleDateString("mn-MN")} · {u._count.attempts} шалгалт · {u._count.comments} сэтгэгдэл</p>
                 <div className="mt-2 flex gap-2">
+                  <button onClick={()=>togglePaid(u)} className="flex-1 rounded-full border py-2 text-xs dark:border-zinc-700 min-h-[40px]">{u.paidAt ? 'Эрх хаах' : 'Эрх нээх'}</button>
                   <button onClick={()=>toggleRole(u)} className="flex-1 rounded-full border py-2 text-xs dark:border-zinc-700 min-h-[40px]">{u.role==='ADMIN' ? 'USER болгох' : 'ADMIN болгох'}</button>
                   <button onClick={()=>delUser(u)} className="rounded-full border border-red-200 px-4 py-2 text-xs text-red-600 min-h-[40px]">Устгах</button>
                 </div>
@@ -221,7 +251,7 @@ export default function AdminClient() {
         <div className="mt-4 grid gap-4">
         {(stats.questions.noAnswer?.length || 0) > 0 && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 sm:p-5 dark:bg-red-950/20 dark:border-red-900">
-            <h3 className="font-semibold text-sm text-red-800 dark:text-red-200">Хариултгүй / буруу хариулттай асуулт ({stats.questions.noAnswer.length})</h3>
+            <h3 className="font-semibold text-sm text-red-800 dark:text-red-200">Хариултгүй / буруу хариулттай сорилго ({stats.questions.noAnswer.length})</h3>
             <p className="mt-1 text-xs text-red-600 dark:text-red-300">Эдгээр нь шалгалтад оноо өгөхгүй — JSON файл дээр нь засаарай.</p>
             <div className="mt-3 space-y-2">
               {stats.questions.noAnswer.map((r) => (
@@ -238,7 +268,7 @@ export default function AdminClient() {
           </div>
         )}
         <div className="rounded-2xl border bg-white p-4 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">Нийт {stats.questions.total} асуулт. Жагсаалтыг дэлгэрэнгүй харах бол <Link href="/browse" className="underline">Бүх асуулт</Link> руу орно уу. Доор файл тус бүрээр харуулав.</p>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">Нийт {stats.questions.total} сорилго. Жагсаалтыг дэлгэрэнгүй харах бол <Link href="/browse" className="underline">Бүх сорилго</Link> руу орно уу. Доор файл тус бүрээр харуулав.</p>
           <div className="mt-3 space-y-2">
             {stats.questions.sources.sort((a,b)=>collator.compare(a.file,b.file)).map(s=>(
               <div key={s.file} className="flex justify-between gap-2 rounded-xl border px-3 py-2 text-sm dark:border-zinc-700"><span className="break-all">{s.file}</span><b className="shrink-0">{s.count}</b></div>
@@ -319,6 +349,50 @@ export default function AdminClient() {
               </div>
             ))}
             {attempts.length===0 && <p className="text-sm text-zinc-500 text-center py-6">Оролдлого алга</p>}
+          </div>
+        </div>
+      )}
+
+      {tab === "payments" && (
+        <div className="mt-4 rounded-2xl border bg-white p-4 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold text-sm">Төлбөрийн хүсэлтүүд{pendingPayments > 0 ? ` · ${pendingPayments} хүлээгдэж буй` : ""}</h3>
+            <div className="flex gap-1.5">
+              {(["PENDING", "all"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => { setPaymentFilter(f); fetchPayments(f); }}
+                  className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs min-h-[32px] ${paymentFilter === f ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "dark:border-zinc-700"}`}
+                >
+                  {f === "PENDING" ? "Хүлээгдэж буй" : "Бүгд"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="mt-1 text-[11px] sm:text-xs text-zinc-500">Хэрэглэгч QR-аар 40,000₮ төлсний дараа хүсэлт илгээдэг — төлбөрийг шалгаад эрхийг нээнэ үү.</p>
+          <div className="mt-3 grid gap-2">
+            {payments.map((p) => (
+              <div key={p.id} className="rounded-xl border p-3 dark:border-zinc-700">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <span className="font-mono text-xs">{p.user?.phone || p.user?.email}</span>
+                  <div className="flex items-center gap-1.5">
+                    {p.user?.paidAt && <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">💰 Эрхтэй</span>}
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${p.status === "PENDING" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" : p.status === "APPROVED" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-zinc-100 dark:bg-zinc-800"}`}>
+                      {p.status === "PENDING" ? "Хүлээгдэж буй" : p.status === "APPROVED" ? "Зөвшөөрсөн" : "Татгалзсан"}
+                    </span>
+                  </div>
+                </div>
+                {p.user?.name && <p className="text-xs text-zinc-500">{p.user.name}</p>}
+                <p className="mt-1 text-[11px] text-zinc-500">{new Date(p.createdAt).toLocaleString("mn-MN")}</p>
+                {p.status === "PENDING" && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <button onClick={() => decidePayment(p.id, "approve")} className="rounded-full bg-zinc-900 px-4 py-1.5 text-[11px] sm:text-xs text-white dark:bg-white dark:text-zinc-900 min-h-[32px]">✓ Эрх нээх</button>
+                    <button onClick={() => decidePayment(p.id, "reject")} className="rounded-full border px-4 py-1.5 text-[11px] sm:text-xs dark:border-zinc-700 min-h-[32px]">Татгалзах</button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {payments.length === 0 && <p className="text-sm text-zinc-500 text-center py-6">Хүсэлт алга</p>}
           </div>
         </div>
       )}

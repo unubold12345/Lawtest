@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   const questionId = (body.questionId || "").trim();
   const type = (body.type || "").trim();
   const message = (body.message || "").trim();
-  if (!questionId) return NextResponse.json({ error: "Асуулт сонгогдоогүй" }, { status: 400 });
+  if (!questionId) return NextResponse.json({ error: "Сорилго сонгогдоогүй" }, { status: 400 });
   if (!(TYPES as readonly string[]).includes(type)) return NextResponse.json({ error: "Төрөл сонгоно уу" }, { status: 400 });
   if (message.length < 3) return NextResponse.json({ error: "Тайлбар бичнэ үү (дор хаяж 3 тэмдэгт)" }, { status: 400 });
   if (message.length > 1000) return NextResponse.json({ error: "Тайлбар хэт урт (≤1000)" }, { status: 400 });

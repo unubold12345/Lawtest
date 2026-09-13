@@ -3,8 +3,10 @@ import path from "node:path";
 import { loadQuestions } from "@/lib/questions";
 import Link from "next/link";
 import HomeCategories from "@/components/HomeCategories";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-export default function Home() {
+export default async function Home() {
   const { questions } = loadQuestions();
   const total = questions.length;
   const byMain = new Map<string, { total: number; subs: Map<string, number> }>();
@@ -37,6 +39,16 @@ export default function Home() {
   const mainCount = mains.length;
   const subCount = mains.reduce((a, m) => a + m.subs.length, 0);
   const topMains = [...mains].sort((a, b) => b.total - a.total).slice(0, 3);
+  // paid-plan access (free users see lock badges + promo)
+  let hasAccess = false;
+  try {
+    const session = await auth();
+    const userId = (session?.user as unknown as { id?: string })?.id;
+    if (userId) {
+      const db = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, paidAt: true } });
+      hasAccess = !!db && (db.role === "ADMIN" || !!db.paidAt);
+    }
+  } catch {}
 
   return (
     <div className="mx-auto max-w-6xl px-2 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-8">
@@ -69,7 +81,7 @@ export default function Home() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-4">
         <div className="rounded-lg sm:rounded-xl border bg-white p-2.5 sm:p-4 dark:bg-zinc-900 dark:border-zinc-800 text-center">
           <p className="text-[17px] sm:text-2xl font-bold leading-none">{total}</p>
-          <p className="text-[10px] sm:text-sm text-zinc-500 mt-0.5">Нийт асуулт</p>
+          <p className="text-[10px] sm:text-sm text-zinc-500 mt-0.5">Нийт сорилго</p>
         </div>
         <div className="rounded-lg sm:rounded-xl border bg-white p-2.5 sm:p-4 dark:bg-zinc-900 dark:border-zinc-800 text-center">
           <p className="text-[17px] sm:text-2xl font-bold leading-none">{mainCount}</p>
@@ -90,7 +102,7 @@ export default function Home() {
         <div className="rounded-xl sm:rounded-2xl border bg-white p-3 sm:p-6 dark:bg-zinc-900 dark:border-zinc-800">
           <div className="flex items-end justify-between gap-2">
             <div>
-              <h2 className="font-semibold text-[13px] sm:text-lg">Их асуулттай ангилал</h2>
+              <h2 className="font-semibold text-[13px] sm:text-lg">Их сорилготой ангилал</h2>
             </div>
             <Link href="/browse" className="shrink-0 text-[11px] sm:text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white">
               Бүгд →
@@ -112,6 +124,26 @@ export default function Home() {
         </div>
       )}
 
+      {/* PLAN PROMO (unpaid users) */}
+      {!hasAccess && (
+        <div className="rounded-xl sm:rounded-2xl border border-zinc-900 bg-zinc-950 p-3.5 sm:p-5 text-white dark:bg-zinc-900 dark:border-zinc-700">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-6">
+            <div className="min-w-0 flex-1">
+              <p className="font-bold text-[14px] sm:text-lg tracking-tight">🔓 Бүтэн эрх — 40,000₮</p>
+              <p className="mt-0.5 text-[11px] sm:text-sm text-zinc-300">
+                Нэг удаа төлөөд бүх ангилал, хадгалах цэсийг насан туршдаа нээнэ
+              </p>
+            </div>
+            <Link
+              href="/plan"
+              className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-[12px] sm:text-sm font-medium text-zinc-900 hover:bg-zinc-200 transition-colors dark:bg-white dark:text-zinc-900 min-h-[38px]"
+            >
+              Эрх авах →
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* CATEGORIES */}
       <div className="rounded-xl sm:rounded-2xl border border-dashed bg-white p-3 sm:p-6 dark:bg-zinc-900 dark:border-zinc-800">
         <div className="flex items-end justify-between gap-2">
@@ -122,7 +154,7 @@ export default function Home() {
             Хайлт →
           </Link>
         </div>
-        <HomeCategories mains={mains} />
+        <HomeCategories mains={mains} hasAccess={hasAccess} />
       </div>
 
     </div>

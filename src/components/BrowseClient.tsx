@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
 import { fileHasAnswer } from "@/lib/answerOverrides";
+import { FREE_CATEGORY } from "@/lib/access";
 import QuestionDiscussion from "@/components/QuestionDiscussion";
 import QuestionReport from "@/components/QuestionReport";
 
@@ -17,6 +18,11 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const isAuthed = !!session?.user;
+  const fullAccess =
+    (session?.user as unknown as { hasPaid?: boolean; role?: string } | undefined)?.hasPaid === true ||
+    (session?.user as unknown as { role?: string } | undefined)?.role === "ADMIN";
+  // saving answers is a paid feature
+  const canSave = isAuthed && fullAccess;
   const searchRef = useRef<HTMLInputElement>(null);
 
   const [q, setQ] = useState("");
@@ -32,6 +38,9 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const [flash, setFlash] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<{ id: string; index: number } | null>(null);
   const [pendingClear, setPendingClear] = useState<string | null>(null);
+  // paid categories are listed but their content is locked
+  const lockedMain = mainCategory !== "all" && mainCategory !== FREE_CATEGORY && !fullAccess;
+  const lockedCount = fullAccess ? 0 : questions.filter((x) => x.category !== FREE_CATEGORY).length;
 
   const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }), []);
   const mainCategories = useMemo(() => ([...new Set(questions.map((x) => x.category).filter(Boolean))] as string[]).sort((a, b) => collator.compare(a, b)), [questions, collator]);
@@ -79,6 +88,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     let out = questions;
     if (mainCategory !== "all") out = out.filter((x) => x.category === mainCategory);
     if (subCategory !== "all") out = out.filter((x) => x.subCategory === subCategory);
+    if (!fullAccess) out = out.filter((x) => x.category === FREE_CATEGORY);
     if (q.trim()) {
       const s = q.trim().toLowerCase();
       out = out.filter(
@@ -90,7 +100,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
       );
     }
     return out;
-  }, [questions, q, mainCategory, subCategory]);
+  }, [questions, q, mainCategory, subCategory, fullAccess]);
 
   const statusCounts = useMemo(() => {
     let answered = 0, unanswered = 0, mine = 0;
@@ -138,7 +148,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
 
   // ---- saving ----
   const persistAnswer = async (id: string, index: number | null) => {
-    if (!isAuthed) return;
+    if (!canSave) return;
     try {
       const r = await fetch("/api/saved-answers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ questionId: id, answer: index }) });
       if (r.ok) {
@@ -158,7 +168,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   };
 
   const chooseAnswer = (id: string, index: number) => {
-    if (!isAuthed) return;
+    if (!canSave) return;
     setPending({ id, index });
   };
 
@@ -239,7 +249,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
           ref={searchRef}
           value={q}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Хайх... асуулт эсвэл хариулт"
+          placeholder="Хайх... сорилго эсвэл хариулт"
           className="w-full rounded-full border px-3 py-2 sm:px-4 sm:py-2 text-[13px] sm:text-sm outline-none focus:ring-2 focus:ring-zinc-900 dark:bg-zinc-800 dark:border-zinc-700"
         />
         <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
@@ -278,7 +288,31 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
         </div>
       </div>
 
+      {/* locked-category banner (all view) */}
+      {!lockedMain && lockedCount > 0 && (
+        <div className="rounded-xl sm:rounded-2xl border border-dashed bg-white p-3 sm:p-4 dark:bg-zinc-900 dark:border-zinc-700 flex flex-col sm:flex-row sm:items-center gap-2">
+          <p className="flex-1 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">
+            🔒 {lockedCount} сорилго түгжээтэй — бусад бүх ангилал төлбөртэй.
+          </p>
+          <Link href="/plan" className="shrink-0 inline-flex items-center justify-center rounded-full bg-zinc-900 px-5 py-2 text-[12px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[36px]">
+            Эрх авах →
+          </Link>
+        </div>
+      )}
+
       {/* readiness + practice */}
+      {lockedMain ? (
+        <div className="rounded-xl sm:rounded-2xl border bg-white p-6 sm:p-8 text-center dark:bg-zinc-900 dark:border-zinc-800">
+          <p className="text-3xl">🔒</p>
+          <h2 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй ангилал</h2>
+          <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">
+            «{mainCategory}» ангиллын сорилго үзэх, шалгалт өгөх нь <b>Эрх авах</b> төлөвлөгөөнд багтдаг. Үнэгүй: {FREE_CATEGORY}.
+          </p>
+          <Link href="/plan" className="mt-4 inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">
+            Эрх авах — 40,000₮ →
+          </Link>
+        </div>
+      ) : (
       <div className="rounded-xl sm:rounded-2xl border bg-white p-3 sm:p-4 dark:bg-zinc-900 dark:border-zinc-800">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[12px] sm:text-sm font-medium">Шалгалтад бэлэн: {readyPct}%</p>
@@ -294,8 +328,10 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
           Энэ шүүлтүүрээр шалгалт өгөх → <span className="opacity-70">({filteredBase.length})</span>
         </Link>
       </div>
+      )}
 
       {/* compact rows */}
+      {!lockedMain && (
       <div className="grid gap-1.5 sm:gap-2">
         {paged.map((item, idx) => {
           const locked = fileHasAnswer(item);
@@ -363,7 +399,13 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                     </div>
                   )}
 
-                  {!locked && isAuthed && (
+                  {!locked && isAuthed && !fullAccess && (
+                    <div className="mt-3 rounded-lg border border-dashed p-2.5 sm:p-3 text-[11px] sm:text-xs text-zinc-500 dark:border-zinc-700">
+                      Зөв хариулт хадгалах нь төлбөртэй — <Link href="/plan" className="font-medium text-zinc-900 underline dark:text-white">Эрх авах</Link>.
+                    </div>
+                  )}
+
+                  {!locked && canSave && (
                     <div className="mt-3 rounded-lg border border-dashed p-2.5 sm:p-3 dark:border-zinc-700">
                       <p className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400">
                         {eff === null
@@ -415,10 +457,11 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
           );
         })}
       </div>
+      )}
 
-      {filtered.length === 0 && <p className="text-center py-12 text-zinc-500 text-sm">Илэрц олдсонгүй.</p>}
+      {!lockedMain && filtered.length === 0 && <p className="text-center py-12 text-zinc-500 text-sm">Илэрц олдсонгүй.</p>}
 
-      {totalPages > 1 && (
+      {!lockedMain && totalPages > 1 && (
         <div className="flex items-center justify-center gap-1.5 sm:gap-2 py-2 flex-wrap">
           <button disabled={safePage === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded-full border px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 dark:border-zinc-700 min-h-[36px]">←</button>
           {pageWindow.map((n, i, arr) => (

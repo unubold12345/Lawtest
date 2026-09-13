@@ -129,7 +129,7 @@ export default function HistoryPage() {
                 if (!a.questionIds || a.questionIds.length === 0) {
                   return (
                     <div className="border-t p-4 bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800">
-                      <p className="text-sm text-zinc-500">Дэлгэрэнгүй асуулт олдсонгүй (хуучин түүх).</p>
+                      <p className="text-sm text-zinc-500">Дэлгэрэнгүй сорилго олдсонгүй (хуучин түүх).</p>
                     </div>
                   );
                 }
@@ -181,7 +181,7 @@ export default function HistoryPage() {
                       </button>
                     </div>
                     {shown.map(({ qid, i, q, ans, c, st }) => {
-                      if (!q) return <p key={qid} className="text-[12px] sm:text-sm text-zinc-500">{i + 1}. Асуулт {qid} олдсонгүй</p>;
+                      if (!q) return <p key={qid} className="text-[12px] sm:text-sm text-zinc-500">{i + 1}. Сорилго {qid} олдсонгүй</p>;
                       const unknown = st === "unknown";
                       const ok = st === "correct";
                       const open = !!openQ[qid];

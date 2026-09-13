@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import { FREE_CATEGORY } from "@/lib/access";
 
 type Sub = { name: string; count: number };
 type Main = { name: string; total: number; subs: Sub[] };
 
-export default function HomeCategories({ mains }: { mains: Main[] }) {
+export default function HomeCategories({ mains, hasAccess }: { mains: Main[]; hasAccess: boolean }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const LIMIT = 6;
 
@@ -24,13 +25,14 @@ export default function HomeCategories({ mains }: { mains: Main[] }) {
         const isExpanded = expanded.has(main);
         const visible = isExpanded ? subs : subs.slice(0, LIMIT);
         const hidden = subs.length - visible.length;
+        const locked = !hasAccess && main !== FREE_CATEGORY;
         return (
           <div
             key={main}
             className={`rounded-lg sm:rounded-xl border p-3 sm:p-4 ${t === 0 ? "bg-amber-50/60 border-amber-200 dark:bg-zinc-800 dark:border-zinc-700" : "bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700"}`}
           >
             <Link href={`/browse?cat=${encodeURIComponent(main)}`} className="font-semibold hover:underline text-[13px] sm:text-base">
-              {main} <span className="font-normal text-zinc-500">· {t}</span>
+              {locked && <span aria-label="төлбөртэй">🔒 </span>}{main} <span className="font-normal text-zinc-500">· {t}</span>
             </Link>
             {t === 0 && (
               <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
@@ -39,7 +41,7 @@ export default function HomeCategories({ mains }: { mains: Main[] }) {
             )}
             <div className="mt-1.5 sm:mt-2 flex flex-wrap gap-1 sm:gap-1.5">
               {subs.length === 0 ? (
-                <span className="text-[11px] sm:text-xs text-zinc-400">Дэд ангилал байхгүй — асуулт нэмнэ үү</span>
+                <span className="text-[11px] sm:text-xs text-zinc-400">Дэд ангилал байхгүй — сорилго нэмнэ үү</span>
               ) : (
                 visible.map(({ name: sub, count: n }) => (
                   <Link

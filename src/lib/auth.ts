@@ -81,13 +81,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = (user as { id: string }).id;
         token.role = (user as unknown as { role?: string }).role;
       }
-      // refresh role + display name from DB (handles promotion/rename without relogin after next refresh)
+      // refresh role + display name + paid status from DB (handles promotion/rename/plan grant without relogin after next refresh)
       if (token.id) {
         try {
-          const db = await prisma.user.findUnique({ where: { id: token.id as string }, select: { role: true, name: true } });
+          const db = await prisma.user.findUnique({ where: { id: token.id as string }, select: { role: true, name: true, paidAt: true } });
           if (db) {
             token.role = db.role;
             if (db.name) token.name = db.name;
+            (token as unknown as { hasPaid: boolean }).hasPaid = db.role === "ADMIN" || !!db.paidAt;
           }
         } catch {}
       }
@@ -97,6 +98,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token && session.user) {
         (session.user as unknown as { id: string }).id = token.id as string;
         (session.user as unknown as { role: string }).role = (token.role as string) || "USER";
+        (session.user as unknown as { hasPaid: boolean }).hasPaid =
+          (token as unknown as { hasPaid?: boolean }).hasPaid === true || (token.role as string) === "ADMIN";
       }
       return session;
     },

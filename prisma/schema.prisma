@@ -24,6 +24,7 @@ model User {
   phone         String?   @unique
   phoneVerified DateTime?
   role          Role      @default(USER)
+  paidAt        DateTime?
   accounts      Account[]
   sessions      Session[]
   attempts      Attempt[]
@@ -31,6 +32,7 @@ model User {
   reports       Report[]
   savedAnswers  SavedAnswer[]
   savedExams    SavedExam[]
+  paymentRequests PaymentRequest[]
   otps          Otp[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -155,4 +157,16 @@ model SavedExam {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, key])
+}
+
+model PaymentRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt DateTime @default(now())
+  decidedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([userId])
 }

@@ -97,7 +97,7 @@ export default function QuestionDiscussion({ questionId }: { questionId: string 
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Асуулт, тайлбар, маргаан... (≤2000)"
+                placeholder="Сорилго, тайлбар, маргаан... (≤2000)"
                 rows={3}
                 maxLength={2000}
                 className="w-full rounded-xl border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700"

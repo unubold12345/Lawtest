@@ -6,7 +6,7 @@ import Link from "next/link";
 const TYPES = [
   ["WRONG_ANSWER", "Зөв хариулт буруу"],
   ["WRONG_OPTIONS", "Сонголтууд буруу / дутуу"],
-  ["QUESTION_ERROR", "Асуултын текстэнд алдаа"],
+  ["QUESTION_ERROR", "Сорилгын текстэнд алдаа"],
   ["OTHER", "Бусад"],
 ] as const;
 

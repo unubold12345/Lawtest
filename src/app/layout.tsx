@@ -9,7 +9,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: "Lexlab — Хуулийн шалгалт",
-  description: "123 асуулт · Гэр бүл, Иргэний эрх зүй · Шалгалт, сургалт",
+  description: "123 сорилго · Гэр бүл, Иргэний эрх зүй · Шалгалт, сургалт",
 };
 
 export const viewport = {

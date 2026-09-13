@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
 import { effectiveAnswer, getAllOverrides } from "@/lib/answerOverrides";
 import { readLocalSavedExams, writeLocalSavedExam, removeLocalSavedExam, type SavedExam } from "@/lib/savedExams";
+import { FREE_CATEGORY } from "@/lib/access";
 
 type Mode = "exam" | "study";
 type QuizState = "setup" | "running" | "result";
@@ -57,6 +58,17 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
   const isAuthed = !!session?.user;
+  const fullAccess =
+    (session?.user as unknown as { hasPaid?: boolean; role?: string } | undefined)?.hasPaid === true ||
+    (session?.user as unknown as { role?: string } | undefined)?.role === "ADMIN";
+  // unpaid users only get the free category in exam pools (lists stay visible)
+  const poolBase = useMemo(
+    () => (fullAccess ? questions : questions.filter((x) => x.category === FREE_CATEGORY)),
+    [questions, fullAccess]
+  );
+  const [paywallNote, setPaywallNote] = useState(false);
+  const accessRef = useRef(true);
+  accessRef.current = fullAccess;
   const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }), []);
   const mainCategories = useMemo(() => ([...new Set(questions.map((x) => x.category).filter(Boolean))] as string[]).sort((a, b) => collator.compare(a, b)), [questions, collator]);
   // pre-filter from /browse practice link: ?main=&sub=&q=
@@ -168,13 +180,18 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     liveRef.current = buildRecord();
   });
 
-  // keep the running exam in localStorage if the tab closes / user navigates away
+  // keep the running exam in localStorage if the tab closes / user navigates away (paid feature)
   useEffect(() => {
-    return () => { if (liveRef.current) writeLocalSavedExam(liveRef.current); };
+    return () => { if (accessRef.current && liveRef.current) writeLocalSavedExam(liveRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const saveExamNow = () => {
+    // saving / pausing exams is a paid feature
+    if (!accessRef.current) {
+      setPaywallNote(true);
+      return;
+    }
     const rec = buildRecord();
     if (!rec) return;
     writeLocalSavedExam(rec);
@@ -195,6 +212,10 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const resume = (rec: SavedExam) => {
     const qs = rec.ids.map((id) => questions.find((x) => x.id === id)).filter((x): x is Question => !!x);
     if (qs.length === 0) return;
+    if (!fullAccess && qs.some((q) => q.category !== FREE_CATEGORY)) {
+      setPaywallNote(true);
+      return;
+    }
     setMode(rec.mode);
     setExamTag(rec.tag);
     setRunLabel(rec.key);
@@ -218,13 +239,18 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     if (!isAuthed) return;
     const mc = o.main ?? mainCategory;
     const sc = o.sub ?? subCategory;
+    // paid categories are locked for unpaid users
+    if (!fullAccess && mc !== "all" && mc !== FREE_CATEGORY) {
+      setPaywallNote(true);
+      return;
+    }
     const nn = o.n ?? count;
     if (o.m) setMode(o.m);
     setExamTag(o.tag ?? null);
     const label = o.tag ?? (mc === "all" ? "all" : sc !== "all" ? `${mc} / ${sc}` : mc);
     setRunLabel(label);
     deleteSaved(label);
-    let pool = questions;
+    let pool = poolBase;
     if (mc !== "all") pool = pool.filter((q) => q.category === mc);
     if (sc !== "all") pool = pool.filter((q) => q.subCategory === sc);
     pool = applyQuery(pool);
@@ -437,13 +463,13 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
   if (state === "setup") {
     const pool = (() => {
-      let out = questions;
+      let out = poolBase;
       if (mainCategory !== "all") out = out.filter((x) => x.category === mainCategory);
       if (subCategory !== "all") out = out.filter((x) => x.subCategory === subCategory);
       return applyQuery(out);
     })();
     const poolSize = pool.length;
-    const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${count} асуулт · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
+    const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
     return (
       <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0">
       <button onClick={() => setSettingsOpen(true)} className="w-full rounded-xl sm:rounded-2xl border bg-white p-3.5 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden text-left hover:border-zinc-400 transition-colors min-w-0">
@@ -455,7 +481,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       </button>
       {query.trim() && (
         <div className="flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl border border-dashed bg-white px-3.5 py-2.5 sm:px-5 sm:py-3 dark:bg-zinc-900 dark:border-zinc-700">
-          <p className="min-w-0 truncate text-[12px] sm:text-sm">Шүүлтүүр: “{query.trim()}” — {poolSize} асуулт</p>
+          <p className="min-w-0 truncate text-[12px] sm:text-sm">Шүүлтүүр: “{query.trim()}” — {poolSize} сорилго</p>
           <button onClick={() => setQuery("")} className="shrink-0 rounded-full border px-3 py-1 text-[11px] sm:text-xs dark:border-zinc-700">Арилгах</button>
         </div>
       )}
@@ -508,6 +534,20 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
               +{Object.keys(savedExams).length - 4} илүү үзэх ↓
             </button>
           )}
+        </div>
+      )}
+
+      {/* paywall notice (paid category / paid save action) */}
+      {paywallNote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button aria-label="close" onClick={() => setPaywallNote(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+            <p className="text-3xl">🔒</p>
+            <h3 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй эрх шаардлагатай</h3>
+            <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Бусад ангиллаар шалгалт өгөх, хадгалах нь 40,000₮-ийн бүтэн эрхэд багтдаг.</p>
+            <Link href="/plan" className="mt-4 flex w-full items-center justify-center rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах →</Link>
+            <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border py-2.5 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[40px]">Хаах</button>
+          </div>
         </div>
       )}
 
@@ -578,10 +618,15 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           <label className="grid gap-1.5 sm:gap-2 min-w-0">
             <span className="text-[12px] sm:text-sm font-medium">Үндсэн ангилал</span>
             <select value={mainCategory} onChange={(e) => { setMainCategory(e.target.value); setSubCategory("all"); }} className="w-full min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]">
-              <option value="all">Бүх үндсэн ({questions.length})</option>
-              {mainCategories.map((c) => <option key={c} value={c}>{c} ({questions.filter((q) => q.category === c).length})</option>)}
+              <option value="all">Бүх үндсэн ({poolBase.length})</option>
+              {mainCategories.map((c) => <option key={c} value={c}>{!fullAccess && c !== FREE_CATEGORY ? "🔒 " : ""}{c} ({questions.filter((q) => q.category === c).length})</option>)}
             </select>
           </label>
+          {!fullAccess && mainCategory !== "all" && mainCategory !== FREE_CATEGORY && (
+            <div className="rounded-lg sm:rounded-xl border border-dashed p-3 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400 dark:border-zinc-700">
+              🔒 «{mainCategory}» нь төлбөртэй ангилал — <Link href="/plan" className="font-medium text-zinc-900 underline dark:text-white">Эрх авах</Link> үед нээгдэнэ. Үнэгүй: {FREE_CATEGORY}.
+            </div>
+          )}
           <label className="grid gap-1.5 sm:gap-2 min-w-0">
             <span className="text-[12px] sm:text-sm font-medium">Дэд ангилал</span>
             <select value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="w-full min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]">
@@ -591,7 +636,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           </label>
 
           <div className="grid gap-1.5 sm:gap-2 min-w-0">
-            <span className="text-[12px] sm:text-sm font-medium">Асуултын тоо · {poolSize}</span>
+            <span className="text-[12px] sm:text-sm font-medium">Сорилгын тоо · {poolSize}</span>
             <div className="flex flex-wrap gap-1.5 sm:gap-2 min-w-0">
               {[10, 20, 30, 50, poolSize].filter((v, i, a) => a.indexOf(v) === i).map((n) => (
                 <button key={n} onClick={() => { setCount(n); setCustomCount(""); }} className={`rounded-full px-3 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm border min-h-[32px] sm:min-h-[44px] shrink-0 ${customCount === "" && count === n ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-50 dark:border-zinc-700"}`}>{n === poolSize ? `Бүгд (${n})` : n}</button>
@@ -632,13 +677,13 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
             <div className={`grid gap-1.5 sm:gap-2 min-w-0 ${mode === "study" ? "opacity-50" : ""}`}>
               <span className="text-[12px] sm:text-sm font-medium">Хугацаа</span>
               <div className="w-full min-w-0 rounded-lg sm:rounded-xl border bg-zinc-50 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800/60 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px] flex items-center text-zinc-500">
-                {mode === "exam" ? `${Math.min(count, poolSize)} мин · 1 мин/асуулт` : "Хязгааргүй"}
+                {mode === "exam" ? `${Math.min(count, poolSize)} мин · 1 мин/сорилго` : "Хязгааргүй"}
               </div>
             </div>
           </div>
 
           <button onClick={() => start()} disabled={poolSize === 0} className="w-full rounded-full bg-zinc-900 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white hover:bg-zinc-800 disabled:opacity-40 dark:bg-white dark:text-zinc-900 min-h-[40px] sm:min-h-[48px]">
-            Эхлэх — {Math.min(count, poolSize)} асуулт
+            Эхлэх — {Math.min(count, poolSize)} сорилго
           </button>
         </div>
           </div>
@@ -675,7 +720,16 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           </div>
         </div>
 
-        {subPair && (
+        {subPair && (subPair.main !== FREE_CATEGORY && !fullAccess ? (
+          <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl border border-dashed p-4 text-center dark:border-zinc-700">
+            <p className="text-2xl">🔒</p>
+            <p className="mt-1 font-medium text-[13px] sm:text-sm">Төлбөртэй дэд ангилал</p>
+            <p className="mt-1 text-[11px] sm:text-xs text-zinc-500">«{subPair.sub}»-аар шалгалт өгөх нь Эрх авах төлөвлөгөөнд багтдаг.</p>
+            <Link href="/plan" className="mt-3 inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-2.5 text-[12px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[40px]">
+              Эрх авах — 40,000₮ →
+            </Link>
+          </div>
+        ) : (
           <div className="mt-3 sm:mt-4 min-w-0">
             {subStats && subStats.n > 0 && subStats.best && subStats.last ? (
               <div className="rounded-lg sm:rounded-xl bg-zinc-50 p-3 sm:p-4 dark:bg-zinc-800">
@@ -703,19 +757,20 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
               disabled={subPair.count === 0}
               className="mt-3 sm:mt-4 w-full rounded-full bg-zinc-900 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white hover:bg-zinc-800 disabled:opacity-40 dark:bg-white dark:text-zinc-900 min-h-[40px] sm:min-h-[48px]"
             >
-              Эхлэх — бүх {subPair.count} асуулт
+              Эхлэх — бүх {subPair.count} сорилго
             </button>
           </div>
-        )}
+        ))}
       </div>
 
       <div className="w-full min-w-0 rounded-xl sm:rounded-2xl bg-zinc-950 border border-zinc-800 p-4 sm:p-8 text-white dark:bg-zinc-900 dark:border-zinc-700 overflow-hidden">
         <h2 className="text-[14px] sm:text-xl font-semibold break-words">Үндсэн шалгалт</h2>
-        <p className="mt-1 text-[11px] sm:text-sm leading-snug text-zinc-300">Бодит шалгалтын форматаар — бүх сангаас 200 асуулт, 200 минут, шалгалтын горим. Үсэг нуугдаж, хариултууд холигдоно.</p>
+        <p className="mt-1 text-[11px] sm:text-sm leading-snug text-zinc-300">Бодит шалгалтын форматаар — бүх сангаас 200 сорилго, 200 минут, шалгалтын горим. Үсэг нуугдаж, хариултууд холигдоно.</p>
+        {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Эрхгүй үед зөвхөн {FREE_CATEGORY} ангиллаас бүрдэнэ.</p>}
         <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-1.5 sm:gap-2 text-center">
           <div className="rounded-lg bg-white/10 p-2 sm:p-3">
             <p className="text-[16px] sm:text-2xl font-bold leading-none">200</p>
-            <p className="text-[10px] sm:text-xs text-zinc-300 mt-0.5">Асуулт</p>
+            <p className="text-[10px] sm:text-xs text-zinc-300 mt-0.5">Сорилго</p>
           </div>
           <div className="rounded-lg bg-white/10 p-2 sm:p-3">
             <p className="text-[16px] sm:text-2xl font-bold leading-none">200</p>
@@ -730,7 +785,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           <p className="mt-2 text-center text-[11px] sm:text-xs text-zinc-300">Оролдлого: {mainExamStats.n} · Шилдэг: {mainExamStats.best.score}/{mainExamStats.best.total} · Сүүлд: {mainExamStats.last.score}/{mainExamStats.last.total}</p>
         )}
         <button
-          onClick={() => { setMainCategory("all"); setSubCategory("all"); setCount(200); setCustomCount(""); setMinutes(200); start({ n: 200, mins: 200, m: "exam", tag: "Үндсэн шалгалт" }); }}
+          onClick={() => { setMainCategory("all"); setSubCategory("all"); setCount(200); setCustomCount(""); setMinutes(200); start({ main: "all", sub: "all", n: 200, mins: 200, m: "exam", tag: "Үндсэн шалгалт" }); }}
           disabled={questions.length === 0}
           className="mt-3 sm:mt-4 w-full rounded-full bg-white py-2.5 sm:py-3 font-semibold text-[13px] sm:text-base text-zinc-900 hover:bg-zinc-100 disabled:opacity-40 min-h-[40px] sm:min-h-[48px]"
         >
@@ -748,7 +803,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     const isUnknown = correct === null;
     const answered = ans !== undefined;
     return (
-      <div className="mx-auto max-w-3xl w-full space-y-3 sm:space-y-4 min-w-0 overflow-hidden px-3 sm:px-0">
+      <div className="mx-auto max-w-3xl w-full space-y-3 sm:space-y-4 min-w-0 overflow-hidden px-3 sm:px-0 max-sm:min-h-[calc(100dvh-12rem)] max-sm:flex max-sm:flex-col max-sm:justify-center">
         <div className="rounded-xl sm:rounded-2xl border bg-white p-2.5 sm:p-4 flex items-center justify-between dark:bg-zinc-900 dark:border-zinc-800 gap-2 min-w-0 overflow-hidden">
           <span className="text-[12px] sm:text-sm font-medium shrink-0">{idx + 1} / {total}</span>
           <div className="h-1.5 sm:h-2 flex-1 mx-2 sm:mx-4 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
@@ -817,17 +872,44 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           </div>
         </div>
 
+        {/* paywall notice (paid category / paid save action) */}
+        {paywallNote && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <button aria-label="close" onClick={() => setPaywallNote(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+              <p className="text-3xl">🔒</p>
+              <h3 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй эрх шаардлагатай</h3>
+              <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Бусад ангиллаар шалгалт өгөх, хадгалах нь 40,000₮-ийн бүтэн эрхэд багтдаг.</p>
+              <Link href="/plan" className="mt-4 flex w-full items-center justify-center rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах →</Link>
+              <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border py-2.5 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[40px]">Хаах</button>
+            </div>
+          </div>
+        )}
+
         {/* confirm exit exam (save & continue later) */}
         {confirmExit && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button aria-label="close" onClick={() => setConfirmExit(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
-              <h3 className="font-semibold text-[14px] sm:text-base">Шалгалтыг түр зогсоох уу?</h3>
-              <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Хариултууд хадгалагдаж, явсан газраасаа үргэлжлүүлнэ.</p>
-              <div className="mt-4 flex justify-end gap-2">
-                <button onClick={() => setConfirmExit(false)} className="rounded-full border px-5 py-2 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[36px]">Үргэлжлүүлэх</button>
-                <button onClick={() => { saveExamNow(); setConfirmExit(false); setShowStudyFeedback(false); setState("setup"); }} className="rounded-full bg-zinc-900 px-5 py-2 text-[13px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[36px]">Хадгалах</button>
-              </div>
+              {!fullAccess ? (
+                <>
+                  <h3 className="font-semibold text-[14px] sm:text-base">🔒 Хадгалах нь төлбөртэй</h3>
+                  <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Шалгалт түр зогсоож, үргэлжлүүлэх нь Эрх авах төлөвлөгөөнд багтдаг.</p>
+                  <div className="mt-4 grid gap-2">
+                    <Link href="/plan" className="flex w-full items-center justify-center rounded-full bg-zinc-900 px-5 py-2 text-[13px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах — 40,000₮ →</Link>
+                    <button onClick={() => { setConfirmExit(false); setShowStudyFeedback(false); setState("setup"); }} className="rounded-full border px-5 py-2 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[36px]">Хадгалахгүй гарах</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="font-semibold text-[14px] sm:text-base">Шалгалтыг түр зогсоох уу?</h3>
+                  <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Хариултууд хадгалагдаж, явсан газраасаа үргэлжлүүлнэ.</p>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <button onClick={() => setConfirmExit(false)} className="rounded-full border px-5 py-2 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[36px]">Үргэлжлүүлэх</button>
+                    <button onClick={() => { saveExamNow(); setConfirmExit(false); setShowStudyFeedback(false); setState("setup"); }} className="rounded-full bg-zinc-900 px-5 py-2 text-[13px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[36px]">Хадгалах</button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -7,7 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Header() {
   const { data: session, update } = useSession();
-  const user = session?.user as unknown as { name?: string | null; email?: string | null; role?: string } | undefined;
+  const user = session?.user as unknown as { name?: string | null; email?: string | null; role?: string; hasPaid?: boolean } | undefined;
   // show auto display name (user01, ...) — never a phone number (legacy names stay hidden)
   const displayName = user?.name && !/^[+\d]/.test(user.name.trim()) ? user.name : null;
   const [adminOverride, setAdminOverride] = useState(false);
@@ -57,9 +57,10 @@ export default function Header() {
             </span>
           </Link>
           <nav className="hidden sm:flex items-center gap-1">
-            <Link href="/browse" className={linkCls("/browse")}>Бүх асуулт</Link>
+            <Link href="/browse" className={linkCls("/browse")}>Бүх сорилго</Link>
             <Link href="/quiz" className={linkCls("/quiz")}>Шалгалт</Link>
             <Link href="/history" className={linkCls("/history")}>Түүх</Link>
+            {user?.hasPaid !== true && <Link href="/plan" className={linkCls("/plan")}>Эрх авах</Link>}
             {isAdmin && <Link href="/admin" className={linkCls("/admin")}>Админ</Link>}
           </nav>
         </div>
@@ -112,9 +113,10 @@ export default function Header() {
         <nav className="p-3 space-y-1 overflow-y-auto">
           {[
             { href: "/", label: "Нүүр" },
-            { href: "/browse", label: "Бүх асуулт" },
+            { href: "/browse", label: "Бүх сорилго" },
             { href: "/quiz", label: "Шалгалт" },
             { href: "/history", label: "Түүх" },
+            ...(user?.hasPaid === true ? [] : [{ href: "/plan", label: "Эрх авах" }]),
             ...(isAdmin ? [{ href: "/admin", label: "Админ" }] : []),
           ].map((l) => (
             <Link
