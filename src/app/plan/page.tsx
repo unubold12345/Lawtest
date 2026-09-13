@@ -122,7 +122,7 @@ export default async function PlanPage() {
                 </div>
                 <div className="flex justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-950/30">
                   <dt className="text-zinc-500">Гүйлгээний утга</dt>
-                  <dd className="font-semibold text-right">Утасны дугаараа бичих</dd>
+                  <dd className="font-semibold text-right">Бүртгэлтэй утасны дугаар</dd>
                 </div>
               </dl>
             </div>

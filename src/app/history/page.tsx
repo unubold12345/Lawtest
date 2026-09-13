@@ -91,8 +91,7 @@ export default function HistoryPage() {
   if (attempts.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-2 sm:px-6 py-6 sm:py-10">
-        <h1 className="text-xl sm:text-2xl font-semibold">Түүх</h1>
-        <p className="mt-4 rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-900 dark:border-zinc-800">
+        <p className="rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-900 dark:border-zinc-800">
           Одоогоор шалгалт өгөөгүй. <Link href="/quiz" className="underline">Шалгалт эхлэх</Link>
         </p>
       </div>
@@ -101,8 +100,7 @@ export default function HistoryPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-2 sm:px-6 py-6 sm:py-10">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-xl sm:text-2xl font-semibold">Түүх — {attempts.length}</h1>
+      <div className="flex justify-end">
         <button onClick={clear} className="text-sm underline text-zinc-500 min-h-[44px] px-2">Цэвэрлэх</button>
       </div>
 
