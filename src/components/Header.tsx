@@ -40,10 +40,21 @@ export default function Header() {
   return (
     <>
     <header className="sticky top-0 z-30 border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:bg-zinc-900/90 dark:border-zinc-800">
-      <div className="mx-auto max-w-6xl px-2 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
+      <div className="relative mx-auto max-w-6xl px-2 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-6 min-w-0">
-          <Link href="/" className="text-[15px] sm:text-lg font-bold tracking-tight shrink-0">
-            Lexlab
+          <button
+            aria-label="menu"
+            aria-expanded={open}
+            onClick={() => setOpen(true)}
+            className="sm:hidden inline-flex h-9 w-9 items-center justify-center rounded-full border dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          >
+            <span className="text-[15px] leading-none">☰</span>
+          </button>
+          <Link href="/" className="hidden sm:flex items-center gap-1.5 shrink-0" aria-label="Lexlab нүүр">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-[13px] font-bold leading-none text-white dark:bg-white dark:text-zinc-900">§</span>
+            <span className="text-[15px] sm:text-lg font-extrabold tracking-tighter">
+              Lex<span className="font-medium">lab</span>
+            </span>
           </Link>
           <nav className="hidden sm:flex items-center gap-1">
             <Link href="/browse" className={linkCls("/browse")}>Бүх асуулт</Link>
@@ -52,6 +63,12 @@ export default function Header() {
             {isAdmin && <Link href="/admin" className={linkCls("/admin")}>Админ</Link>}
           </nav>
         </div>
+        <Link href="/" className="sm:hidden absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5" aria-label="Lexlab нүүр">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-[13px] font-bold leading-none text-white dark:bg-white dark:text-zinc-900">§</span>
+          <span className="text-[15px] font-extrabold tracking-tighter">
+            Lex<span className="font-medium">lab</span>
+          </span>
+        </Link>
         <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle />
           {user ? (
@@ -66,14 +83,6 @@ export default function Header() {
               Нэвтрэх
             </Link>
           )}
-          <button
-            aria-label="menu"
-            aria-expanded={open}
-            onClick={() => setOpen(true)}
-            className="sm:hidden inline-flex h-8 w-8 items-center justify-center rounded-full border dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-          >
-            <span className="text-[15px] leading-none">☰</span>
-          </button>
         </div>
       </div>
     </header>
@@ -88,7 +97,10 @@ export default function Header() {
         aria-hidden={!open}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b dark:border-zinc-800">
-          <span className="font-bold">Lexlab</span>
+          <span className="flex items-center gap-1.5 font-extrabold tracking-tighter">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-[13px] font-bold leading-none text-white dark:bg-white dark:text-zinc-900">§</span>
+            Lex<span className="font-medium">lab</span>
+          </span>
           <button
             aria-label="close menu"
             onClick={() => setOpen(false)}

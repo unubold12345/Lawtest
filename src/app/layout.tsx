@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
 import Header from "@/components/Header";
-import { loadQuestions } from "@/lib/questions";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -21,7 +20,6 @@ export const viewport = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
-  const { questions } = loadQuestions();
   return (
     <html lang="mn" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
@@ -35,8 +33,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SessionProvider>
           <Header />
           <main className="flex-1 w-full min-w-0 overflow-x-hidden">{children}</main>
-          <footer className="border-t py-4 sm:py-6 text-center text-xs text-zinc-500 dark:border-zinc-800 px-2">
-            Lexlab · {questions.length} асуулт · data/ файлуудаас
+          <footer className="border-t px-2 py-4 sm:py-6 text-center dark:border-zinc-800">
+            <p className="flex items-center justify-center gap-1.5 text-sm font-extrabold tracking-tighter text-zinc-900 dark:text-zinc-100">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-900 text-[11px] font-bold leading-none text-white dark:bg-white dark:text-zinc-900">§</span>
+              Lex<span className="font-medium">lab</span>
+            </p>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              © {new Date().getFullYear()} Lexlab · Бүх эрх хуулиар хамгаалагдсан
+            </p>
           </footer>
         </SessionProvider>
       </body>
