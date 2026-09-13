@@ -37,14 +37,17 @@ export async function POST(req: Request) {
 
     const { mocked, messageId } = await sendSms(phone, code);
 
-    // In dev/mock mode include code for easy testing; prod hides it behind Vercel logs
-    const isMock = mocked || process.env.NODE_ENV !== "production";
+    // Never hand out the code in production: if SMS isn't configured there,
+    // fail loudly instead of silently giving out a bypass code.
+    if (mocked && process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "SMS үйлчилгээ тохируулаагүй байна" }, { status: 500 });
+    }
     return NextResponse.json({
       ok: true,
       mocked,
       messageId,
-      // only expose code when mocked/dev so you don't need real SMS to test
-      ...(isMock ? { devCode: code } : {}),
+      // dev only: expose code so you don't need real SMS to test locally
+      ...(process.env.NODE_ENV !== "production" ? { devCode: code } : {}),
       ttl: OTP_TTL_SECONDS,
     });
   } catch (e) {
