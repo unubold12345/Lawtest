@@ -3,6 +3,7 @@ import path from "node:path";
 import { loadQuestions } from "@/lib/questions";
 import Link from "next/link";
 import HomeCategories from "@/components/HomeCategories";
+import { EXAM, examPhase } from "@/lib/exam";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -50,32 +51,38 @@ export default async function Home() {
     }
   } catch {}
 
+  const phase = examPhase();
+
   return (
     <div className="mx-auto max-w-6xl px-2 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-8">
-      {/* EXAM INFO */}
+      {/* EXAM INFO (auto-hides after the exam; signup link hides after reg closes) */}
+      {phase !== "done" && (
       <div className="rounded-xl sm:rounded-2xl border bg-white p-3.5 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-6">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] sm:text-xs font-medium uppercase tracking-[0.14em] text-zinc-400">
-              Хуульчийн шалгалт · 2026
+              {EXAM.label}
             </p>
             <p className="mt-1 font-bold text-[17px] sm:text-2xl tracking-tight">
-              10-р сарын 28, 29, 30
+              {EXAM.dates}
             </p>
             <p className="mt-0.5 text-[11px] sm:text-sm text-zinc-500">
-              Бүртгэл 9-р сарын 27-нд хаагдана
+              {phase === "open" ? EXAM.regOpenText : EXAM.regClosedText}
             </p>
           </div>
+          {phase === "open" && (
           <a
-            href="https://burtgel.mglbar.mn/"
+            href={EXAM.signupUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full bg-zinc-900 px-5 py-2.5 text-[12px] sm:text-sm font-medium text-white hover:bg-zinc-700 transition-colors dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 min-h-[38px]"
           >
-            burtgel.mglbar.mn <span aria-hidden>→</span>
+            {EXAM.signupLabel} <span aria-hidden>→</span>
           </a>
+          )}
         </div>
       </div>
+      )}
 
       {/* STATS */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-4">

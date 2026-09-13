@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -92,8 +93,7 @@ export default async function PlanPage() {
             <p className="font-semibold text-[14px] sm:text-base">1. QR-аар {priceFmt}₮ төлөх</p>
             <div className="mt-3 flex justify-center">
               {qrExists ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src="/payment-qr.png" alt="Төлбөрийн QR" className="w-56 h-56 sm:w-64 sm:h-64 rounded-2xl border object-contain bg-white" />
+                <Image src="/payment-qr.png" alt="Төлбөрийн QR" width={256} height={256} className="w-56 h-56 sm:w-64 sm:h-64 rounded-2xl border object-contain bg-white" />
               ) : (
                 <div className="flex w-56 h-56 sm:w-64 sm:h-64 items-center justify-center rounded-2xl border border-dashed text-center text-[12px] text-zinc-400 px-6">
                   Төлбөрийн QR удахгүй байршина
@@ -103,8 +103,7 @@ export default async function PlanPage() {
             <p className="mt-4 font-semibold text-[14px] sm:text-base">2. Дансаар төлөх</p>
             <div className="mt-3 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-700">
               <div className="flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/golomt-logo.png" alt="Голомт банк" className="h-10 sm:h-12 w-auto object-contain bg-white rounded-lg px-2 py-1 border border-zinc-100 dark:border-zinc-700" />
+                <Image src="/golomt-logo.png" alt="Голомт банк" width={651} height={318} className="h-10 sm:h-12 w-auto object-contain bg-white rounded-lg px-2 py-1 border border-zinc-100 dark:border-zinc-700" />
                 <p className="font-semibold text-[13px] sm:text-sm">Голомт банк</p>
               </div>
               <dl className="mt-3 grid gap-2 text-[12px] sm:text-sm">

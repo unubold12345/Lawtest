@@ -1,15 +1,29 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
 import Header from "@/components/Header";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const inter = Inter({ variable: "--font-inter", subsets: ["latin", "cyrillic"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://lexlab.site"),
   title: "Lexlab — Хуулийн шалгалт",
-  description: "123 сорилго · Гэр бүл, Иргэний эрх зүй · Шалгалт, сургалт",
+  description: "Хуульчийн мэргэжлийн шалгалтын сорилго — үндсэн ангилал, дэд ангилал, шалгалт ба сургалт.",
+  openGraph: {
+    title: "Lexlab — Хуулийн шалгалт",
+    description: "Хуульчийн мэргэжлийн шалгалтын сорилго — үндсэн ангилал, дэд ангилал, шалгалт ба сургалт.",
+    url: "/",
+    siteName: "Lexlab",
+    locale: "mn_MN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Lexlab — Хуулийн шалгалт",
+    description: "Хуульчийн мэргэжлийн шалгалтын сорилго — үндсэн ангилал, дэд ангилал, шалгалт ба сургалт.",
+  },
 };
 
 export const viewport = {
@@ -21,7 +35,7 @@ export const viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="mn" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="mn" className={`${inter.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
