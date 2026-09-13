@@ -27,11 +27,31 @@ export async function verifyCode(code: string, hash: string): Promise<boolean> {
 }
 
 export async function sendSms(phone: string, code: string): Promise<{ mocked: boolean; messageId?: string }> {
+  // Twilio (preferred) — plain REST, no SDK needed.
+  // Needs: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM (your Twilio number).
+  const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+  const twilioToken = process.env.TWILIO_AUTH_TOKEN;
+  const twilioFrom = process.env.TWILIO_FROM;
+  if (twilioSid && twilioToken && twilioFrom) {
+    const form = new URLSearchParams({ To: phone, From: twilioFrom, Body: `Lexlab kod: ${code} (5 min)` });
+    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: "Basic " + Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64"),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: form.toString(),
+    });
+    if (!r.ok) throw new Error(`Twilio ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    const d = (await r.json()) as { sid?: string };
+    return { mocked: false, messageId: d.sid };
+  }
+
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "ap-southeast-1";
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
   const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
-  // mock if no credentials — useful for dev / Vercel without SNS setup
+  // mock if no credentials — useful for dev / Vercel without SMS setup
   if (!accessKeyId || !secretAccessKey) {
     console.log(`[OTP mock] ${phone} -> ${code}`);
     return { mocked: true };

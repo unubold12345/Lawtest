@@ -2,7 +2,6 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
-import Link from "next/link";
 import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebaseClient";
 
@@ -52,22 +51,36 @@ export default function LoginPage() {
     if (!e164) { setErr("Утас буруу — 8 оронтой дугаар оруулна уу"); return; }
     try {
       const auth = firebaseAuth();
-      if (!verifierRef.current) {
-        verifierRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
-      }
+      // Always start with a fresh widget: a consumed/expired invisible
+      // reCAPTCHA reused across clicks throws auth/invalid-app-credential.
+      try { verifierRef.current?.clear(); } catch {}
+      verifierRef.current = null;
+      verifierRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
       const conf = await signInWithPhoneNumber(auth, e164, verifierRef.current);
       setFbConfirm(conf);
       setFbSentTo(e164);
       setOtpSent(true);
       setOk("SMS код илгээлээ");
       startCooldown();
-    } catch {
+    } catch (e: unknown) {
       try { verifierRef.current?.clear(); } catch {}
       verifierRef.current = null;
-      setErr("SMS илгээж чадсангүй — дугаараа шалгаад дахин оролдоно уу");
+      const code = (e as { code?: string })?.code || "";
+      console.error("[firebase-sms]", code, e);
+      const msg =
+        code === "auth/operation-not-allowed" ? "Firebase-д Phone идэвхжээгүй байна (Enable → Save)"
+        : code === "auth/unauthorized-domain" ? "Домэйн зөвшөөрөгдөөгүй (Authorized domains)"
+        : code === "auth/billing-not-enabled" ? "Firebase Blaze төлбөрийн төлөв шаардлагатай"
+        : code === "auth/quota-exceeded" || code === "auth/too-many-requests" ? "SMS квот дууссан — түр хүлээнэ үү"
+        : code === "auth/captcha-check-failed" ? "reCAPTCHA блоклогдсон — adblock унтрааж дахин оролдоно уу"
+        : code === "auth/invalid-app-credential" ? "Google аппыг танихгүй байна — түр хүлээгээд дахин оролдоно уу"
+        : code === "auth/invalid-phone-number" ? "Утас буруу — 8 оронтой дугаар оруулна уу"
+        : `SMS илгээж чадсангүй (${code || "тодорхойгүй"}) — зургийг явуулна уу`;
+      setErr(msg);
     }
   };
 
+  // Server OTP fallback (Twilio/SNS/dev mock) — /api/otp/send
   const sendOtp = async (purpose: "register" | "recover") => {
     setErr(""); setOk(""); setDevCode(null); setFbConfirm(null); setFbSentTo(null);
     if (!phone.trim()) { setErr("Утас оруулна уу"); return; }
