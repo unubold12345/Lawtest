@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
-import { effectiveAnswer, getAllOverrides } from "@/lib/answerOverrides";
+import { fileHasAnswer, getAllOverrides } from "@/lib/answerOverrides";
+import { fileAnswer, judgeQuestion } from "@/lib/voteJudge";
 import { readLocalSavedExams, writeLocalSavedExam, removeLocalSavedExam, type SavedExam } from "@/lib/savedExams";
 import { FREE_CATEGORY } from "@/lib/access";
 
@@ -91,6 +92,24 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     window.addEventListener("storage", h);
     return () => { window.removeEventListener("lawtest:overrides", h as EventListener); window.removeEventListener("storage", h); };
   }, []);
+
+  // community votes for no-answer questions: per-option tallies + my saved vote
+  const [voteCounts, setVoteCounts] = useState<Record<string, number[]>>({});
+  const [voteMy, setVoteMy] = useState<Record<string, number>>({});
+  const loadVotes = (ids: string[]) => {
+    const list = [...new Set(ids)].filter(Boolean).slice(0, 2000);
+    if (list.length === 0) return;
+    fetch("/api/saved-answers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: list }) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        if (d.counts) setVoteCounts((p) => ({ ...p, ...d.counts }));
+        if (d.my) setVoteMy((p) => ({ ...p, ...d.my }));
+      })
+      .catch(() => {});
+  };
+  // resolved answer: file (locked) → my saved → majority vote → auto-correct (tie/none)
+  const judgeOf = useCallback((q: Question) => judgeQuestion(q, { overrides, my: voteMy, counts: voteCounts }), [overrides, voteMy, voteCounts]);
 
   const [state, setState] = useState<QuizState>("setup");
   const [count, setCount] = useState(20);
@@ -274,6 +293,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     setMinutes(rec.minutes);
     setQuizQs(qs);
     setAnswers(rec.answers || {});
+    loadVotes(qs.map((q) => q.id));
     setOptionOrder(rec.optionOrder || {});
     setIdx(Math.min(rec.idx || 0, qs.length - 1));
     setTimeLeft(rec.timeLeft || 0);
@@ -330,6 +350,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     setOptionOrder(order);
     setQuizQs(picked);
     setAnswers({});
+    loadVotes(picked.map((q) => q.id));
     setConfirmExit(false);
     setPaused(false);
     setSettingsOpen(false);
@@ -378,6 +399,18 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
   const subPair = subPick === "" ? null : (subPairs[Number(subPick)] ?? null);
 
+  // no-answer questions in the picked subcategory (file-level) — for friendly judging text
+  const subUnknowns = useMemo(() => {
+    if (!subPair) return [];
+    return questions.filter((q) => q.category === subPair.main && q.subCategory === subPair.sub && !fileHasAnswer(q));
+  }, [questions, subPair]);
+  useEffect(() => {
+    if (subUnknowns.length === 0) return;
+    loadVotes(subUnknowns.map((q) => q.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subPair]);
+  const subUnsaved = subUnknowns.filter((q) => voteMy[q.id] === undefined && overrides[q.id] === undefined).length;
+
   const subStats = useMemo(() => {
     if (!subPair) return null;
     const list = histAttempts.filter((a) => a.category === subPair.label && typeof a.score === "number" && typeof a.total === "number" && a.total > 0);
@@ -397,12 +430,12 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     return { n: list.length, best, avg: Math.round((sum / list.length) * 100), last: list[0] as { score: number; total: number } };
   }, [histAttempts]);
 
-  // questions answered wrong in the current run (known answer only) — for mistake tracking
+  // questions answered wrong in the current run (resolved answer only; auto-correct never wrong) — for mistake tracking
   const examWrongIds = () =>
     quizQs.filter((q) => {
       const a = answers[q.id];
-      const c = effectiveAnswer(q, overrides);
-      return c !== null && a !== undefined && a !== c;
+      const j = judgeOf(q);
+      return j.source !== "auto" && j.correct !== null && a !== undefined && a !== j.correct;
     }).map((q) => q.id);
 
   // timer
@@ -412,9 +445,10 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     if (timeLeft <= 0) {
       const s = quizQs.reduce((acc, q) => {
         const a = answers[q.id];
-        const c = effectiveAnswer(q, overrides);
-        if (c === null) return acc;
-        return acc + (a === c ? 1 : 0);
+        const j = judgeOf(q);
+        if (j.source === "auto") return acc + 1;
+        if (j.correct === null) return acc;
+        return acc + (a === j.correct ? 1 : 0);
       }, 0);
       // study mode never saves statistics
       if (mode === "exam") saveAttempt({ category: runLabel, mode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
@@ -428,7 +462,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     const id = setInterval(() => { setTimeLeft((t) => t - 1); setElapsed((e) => e + 1); }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, timeLeft, minutes, quizQs, answers, mode, isAuthed, runLabel, paused]);
+  }, [state, timeLeft, minutes, quizQs, answers, mode, isAuthed, runLabel, paused, judgeOf]);
 
   // also count elapsed when no timer
   useEffect(() => {
@@ -455,40 +489,43 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     let s = 0;
     quizQs.forEach((q) => {
       const a = answers[q.id];
-      const correct = effectiveAnswer(q, overrides);
-      if (correct !== null && a === correct) s++;
+      const j = judgeOf(q);
+      if (j.source === "auto") s++;
+      else if (j.correct !== null && a === j.correct) s++;
     });
     return s;
-  }, [quizQs, answers, overrides]);
+  }, [quizQs, answers, judgeOf]);
 
   // result dashboard stats: correct / wrong / unanswered / unknown
   const resultStats = useMemo(() => {
     let ok = 0, wrong = 0, un = 0, unk = 0;
     quizQs.forEach((q) => {
       const a = answers[q.id];
-      const c = effectiveAnswer(q, overrides);
-      if (c === null) unk++;
+      const j = judgeOf(q);
+      if (j.source === "auto") ok++;
+      else if (j.correct === null) unk++;
       else if (a === undefined) un++;
-      else if (a === c) ok++;
+      else if (a === j.correct) ok++;
       else wrong++;
     });
     return { ok, wrong, un, unk };
-  }, [quizQs, answers, overrides]);
+  }, [quizQs, answers, judgeOf]);
 
-  // per main-category breakdown (unknown-answer questions excluded)
+  // per main-category breakdown (unresolved unknown-answer questions excluded)
   const catBreakdown = useMemo(() => {
     const map = new Map<string, { ok: number; tot: number }>();
     quizQs.forEach((q) => {
-      const c = effectiveAnswer(q, overrides);
-      if (c === null) return;
+      const j = judgeOf(q);
+      if (j.correct === null && j.source !== "auto") return;
       const key = (q.category as string) || "Бусад";
       const e = map.get(key) ?? { ok: 0, tot: 0 };
       e.tot++;
-      if (answers[q.id] === c) e.ok++;
+      if (j.source === "auto") e.ok++;
+      else if (answers[q.id] === j.correct) e.ok++;
       map.set(key, e);
     });
     return [...map.entries()].sort((a, b) => collator.compare(a[0], b[0]));
-  }, [quizQs, answers, overrides, collator]);
+  }, [quizQs, answers, judgeOf, collator]);
 
   const submit = () => {
     // study mode never saves statistics
@@ -518,8 +555,6 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     setState("running");
     window.scrollTo({ top: 0 });
   };
-
-  // back to quiz main page (setup)
   const backToSetup = () => {
     setState("setup");
     window.scrollTo({ top: 0 });
@@ -838,6 +873,13 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
             ) : (
               <p className="rounded-lg sm:rounded-xl bg-zinc-50 p-3 sm:p-4 text-[12px] sm:text-sm text-zinc-500 dark:bg-zinc-800">Энэ дэд ангиллаар оролдлого байхгүй байна — эхлээд шалгалт өгнө үү.</p>
             )}
+            {subUnknowns.length > 0 && (
+              <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl border border-dashed p-3 sm:p-4 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400 dark:border-zinc-700">
+                <p className="font-medium text-zinc-900 dark:text-white">Та энэ дэд ангиллын {subUnknowns.length} хариултгүй сорилгоос {subUnsaved}-г нь хадгалаагүй байна.</p>
+                <p className="mt-1">Хадгалаагүй сорилгыг хамгийн олон санал авсан сонголтоор дүгнэнэ. Хэн ч хадгалаагүй эсвэл санал тэнцсэн бол автоматаар зөв гэж үзнэ.</p>
+                <p className="mt-1">Өөрийн хариултаа <Link href="/browse" className="font-medium text-zinc-900 underline dark:text-white">Бүх сорилго</Link> дээр хадгалж болно.</p>
+              </div>
+            )}
             <button
               onClick={() => { setMainCategory(subPair.main); setSubCategory(subPair.sub); setCount(subPair.count); setCustomCount(""); start({ main: subPair.main, sub: subPair.sub, n: subPair.count }); }}
               disabled={subPair.count === 0}
@@ -931,8 +973,11 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
   if (state === "running" && current) {
     const ans = answers[current.id];
-    const correct = effectiveAnswer(current, overrides);
-    const isUnknown = correct === null;
+    const noFile = !fileHasAnswer(current);
+    const judgeCur = judgeOf(current);
+    const correct = noFile ? judgeCur.correct : fileAnswer(current);
+    const isUnknown = noFile && judgeCur.source === "unknown";
+    const isAuto = noFile && judgeCur.source === "auto";
     const answered = ans !== undefined;
     return (
       <div className="mx-auto max-w-3xl w-full space-y-3 sm:space-y-4 min-w-0 overflow-hidden px-3 sm:px-0 max-sm:min-h-[calc(100dvh-12rem)] max-sm:flex max-sm:flex-col max-sm:justify-center">
@@ -961,7 +1006,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
           <div className="rounded-xl sm:rounded-2xl border bg-white p-3 sm:p-6 dark:bg-zinc-900 dark:border-zinc-800 min-w-0 overflow-hidden">
           <h2 className="text-[14px] sm:text-lg font-medium leading-snug sm:leading-relaxed break-words [overflow-wrap:anywhere] min-w-0">{current.question}</h2>
-          {isUnknown && <p className="mt-1.5 text-[11px] sm:text-xs rounded-full bg-amber-100 px-2 py-0.5 sm:px-3 sm:py-1 inline-block max-w-full break-words text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Зөв хариулт хараахан тодорхойгүй — Browse дээр хадгална уу</p>}
+          {noFile && <p className="mt-1.5 text-[11px] sm:text-xs rounded-full bg-amber-100 px-2 py-0.5 sm:px-3 sm:py-1 inline-block max-w-full break-words text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">{isAuto ? "Хэн ч энэ сорилгыг хадгалаагүй эсвэл санал тэнцсэн — автоматаар зөв гэж үзнэ." : judgeCur.source === "personal" ? "Таны хадгалсан хариултаар дүгнэнэ." : judgeCur.source === "majority" ? "Хамгийн олон санал авсан сонголтоор дүгнэнэ." : "Зөв хариулт хараахан тодорхойгүй — Browse дээр хадгална уу"}</p>}
 
           <div className="mt-3 sm:mt-6 grid gap-1.5 sm:gap-3 min-w-0">
             {(optionOrder[current.id] ?? current.options.map((_, oi) => oi)).map((oi) => {
@@ -984,7 +1029,15 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
           {mode === "study" && answered && (
             <div className="mt-3 sm:mt-4 flex gap-2 min-w-0">
-              {isUnknown ? (
+              {isAuto ? (
+                <p className="text-[12px] sm:text-sm font-medium text-green-600 break-words">✓ Автоматаар зөв</p>
+              ) : noFile && judgeCur.source !== "unknown" ? (
+                !showStudyFeedback ? (
+                  <button onClick={() => setShowStudyFeedback(true)} className="rounded-full border px-4 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm dark:border-zinc-700 shrink-0">Хариу шалгах</button>
+                ) : (
+                  <p className={`text-[12px] sm:text-sm font-medium break-words min-w-0 ${ans === correct ? "text-green-600" : "text-red-600"}`}>{ans === correct ? "✓ Зөв!" : "✗ Буруу"}</p>
+                )
+              ) : isUnknown ? (
                 <p className="text-[12px] sm:text-sm text-amber-700 dark:text-amber-300 break-words">Зөв хариулт тодорхойгүй тул дүгнээгүй — Browse дээр хадгалж болно.</p>
               ) : !showStudyFeedback ? (
                 <button onClick={() => setShowStudyFeedback(true)} className="rounded-full border px-4 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm dark:border-zinc-700 shrink-0">Хариу шалгах</button>
@@ -1053,10 +1106,11 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const pct = total ? Math.round((score / total) * 100) : 0;
   const statusOf = (q: Question) => {
     const a = answers[q.id];
-    const c = effectiveAnswer(q, overrides);
-    if (c === null) return "unknown" as const;
+    const j = judgeOf(q);
+    if (j.source === "auto") return "correct" as const;
+    if (j.correct === null) return "unknown" as const;
     if (a === undefined) return "unanswered" as const;
-    return a === c ? ("correct" as const) : ("wrong" as const);
+    return a === j.correct ? ("correct" as const) : ("wrong" as const);
   };
   // default to mistakes-only view; fall back to all when nothing to fix
   const effFilter = resultStats.wrong + resultStats.un > 0 ? reviewFilter : "all";
@@ -1144,8 +1198,10 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       <div className="space-y-2 sm:space-y-4 min-w-0">
         {reviewItems.map(({ q, i, st }) => {
           const a = answers[q.id];
-          const c = effectiveAnswer(q, overrides);
+          const j = judgeOf(q);
+          const c = j.correct;
           const unknown = st === "unknown";
+          const auto = j.source === "auto";
           const ok = st === "correct";
           const open = !!expanded[q.id];
           return (
@@ -1158,11 +1214,11 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
               </button>
               {open && (
                 <div className="px-3 pb-3 sm:px-4 sm:pb-4">
-                  <p className="text-[10px] sm:text-xs text-zinc-500 break-words">{q.category}{q.subCategory ? ` · ${q.subCategory}` : ""} {unknown ? "· хариултгүй" : overrides[q.id] !== undefined ? "· Та хадгалсан" : ""} {st === "unanswered" ? "· хариулаагүй" : ""}</p>
+                  <p className="text-[10px] sm:text-xs text-zinc-500 break-words">{q.category}{q.subCategory ? ` · ${q.subCategory}` : ""} {unknown ? "· хариултгүй" : auto ? "· Автоматаар зөв" : j.source === "majority" ? "· Олонхын санал" : j.source === "personal" ? "· Та хадгалсан" : ""} {st === "unanswered" ? "· хариулаагүй" : ""}</p>
                   <div className="mt-2 grid gap-1.5 sm:gap-2 min-w-0">
                     {q.options.map((opt, oi) => (
-                      <div key={oi} className={`rounded-lg sm:rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm flex gap-1.5 sm:gap-2 min-w-0 overflow-hidden ${!unknown && oi === c ? "border-green-500 bg-green-100 dark:bg-green-900" : ""} ${oi === a && !ok && !unknown ? "border-red-500 bg-red-100 dark:bg-red-900" : "bg-white dark:bg-zinc-800"}`}>
-                        <span className="font-bold shrink-0">{letters[oi]}.</span><span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere] leading-snug">{opt} {!unknown && oi === c && "✓"} {!unknown && oi === c && overrides[q.id] !== undefined && <span className="text-[10px]">· Та хадгалсан</span>} {oi === a && oi !== c && !unknown && "← таны сонголт"}</span>
+                      <div key={oi} className={`rounded-lg sm:rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm flex gap-1.5 sm:gap-2 min-w-0 overflow-hidden ${!unknown && !auto && oi === c ? "border-green-500 bg-green-100 dark:bg-green-900" : ""} ${oi === a && !ok && !unknown && !auto ? "border-red-500 bg-red-100 dark:bg-red-900" : "bg-white dark:bg-zinc-800"}`}>
+                        <span className="font-bold shrink-0">{letters[oi]}.</span><span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere] leading-snug">{opt} {!unknown && !auto && oi === c && "✓"} {!unknown && !auto && oi === c && j.source === "personal" && <span className="text-[10px]">· Та хадгалсан</span>} {oi === a && oi !== c && !unknown && !auto && "← таны сонголт"}</span>
                       </div>
                     ))}
                   </div>
@@ -1172,6 +1228,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                       : <button onClick={() => addManualMistake(q.id)} className="mt-2 rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 min-h-[36px]">+ Их алддагт нэмэх</button>
                   )}
                   {unknown && <p className="mt-1.5 text-[11px] sm:text-xs text-zinc-500 break-words">Зөв хариулт хараахан тодорхойгүй — Browse дээр A–D сонгоод хадгална уу.</p>}
+                  {auto && <p className="mt-1.5 text-[11px] sm:text-xs text-zinc-500 break-words">Хэн ч хадгалаагүй эсвэл санал тэнцсэн — автоматаар зөв гэж үзсэн.</p>}
                 </div>
               )}
             </div>
