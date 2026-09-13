@@ -12,7 +12,17 @@ export async function GET() {
   } catch (e: unknown) {
     db = `error: ${e instanceof Error ? e.message.slice(0,300) : String(e).slice(0,300)}`;
   }
+  // Probe: does firebase-admin load in this runtime? (register-phone 500s empty)
+  let fb = "not-tried";
+  try {
+    const m = await import("@/lib/firebaseAdmin");
+    const r = await m.verifyFirebaseToken("dummy-token");
+    fb = `loaded, dummy-token -> ${r}`;
+  } catch (e: unknown) {
+    fb = `LOAD-FAIL: ${e instanceof Error ? `${e.name}: ${e.message}`.slice(0, 500) : String(e).slice(0, 500)}`;
+  }
   return NextResponse.json({
+    fb,
     hasDbUrl: !!url,
     host: url ? url.split("@")[1]?.split("?")[0] || "?" : null,
     isNeon: url.includes("neon.tech"),
