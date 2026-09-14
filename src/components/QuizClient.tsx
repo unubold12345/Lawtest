@@ -665,7 +665,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
             <p className="text-3xl">🔒</p>
             <h3 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй эрх шаардлагатай</h3>
-              <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Үндсэн шалгалт, шалгалт тохиргоо, бусад ангилал болон хадгалах нь 40,000₮-ийн бүтэн эрхэд багтдаг.</p>
+              <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Үндсэн шалгалт, шалгалт тохиргоо, бусад ангилал болон хадгалах нь 39,900₮-ийн бүтэн эрхэд багтдаг.</p>
               <Link href="/plan" className="mt-4 flex w-full items-center justify-center rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах →</Link>
               <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border py-2.5 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[40px]">Хаах</button>
             </div>
@@ -847,7 +847,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
             <p className="mt-1 font-medium text-[13px] sm:text-sm">Төлбөртэй дэд ангилал</p>
             <p className="mt-1 text-[11px] sm:text-xs text-zinc-500">«{subPair.sub}»-аар шалгалт өгөх нь Эрх авах төлөвлөгөөнд багтдаг.</p>
             <Link href="/plan" className="mt-3 inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-2.5 text-[12px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[40px]">
-              Эрх авах — 40,000₮ →
+              Эрх авах — 39,900₮ →
             </Link>
           </div>
         ) : (
@@ -1064,7 +1064,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
             <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
               <p className="text-3xl">🔒</p>
               <h3 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй эрх шаардлагатай</h3>
-              <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Бусад ангиллаар шалгалт өгөх, хадгалах нь 40,000₮-ийн бүтэн эрхэд багтдаг.</p>
+              <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Бусад ангиллаар шалгалт өгөх, хадгалах нь 39,900₮-ийн бүтэн эрхэд багтдаг.</p>
               <Link href="/plan" className="mt-4 flex w-full items-center justify-center rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах →</Link>
               <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border py-2.5 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[40px]">Хаах</button>
             </div>
@@ -1081,7 +1081,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                   <h3 className="font-semibold text-[14px] sm:text-base">🔒 Хадгалах нь төлбөртэй</h3>
                   <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Шалгалт түр зогсоож, үргэлжлүүлэх нь Эрх авах төлөвлөгөөнд багтдаг.</p>
                   <div className="mt-4 grid gap-2">
-                    <Link href="/plan" className="flex w-full items-center justify-center rounded-full bg-zinc-900 px-5 py-2 text-[13px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах — 40,000₮ →</Link>
+                    <Link href="/plan" className="flex w-full items-center justify-center rounded-full bg-zinc-900 px-5 py-2 text-[13px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах — 39,900₮ →</Link>
                     <button onClick={() => { setConfirmExit(false); setShowStudyFeedback(false); setState("setup"); }} className="rounded-full border px-5 py-2 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[36px]">Хадгалахгүй гарах</button>
                   </div>
                 </>

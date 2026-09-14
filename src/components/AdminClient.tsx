@@ -386,7 +386,7 @@ export default function AdminClient() {
               ))}
             </div>
           </div>
-          <p className="mt-1 text-[11px] sm:text-xs text-zinc-500">Хэрэглэгч QR-аар 40,000₮ төлсний дараа хүсэлт илгээдэг — төлбөрийг шалгаад эрхийг нээнэ үү.</p>
+          <p className="mt-1 text-[11px] sm:text-xs text-zinc-500">Хэрэглэгч QR-аар 39,900₮ төлсний дараа хүсэлт илгээдэг — төлбөрийг шалгаад эрхийг нээнэ үү.</p>
           <div className="mt-3 grid gap-2">
             {payments.map((p) => (
               <div key={p.id} className="rounded-xl border p-3 dark:border-zinc-700">

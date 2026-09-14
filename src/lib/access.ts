@@ -1,6 +1,6 @@
 // Paid plan access rules (single source of truth, client + server safe).
 export const FREE_CATEGORY = "1. Нийтийн эрх зүй";
-export const PLAN_PRICE = 40000;
+export const PLAN_PRICE = 39900;
 
 export function isFreeCategory(category: string | null | undefined): boolean {
   return (category || "") === FREE_CATEGORY;

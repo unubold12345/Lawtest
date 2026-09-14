@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Эрх авах — Lexlab",
-  description: "40,000₮ нэг удаагийн төлбөрөөр бүх сорилго, шалгалт, хадгалах цэсийг нээх",
+  description: "39,900₮ нэг удаагийн төлбөрөөр бүх сорилго, шалгалт, хадгалах цэсийг нээх",
 };
 
 const priceFmt = new Intl.NumberFormat("mn-MN").format(PLAN_PRICE);

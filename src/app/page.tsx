@@ -136,7 +136,7 @@ export default async function Home() {
         <div className="rounded-xl sm:rounded-2xl border border-zinc-900 bg-zinc-950 p-3.5 sm:p-5 text-white dark:bg-zinc-900 dark:border-zinc-700">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-6">
             <div className="min-w-0 flex-1">
-              <p className="font-bold text-[14px] sm:text-lg tracking-tight">🔓 Бүтэн эрх — 40,000₮</p>
+              <p className="font-bold text-[14px] sm:text-lg tracking-tight">🔓 Бүтэн эрх — 39,900₮</p>
               <p className="mt-0.5 text-[11px] sm:text-sm text-zinc-300">
                 Нэг удаа төлөөд бүх ангилал, хадгалах цэсийг насан туршдаа нээнэ
               </p>

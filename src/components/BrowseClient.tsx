@@ -324,7 +324,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
             «{mainCategory}» ангиллын сорилго үзэх, шалгалт өгөх нь <b>Эрх авах</b> төлөвлөгөөнд багтдаг. Үнэгүй: {FREE_CATEGORY}.
           </p>
           <Link href="/plan" className="mt-4 inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">
-            Эрх авах — 40,000₮ →
+            Эрх авах — 39,900₮ →
           </Link>
         </div>
       ) : (
