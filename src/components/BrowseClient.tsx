@@ -15,6 +15,7 @@ const PAGE_SIZE = 20;
 const LETTERS = ["A", "B", "C", "D", "E"];
 
 type Status = "all" | "answered" | "unanswered" | "mine" | "noted";
+type View = "list" | "card" | "grid";
 
 export default function BrowseClient({ questions }: { questions: Question[] }) {
   const searchParams = useSearchParams();
@@ -41,6 +42,10 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const [flash, setFlash] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<{ id: string; index: number } | null>(null);
   const [pendingClear, setPendingClear] = useState<string | null>(null);
+  const [view, setView] = useState<View>("list");
+  const [gridCols, setGridCols] = useState<number>(2);
+  const [cardIdx, setCardIdx] = useState(0);
+  const [controlsOpen, setControlsOpen] = useState(true);
   // paid categories are listed but their content is locked
   const lockedMain = mainCategory !== "all" && mainCategory !== FREE_CATEGORY && !fullAccess;
   const lockedCount = fullAccess ? 0 : questions.filter((x) => x.category !== FREE_CATEGORY).length;
@@ -133,9 +138,34 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const safePage = Math.min(page, totalPages);
   const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  // fetch vote counts for saveable page items (public, my vote if authed)
+  // card view: single question with prev/next across the whole filtered list
+  const safeCardIdx = filtered.length === 0 ? 0 : Math.min(Math.max(0, cardIdx), filtered.length - 1);
+  const cardItem: Question | undefined = filtered[safeCardIdx];
+  const goCard = (dir: number) => {
+    if (filtered.length === 0) return;
+    setCardIdx((i) => (i + dir + filtered.length) % filtered.length);
+  };
+  const gridColsClass =
+    gridCols === 1 ? "grid-cols-1"
+    : gridCols === 3 ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+    : gridCols === 4 ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+    : "grid-cols-1 sm:grid-cols-2";
+
+  // fetch all my saved answers once — paged fetch alone deadlocks the ✓ Минийх filter (empty page → no fetch → stays empty)
   useEffect(() => {
-    const ids = paged.filter((x) => !fileHasAnswer(x)).map((x) => x.id);
+    if (!isAuthed) { setMyDb({}); return; }
+    let cancelled = false;
+    fetch("/api/saved-answers?mine=1")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d?.my) setMyDb((p) => ({ ...d.my, ...p })); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isAuthed]);
+
+  // fetch vote counts for saveable visible items (public, my vote if authed)
+  useEffect(() => {
+    const visible = view === "card" ? (cardItem ? [cardItem] : []) : paged;
+    const ids = visible.filter((x) => !fileHasAnswer(x)).map((x) => x.id);
     if (ids.length === 0) return;
     fetch(`/api/saved-answers?ids=${encodeURIComponent(ids.join(","))}`)
       .then((r) => r.json())
@@ -145,7 +175,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paged.map((x) => x.id).join(",")]);
+  }, [paged.map((x) => x.id).join(","), view, cardItem?.id]);
 
   // fetch all my noted question ids once (for the Тэмдэглэлтэй filter + badges)
   useEffect(() => {
@@ -156,10 +186,21 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
       .catch(() => {});
   }, [isAuthed]);
 
-  const onSearch = (v: string) => { setQ(v); setPage(1); };
-  const onMain = (v: string) => { setMainCategory(v); setSubCategory("all"); setPage(1); };
-  const onSub = (v: string) => { setSubCategory(v); setPage(1); };
-  const onStatus = (v: Status) => { setStatus(v); setPage(1); };
+  // card view: expand the incoming question during render (pre-commit) — expanding it
+  // in an effect left the first committed frame collapsed, so the page height dropped,
+  // the browser clamped scroll toward the top and the position was lost (card root is
+  // keyed by item.id, so each swap remounts)
+  const [prevCardId, setPrevCardId] = useState<string | null>(null);
+  if (view === "card" && cardItem && cardItem.id !== prevCardId) {
+    setPrevCardId(cardItem.id);
+    setExpanded((p) => (p[cardItem.id] ? p : { ...p, [cardItem.id]: true }));
+    setActiveId(cardItem.id);
+  }
+
+  const onSearch = (v: string) => { setQ(v); setPage(1); setCardIdx(0); };
+  const onMain = (v: string) => { setMainCategory(v); setSubCategory("all"); setPage(1); setCardIdx(0); };
+  const onSub = (v: string) => { setSubCategory(v); setPage(1); setCardIdx(0); };
+  const onStatus = (v: Status) => { setStatus(v); setPage(1); setCardIdx(0); };
 
   // ---- saving ----
   const persistAnswer = async (id: string, index: number | null) => {
@@ -209,6 +250,19 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
         searchRef.current?.focus();
         return;
       }
+      if (view === "card") {
+        if (e.key === "ArrowRight" || e.key === "j" || e.key === "J" || e.key === "ArrowDown") {
+          e.preventDefault();
+          goCard(1);
+          return;
+        }
+        if (e.key === "ArrowLeft" || e.key === "k" || e.key === "K" || e.key === "ArrowUp") {
+          e.preventDefault();
+          goCard(-1);
+          return;
+        }
+        return;
+      }
       if (paged.length === 0) return;
       if (e.key === "j" || e.key === "J" || e.key === "ArrowDown") {
         e.preventDefault();
@@ -232,7 +286,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId, paged, myDb, isAuthed, pending, pendingClear]);
+  }, [activeId, paged, myDb, isAuthed, pending, pendingClear, view, filtered]);
 
   // quiz link preserves current view (prep flow)
   const quizHref = (() => {
@@ -257,10 +311,159 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     ...(isAuthed ? [{ id: "noted" as Status, label: "✎ Тэмдэглэлтэй", n: statusCounts.noted }] : []),
   ];
 
+  // ---- single question card shared by list / card / grid views ----
+  const renderItem = (item: Question, globalIdx: number) => {
+    const locked = fileHasAnswer(item);
+    const eff = effOf(item);
+    const mine = mineOf(item);
+    const st = statusOf(item);
+    const isOpen = !!expanded[item.id];
+    const isActive = activeId === item.id;
+    const isRevealed = !!revealed[item.id];
+    const voteCounts: number[] = counts[item.id] || [];
+    const totalVotes = voteCounts.reduce((a, b) => a + b, 0);
+    const mark = st === "mine" ? "✓" : st === "answered" ? "●" : "○";
+    return (
+      <div key={item.id} id={`qrow-${item.id}`} className={`rounded-xl border bg-white dark:bg-white/[0.04] scroll-mt-20 ${isActive ? "border-indigo-500 dark:border-indigo-400/60" : "border-zinc-200 dark:border-white/10"}`}>
+        <button onClick={() => toggleExpand(item.id)} className="flex w-full items-start gap-2 px-3 py-2.5 sm:px-4 sm:py-3 text-left">
+          <span className="shrink-0 text-[11px] sm:text-xs text-zinc-400 w-7 pt-0.5">{globalIdx}.</span>
+          <span className={`shrink-0 pt-0.5 text-[13px] sm:text-sm ${st === "unanswered" ? "text-zinc-300 dark:text-zinc-600" : st === "mine" ? "text-emerald-600 dark:text-emerald-400" : "text-indigo-600 dark:text-indigo-300"} ${st === "mine" ? "font-bold" : ""}`}>{mark}</span>
+          <span className="min-w-0 flex-1">
+            <span className={`block leading-snug break-words ${isOpen ? "text-[13px] sm:text-[15px] font-medium" : "text-[12px] sm:text-sm line-clamp-2"}`}>{item.question}</span>
+            <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] text-zinc-400">{item.category}{item.subCategory ? ` · ${item.subCategory}` : ""}{!locked && eff !== null ? ` · ${LETTERS[eff]}` : ""}{!locked && notedIds.has(item.id) ? " · ✎" : ""}</span>
+          </span>
+          <span className="shrink-0 pt-1 text-[10px] text-zinc-400">{isOpen ? "▴" : "▾"}</span>
+        </button>
+
+        {isOpen && (
+          <div className="border-t px-3 py-3 sm:px-4 sm:py-4 dark:border-white/10">
+            <div className="flex gap-1 flex-wrap">
+              {item.category && <span className="rounded-full bg-indigo-50 text-indigo-600 px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-indigo-500/10 dark:text-indigo-300">{item.category}</span>}
+              {item.subCategory && <span className="rounded-full bg-zinc-100 text-zinc-600 px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-white/5 dark:text-zinc-300">{item.subCategory}</span>}
+              {!locked && mine && <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] sm:text-xs dark:bg-emerald-400/10 dark:text-emerald-400">✓ Та хадгалсан</span>}
+              {!locked && eff === null && <span className="rounded-full border border-dashed border-zinc-200 px-2 py-0.5 text-[10px] sm:text-xs text-zinc-500 dark:border-white/15">○ Хариултгүй</span>}
+            </div>
+
+            {locked && eff !== null && (
+              <button
+                onClick={() => setRevealed((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
+                className="mt-2 rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] sm:text-xs font-medium hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"
+              >
+                {isRevealed ? "Нуух" : "Зөв хариулт харах"}
+              </button>
+            )}
+
+            <div className="mt-2.5 sm:mt-3 grid gap-1.5 sm:gap-2">
+              {item.options.map((opt, i) => {
+                const isCorrect = eff !== null && i === eff;
+                const showCorrect = isRevealed && isCorrect;
+                return (
+                  <div
+                    key={i}
+                    className={`rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-2.5 text-[13px] sm:text-sm flex gap-2 ${showCorrect ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-100" : "border-zinc-200 dark:border-white/10"}`}
+                  >
+                    <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${showCorrect ? "bg-emerald-600 text-white dark:bg-emerald-500/30 dark:text-emerald-100" : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{LETTERS[i]}</span>
+                    <span className="leading-snug">{opt}</span>
+                    {showCorrect && <span className="ml-auto font-medium text-xs shrink-0">✓ Зөв</span>}
+                  </div>
+                );
+              })}
+            </div>
+            {isRevealed && item.explanation && <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Тайлбар: {item.explanation}</p>}
+
+            {!locked && !isAuthed && (
+              <div className="mt-3 rounded-lg border border-dashed border-indigo-200 bg-indigo-50/60 p-2.5 sm:p-3 text-[11px] sm:text-xs text-indigo-700 dark:border-indigo-400/30 dark:bg-indigo-500/10 dark:text-indigo-200">
+                Зөв хариулт хадгалахын тулд <Link href="/login" className="font-medium text-zinc-900 underline hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300">нэвтэрнэ үү</Link>.
+              </div>
+            )}
+
+            {!locked && isAuthed && !fullAccess && (
+              <div className="mt-3 rounded-lg border border-dashed border-amber-200 bg-amber-50 p-2.5 sm:p-3 text-[11px] sm:text-xs text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
+                Зөв хариулт хадгалах нь төлбөртэй — <Link href="/plan" className="font-medium text-zinc-900 underline hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300">Эрх авах</Link>.
+              </div>
+            )}
+
+            {!locked && canSave && (
+              <div className="mt-3 rounded-lg border border-dashed border-zinc-200 p-2.5 sm:p-3 dark:border-white/10">
+                <p className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  {eff === null
+                    ? "Зөв хариулт тодорхойгүй — сонгоод хадгална уу:"
+                    : `Таны хадгалсан: ${LETTERS[eff]} — солих:`}
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {item.options.map((_, i) => {
+                    const c = voteCounts[i] || 0;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => chooseAnswer(item.id, i)}
+                        className={`rounded-full px-3.5 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-sm border flex items-center gap-1 min-h-[34px] sm:min-h-[40px] ${eff === i ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"}`}
+                      >
+                        <span className="font-bold">{LETTERS[i]}</span>
+                        <span className={`text-[11px] ${eff === i ? "opacity-70" : "text-zinc-400"}`}>· {c}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {flash[item.id] && <p className="mt-1.5 text-[11px] sm:text-xs font-medium text-emerald-600 dark:text-emerald-400">{flash[item.id]}</p>}
+                {totalVotes > 0 && (
+                  <p className="mt-1.5 text-[10px] sm:text-xs text-zinc-500">
+                    Нийт {totalVotes} санал
+                    {(() => {
+                      let max = -1, maxIdx = -1;
+                      voteCounts.forEach((v, i) => { if (v > max) { max = v; maxIdx = i; } });
+                      return voteCounts.filter((v) => v === max).length === 1 && max > 0 ? ` · хамгийн их: ${LETTERS[maxIdx]} (${max})` : "";
+                    })()}
+                  </p>
+                )}
+                {mine && (
+                  <button onClick={() => setPendingClear(item.id)} className="mt-1.5 text-[11px] sm:text-xs underline text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400">
+                    Хадгалснаа арилгах
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {!locked && <QuestionDiscussion questionId={item.id} />}
+              <QuestionNote
+                questionId={item.id}
+                initialHas={notedIds.has(item.id)}
+                onChange={(id, has) => setNotedIds((prev) => { const n = new Set(prev); if (has) n.add(id); else n.delete(id); return n; })}
+              />
+              <QuestionReport questionId={item.id} />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-3 sm:space-y-4 px-3 sm:px-0">
-      {/* controls */}
-      <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] space-y-2 sm:space-y-3">
+      {/* controls (collapsible) */}
+      <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-white/[0.04]">
+        <button
+          onClick={() => setControlsOpen((o) => !o)}
+          aria-expanded={controlsOpen}
+          className="flex min-h-[36px] w-full items-center justify-between gap-2 text-left"
+        >
+          <span className="flex min-w-0 items-center gap-2 text-[12px] sm:text-sm font-medium text-zinc-700 dark:text-zinc-200">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+            Шүүлтүүр
+            {!controlsOpen && (
+              <span className="truncate text-[11px] sm:text-xs font-normal text-zinc-500">
+                · {filtered.length} илэрц{q.trim() ? ` · «${q.trim()}»` : ""}{mainCategory !== "all" ? ` · ${mainCategory}` : ""}{subCategory !== "all" ? ` · ${subCategory}` : ""}
+              </span>
+            )}
+          </span>
+          <span className="shrink-0 text-zinc-500" aria-hidden>{controlsOpen ? "▾" : "▸"}</span>
+        </button>
+        {controlsOpen && (
+        <div className="space-y-2 sm:space-y-3 pt-2">
         <input
           ref={searchRef}
           value={q}
@@ -302,6 +505,55 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
             </button>
           ))}
         </div>
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-t border-zinc-100 pt-2 dark:border-white/5">
+          <div className="inline-flex items-center gap-0.5 rounded-full border border-zinc-200 bg-zinc-50 p-0.5 dark:border-white/15 dark:bg-white/5" role="group" aria-label="Харагдац">
+            {([{ v: "list", label: "Жагсаалт" }, { v: "card", label: "Карт" }, { v: "grid", label: "Сүлжээ" }] as { v: View; label: string }[]).map((o) => (
+              <button
+                key={o.v}
+                onClick={() => setView(o.v)}
+                aria-label={o.label}
+                aria-pressed={view === o.v}
+                title={o.label}
+                className={`inline-flex h-8 w-11 items-center justify-center rounded-full transition-colors ${view === o.v ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-500 hover:bg-white hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100"}`}
+              >
+                {o.v === "list" ? (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                    <path d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                ) : o.v === "card" ? (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+                    <path d="M7.5 9.5h7M7.5 13.5h4" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+                    <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+                    <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+                    <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+          {view === "grid" && (
+            <span className="ml-1 flex items-center gap-1">
+              <span className="text-[11px] sm:text-xs text-zinc-500">Багана:</span>
+              {[1, 2, 3, 4].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setGridCols(n)}
+                  aria-label={`${n} багана`}
+                  className={`h-8 w-8 rounded-full border text-[12px] sm:text-sm font-medium ${gridCols === n ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+                >
+                  {n}
+                </button>
+              ))}
+            </span>
+          )}
+        </div>
+        </div>
+        )}
       </div>
 
       {/* locked-category banner (all view) */}
@@ -346,142 +598,33 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
       </div>
       )}
 
-      {/* compact rows */}
-      {!lockedMain && (
+      {/* views: list / card / grid */}
+      {!lockedMain && view === "list" && (
       <div className="grid gap-1.5 sm:gap-2">
-        {paged.map((item, idx) => {
-          const locked = fileHasAnswer(item);
-          const eff = effOf(item);
-          const mine = mineOf(item);
-          const st = statusOf(item);
-          const isOpen = !!expanded[item.id];
-          const isActive = activeId === item.id;
-          const isRevealed = !!revealed[item.id];
-          const globalIdx = (safePage - 1) * PAGE_SIZE + idx + 1;
-          const voteCounts: number[] = counts[item.id] || [];
-          const totalVotes = voteCounts.reduce((a, b) => a + b, 0);
-          const mark = st === "mine" ? "✓" : st === "answered" ? "●" : "○";
-          return (
-            <div key={item.id} id={`qrow-${item.id}`} className={`rounded-xl border bg-white dark:bg-white/[0.04] scroll-mt-20 ${isActive ? "border-indigo-500 dark:border-indigo-400/60" : "border-zinc-200 dark:border-white/10"}`}>
-              <button onClick={() => toggleExpand(item.id)} className="flex w-full items-start gap-2 px-3 py-2.5 sm:px-4 sm:py-3 text-left">
-                <span className="shrink-0 text-[11px] sm:text-xs text-zinc-400 w-7 pt-0.5">{globalIdx}.</span>
-                <span className={`shrink-0 pt-0.5 text-[13px] sm:text-sm ${st === "unanswered" ? "text-zinc-300 dark:text-zinc-600" : st === "mine" ? "text-emerald-600 dark:text-emerald-400" : "text-indigo-600 dark:text-indigo-300"} ${st === "mine" ? "font-bold" : ""}`}>{mark}</span>
-                <span className="min-w-0 flex-1">
-                  <span className={`block leading-snug break-words ${isOpen ? "text-[13px] sm:text-[15px] font-medium" : "text-[12px] sm:text-sm line-clamp-2"}`}>{item.question}</span>
-                  <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] text-zinc-400">{item.category}{item.subCategory ? ` · ${item.subCategory}` : ""}{!locked && eff !== null ? ` · ${LETTERS[eff]}` : ""}{!locked && notedIds.has(item.id) ? " · ✎" : ""}</span>
-                </span>
-                <span className="shrink-0 pt-1 text-[10px] text-zinc-400">{isOpen ? "▴" : "▾"}</span>
-              </button>
-
-              {isOpen && (
-                <div className="border-t px-3 py-3 sm:px-4 sm:py-4 dark:border-white/10">
-                  <div className="flex gap-1 flex-wrap">
-                    {item.category && <span className="rounded-full bg-indigo-50 text-indigo-600 px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-indigo-500/10 dark:text-indigo-300">{item.category}</span>}
-                    {item.subCategory && <span className="rounded-full bg-zinc-100 text-zinc-600 px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-white/5 dark:text-zinc-300">{item.subCategory}</span>}
-                    {!locked && mine && <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] sm:text-xs dark:bg-emerald-400/10 dark:text-emerald-400">✓ Та хадгалсан</span>}
-                    {!locked && eff === null && <span className="rounded-full border border-dashed border-zinc-200 px-2 py-0.5 text-[10px] sm:text-xs text-zinc-500 dark:border-white/15">○ Хариултгүй</span>}
-                  </div>
-
-                  {locked && eff !== null && (
-                    <button
-                      onClick={() => setRevealed((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
-                      className="mt-2 rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] sm:text-xs font-medium hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"
-                    >
-                      {isRevealed ? "Нуух" : "Зөв хариулт харах"}
-                    </button>
-                  )}
-
-                  <div className="mt-2.5 sm:mt-3 grid gap-1.5 sm:gap-2">
-                    {item.options.map((opt, i) => {
-                      const isCorrect = eff !== null && i === eff;
-                      const showCorrect = isRevealed && isCorrect;
-                      return (
-                        <div
-                          key={i}
-                          className={`rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-2.5 text-[13px] sm:text-sm flex gap-2 ${showCorrect ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-100" : "border-zinc-200 dark:border-white/10"}`}
-                        >
-                          <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${showCorrect ? "bg-emerald-600 text-white dark:bg-emerald-500/30 dark:text-emerald-100" : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{LETTERS[i]}</span>
-                          <span className="leading-snug">{opt}</span>
-                          {showCorrect && <span className="ml-auto font-medium text-xs shrink-0">✓ Зөв</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {isRevealed && item.explanation && <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Тайлбар: {item.explanation}</p>}
-
-                  {!locked && !isAuthed && (
-                    <div className="mt-3 rounded-lg border border-dashed border-indigo-200 bg-indigo-50/60 p-2.5 sm:p-3 text-[11px] sm:text-xs text-indigo-700 dark:border-indigo-400/30 dark:bg-indigo-500/10 dark:text-indigo-200">
-                      Зөв хариулт хадгалахын тулд <Link href="/login" className="font-medium text-zinc-900 underline hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300">нэвтэрнэ үү</Link>.
-                    </div>
-                  )}
-
-                  {!locked && isAuthed && !fullAccess && (
-                    <div className="mt-3 rounded-lg border border-dashed border-amber-200 bg-amber-50 p-2.5 sm:p-3 text-[11px] sm:text-xs text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
-                      Зөв хариулт хадгалах нь төлбөртэй — <Link href="/plan" className="font-medium text-zinc-900 underline hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300">Эрх авах</Link>.
-                    </div>
-                  )}
-
-                  {!locked && canSave && (
-                    <div className="mt-3 rounded-lg border border-dashed border-zinc-200 p-2.5 sm:p-3 dark:border-white/10">
-                      <p className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                        {eff === null
-                          ? "Зөв хариулт тодорхойгүй — сонгоод хадгална уу:"
-                          : `Таны хадгалсан: ${LETTERS[eff]} — солих:`}
-                      </p>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {item.options.map((_, i) => {
-                          const c = voteCounts[i] || 0;
-                          return (
-                            <button
-                              key={i}
-                              onClick={() => chooseAnswer(item.id, i)}
-                              className={`rounded-full px-3.5 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-sm border flex items-center gap-1 min-h-[34px] sm:min-h-[40px] ${eff === i ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"}`}
-                            >
-                              <span className="font-bold">{LETTERS[i]}</span>
-                              <span className={`text-[11px] ${eff === i ? "opacity-70" : "text-zinc-400"}`}>· {c}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {flash[item.id] && <p className="mt-1.5 text-[11px] sm:text-xs font-medium text-emerald-600 dark:text-emerald-400">{flash[item.id]}</p>}
-                      {totalVotes > 0 && (
-                        <p className="mt-1.5 text-[10px] sm:text-xs text-zinc-500">
-                          Нийт {totalVotes} санал
-                          {(() => {
-                            let max = -1, maxIdx = -1;
-                            voteCounts.forEach((v, i) => { if (v > max) { max = v; maxIdx = i; } });
-                            return voteCounts.filter((v) => v === max).length === 1 && max > 0 ? ` · хамгийн их: ${LETTERS[maxIdx]} (${max})` : "";
-                          })()}
-                        </p>
-                      )}
-                      {mine && (
-                        <button onClick={() => setPendingClear(item.id)} className="mt-1.5 text-[11px] sm:text-xs underline text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400">
-                          Хадгалснаа арилгах
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {!locked && <QuestionDiscussion questionId={item.id} />}
-                    <QuestionNote
-                      questionId={item.id}
-                      initialHas={notedIds.has(item.id)}
-                      onChange={(id, has) => setNotedIds((prev) => { const n = new Set(prev); if (has) n.add(id); else n.delete(id); return n; })}
-                    />
-                    <QuestionReport questionId={item.id} />
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {paged.map((item, idx) => renderItem(item, (safePage - 1) * PAGE_SIZE + idx + 1))}
       </div>
       )}
 
-      {!lockedMain && filtered.length === 0 && <p className="text-center py-12 text-zinc-500 text-sm">Илэрц олдсонгүй.</p>}
+      {!lockedMain && view === "card" && (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-2 py-2 dark:border-white/10 dark:bg-white/[0.04]">
+          <button onClick={() => goCard(-1)} disabled={filtered.length <= 1} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">← Өмнөх</button>
+          <span className="text-[11px] sm:text-xs text-zinc-500">{filtered.length === 0 ? "0 / 0" : `${safeCardIdx + 1} / ${filtered.length}`}</span>
+          <button onClick={() => goCard(1)} disabled={filtered.length <= 1} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">Дараах →</button>
+        </div>
+        {cardItem ? renderItem(cardItem, safeCardIdx + 1) : <p className="text-center py-12 text-zinc-500 text-sm">Илэрц олдсонгүй.</p>}
+      </div>
+      )}
 
-      {!lockedMain && totalPages > 1 && (
+      {!lockedMain && view === "grid" && (
+      <div className={`grid gap-1.5 sm:gap-2 ${gridColsClass}`}>
+        {paged.map((item, idx) => renderItem(item, (safePage - 1) * PAGE_SIZE + idx + 1))}
+      </div>
+      )}
+
+      {!lockedMain && view !== "card" && filtered.length === 0 && <p className="text-center py-12 text-zinc-500 text-sm">Илэрц олдсонгүй.</p>}
+
+      {!lockedMain && view !== "card" && totalPages > 1 && (
         <div className="flex items-center justify-center gap-1.5 sm:gap-2 py-2 flex-wrap">
           <button disabled={safePage === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">←</button>
           {pageWindow.map((n, i, arr) => (
