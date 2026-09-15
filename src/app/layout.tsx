@@ -39,16 +39,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('lexlab_theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})()`,
+            __html: `(function(){try{var t=localStorage.getItem('lexlab_theme');if(t!=='light'){document.documentElement.classList.add('dark')}}catch(e){}})()`,
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-zinc-50 dark:bg-zinc-950 overscroll-y-none">
+      <body className="min-h-full flex flex-col overscroll-y-none">
         <SessionProvider>
           <Header />
           <main className="flex-1 w-full min-w-0 overflow-x-hidden">{children}</main>
-          <footer className="border-t px-2 py-4 sm:py-6 text-center dark:border-zinc-800">
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          <footer className="border-t border-zinc-200/80 px-2 py-4 sm:py-6 text-center dark:border-white/10">
+            <p className="text-xs text-zinc-500 dark:text-zinc-500">
               © {new Date().getFullYear()} Lexlab
             </p>
           </footer>

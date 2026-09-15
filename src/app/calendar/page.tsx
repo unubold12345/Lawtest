@@ -105,9 +105,9 @@ export default function CalendarPage() {
   if (!isAuthed) {
     return (
       <main className="mx-auto max-w-6xl px-3 sm:px-6 py-8">
-        <div className="mx-auto max-w-sm rounded-3xl border dark:border-zinc-800 p-8 text-center shadow-sm">
+        <div className="mx-auto max-w-sm rounded-3xl border border-zinc-200 p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">Календар харахын тулд нэвтэрнэ үү.</p>
-          <Link href="/login" className="mt-4 inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 text-sm font-medium text-white dark:bg-white dark:text-zinc-900">
+          <Link href="/login" className="mt-4 inline-flex min-h-[44px] items-center rounded-full bg-indigo-600 px-6 text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400">
             Нэвтрэх
           </Link>
         </div>
@@ -137,17 +137,17 @@ export default function CalendarPage() {
   return (
     <main className="mx-auto max-w-md sm:max-w-xl px-3 sm:px-6 py-4 sm:py-8">
       <div className="mb-4 flex items-center justify-between">
-        <button onClick={() => shift(-1)} aria-label="өмнөх сар" className="inline-flex h-9 w-9 items-center justify-center rounded-full border dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800">‹</button>
+        <button onClick={() => shift(-1)} aria-label="өмнөх сар" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 dark:border-white/15 hover:bg-zinc-50 dark:hover:bg-white/5">‹</button>
         <h1 className="text-base sm:text-xl font-bold">{cur.y} оны {cur.m + 1}-р сар</h1>
-        <button onClick={() => shift(1)} aria-label="дараах сар" className="inline-flex h-9 w-9 items-center justify-center rounded-full border dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800">›</button>
+        <button onClick={() => shift(1)} aria-label="дараах сар" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 dark:border-white/15 hover:bg-zinc-50 dark:hover:bg-white/5">›</button>
       </div>
 
       {countdown && (
         <button
           onClick={jumpToExam}
-          className="mb-4 w-full rounded-2xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50 px-4 py-2.5 text-center hover:bg-amber-100 dark:hover:bg-amber-950"
+          className="mb-4 w-full rounded-2xl border border-amber-300 bg-amber-50 dark:border-amber-400/30 dark:bg-amber-400/10 px-4 py-2.5 text-center hover:bg-amber-100 dark:hover:bg-amber-400/15"
         >
-          <p className="text-sm font-bold text-amber-800 dark:text-amber-200">{countdown}</p>
+          <p className="text-sm font-bold text-amber-700 dark:text-amber-300">{countdown}</p>
         </button>
       )}
 
@@ -167,10 +167,10 @@ export default function CalendarPage() {
               key={i}
               disabled={!active}
               onClick={() => setSelected(k)}
-              className={`aspect-square overflow-hidden rounded-xl border p-1 sm:p-1.5 text-left align-top transition-colors dark:border-zinc-800 ${
-                active ? "border-zinc-400 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 cursor-pointer" : "border-zinc-200 dark:border-zinc-800"
-              } ${isToday ? "ring-1 ring-zinc-900 dark:ring-white" : ""} ${
-                isExam ? "border-amber-400 bg-amber-50 dark:border-amber-600 dark:bg-amber-950/60" : ""
+              className={`aspect-square overflow-hidden rounded-xl border p-1 sm:p-1.5 text-left align-top transition-colors dark:border-white/10 ${
+                active ? "border-zinc-400 bg-zinc-100 hover:bg-zinc-200 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer" : "border-zinc-200 dark:border-white/10"
+              } ${isToday ? "ring-1 ring-indigo-500 dark:ring-indigo-400" : ""} ${
+                isExam ? "border-amber-400 bg-amber-50 dark:border-amber-400/30 dark:bg-amber-400/10" : ""
               }`}
             >
               <div className={`text-sm font-bold ${isExam ? "text-amber-700 dark:text-amber-300" : active ? "" : "text-zinc-400 dark:text-zinc-600"}`}>{d}</div>
@@ -199,27 +199,27 @@ export default function CalendarPage() {
       {selected && sel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/50" onClick={() => setSelected(null)} />
-          <div className="relative max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white dark:bg-zinc-900 p-4 sm:p-6 shadow-xl">
+          <div className="relative max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white dark:bg-[#0c0c14]/95 dark:border-white/10 dark:backdrop-blur-xl p-4 sm:p-6 shadow-xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm sm:text-base font-bold">{selected}</h3>
-              <button onClick={() => setSelected(null)} aria-label="хаах" className="inline-flex h-9 w-9 items-center justify-center rounded-full border dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800">✕</button>
+              <button onClick={() => setSelected(null)} aria-label="хаах" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 dark:border-white/15 hover:bg-zinc-50 dark:hover:bg-white/5">✕</button>
             </div>
             <div className="mb-3 flex flex-wrap gap-1.5 text-xs">
-              <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 font-medium">▦ {sel.attempts.length}</span>
-              <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 font-medium">✎ {sel.notes.length}</span>
-              <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 font-medium">❝ {sel.comments.length}</span>
-              <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 font-medium">✓ {sel.saved.length}</span>
+              <span className="rounded-full bg-zinc-100 dark:bg-white/5 px-2.5 py-1 font-medium">▦ {sel.attempts.length}</span>
+              <span className="rounded-full bg-zinc-100 dark:bg-white/5 px-2.5 py-1 font-medium">✎ {sel.notes.length}</span>
+              <span className="rounded-full bg-zinc-100 dark:bg-white/5 px-2.5 py-1 font-medium">❝ {sel.comments.length}</span>
+              <span className="rounded-full bg-zinc-100 dark:bg-white/5 px-2.5 py-1 font-medium">✓ {sel.saved.length}</span>
             </div>
             <div className="space-y-2.5 text-[13px] sm:text-sm">
-              <details className="overflow-hidden rounded-2xl border dark:border-zinc-800">
+              <details className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10">
                 <summary className="flex min-h-[44px] cursor-pointer items-center justify-between px-3 py-2 font-semibold">
                   <span>▦ Шалгалт</span>
-                  <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-medium">{sel.attempts.length}</span>
+                  <span className="rounded-full bg-zinc-100 dark:bg-white/5 px-2 py-0.5 text-xs font-medium">{sel.attempts.length}</span>
                 </summary>
-                {sel.attempts.length === 0 ? <p className="border-t dark:border-zinc-800 px-3 py-2 text-zinc-500">Хоосон</p> : (
-                  <ul className="grid grid-cols-2 gap-2 border-t dark:border-zinc-800 p-2">
+                {sel.attempts.length === 0 ? <p className="border-t border-zinc-200 dark:border-white/10 px-3 py-2 text-zinc-500">Хоосон</p> : (
+                  <ul className="grid grid-cols-2 gap-2 border-t border-zinc-200 dark:border-white/10 p-2">
                     {sel.attempts.map((a) => (
-                      <li key={a.id} className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-2.5 py-2">
+                      <li key={a.id} className="rounded-xl border border-zinc-200 dark:border-white/15 px-2.5 py-2">
                         <p className="font-medium">{a.category}</p>
                         <dl className="mt-1 grid grid-cols-[52px_1fr] gap-x-2 gap-y-0.5 text-xs text-zinc-600 dark:text-zinc-300">
                           <dt className="text-zinc-500">Төрөл</dt><dd>{modeLabel(a.mode)}</dd>
@@ -231,49 +231,49 @@ export default function CalendarPage() {
                   </ul>
                 )}
               </details>
-              <details className="overflow-hidden rounded-2xl border dark:border-zinc-800">
+              <details className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10">
                 <summary className="flex min-h-[44px] cursor-pointer items-center justify-between px-3 py-2 font-semibold">
                   <span>✎ Тэмдэглэл</span>
-                  <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-medium">{sel.notes.length}</span>
+                  <span className="rounded-full bg-zinc-100 dark:bg-white/5 px-2 py-0.5 text-xs font-medium">{sel.notes.length}</span>
                 </summary>
-                {sel.notes.length === 0 ? <p className="border-t dark:border-zinc-800 px-3 py-2 text-zinc-500">Хоосон</p> : (
-                  <ul className="grid grid-cols-2 gap-2 border-t dark:border-zinc-800 p-2">
+                {sel.notes.length === 0 ? <p className="border-t border-zinc-200 dark:border-white/10 px-3 py-2 text-zinc-500">Хоосон</p> : (
+                  <ul className="grid grid-cols-2 gap-2 border-t border-zinc-200 dark:border-white/10 p-2">
                     {sel.notes.map((n, i) => (
-                      <li key={i} className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-2.5 py-2">
+                      <li key={i} className="rounded-xl border border-zinc-200 dark:border-white/15 px-2.5 py-2">
                         <p className="font-medium">{qText(n.questionId)}</p>
-                        <p className="mt-1 border-l-2 border-zinc-300 dark:border-zinc-600 pl-2 text-zinc-700 dark:text-zinc-200">“{n.content}”</p>
+                        <p className="mt-1 border-l-2 border-zinc-300 dark:border-white/20 pl-2 text-zinc-700 dark:text-zinc-200">“{n.content}”</p>
                         <p className="mt-1 text-xs text-zinc-500">{dayTime(n.createdAt)}</p>
                       </li>
                     ))}
                   </ul>
                 )}
               </details>
-              <details className="overflow-hidden rounded-2xl border dark:border-zinc-800">
+              <details className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10">
                 <summary className="flex min-h-[44px] cursor-pointer items-center justify-between px-3 py-2 font-semibold">
                   <span>❝ Сэтгэгдэл</span>
-                  <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-medium">{sel.comments.length}</span>
+                  <span className="rounded-full bg-zinc-100 dark:bg-white/5 px-2 py-0.5 text-xs font-medium">{sel.comments.length}</span>
                 </summary>
-                {sel.comments.length === 0 ? <p className="border-t dark:border-zinc-800 px-3 py-2 text-zinc-500">Хоосон</p> : (
-                  <ul className="grid grid-cols-2 gap-2 border-t dark:border-zinc-800 p-2">
+                {sel.comments.length === 0 ? <p className="border-t border-zinc-200 dark:border-white/10 px-3 py-2 text-zinc-500">Хоосон</p> : (
+                  <ul className="grid grid-cols-2 gap-2 border-t border-zinc-200 dark:border-white/10 p-2">
                     {sel.comments.map((c, i) => (
-                      <li key={i} className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-2.5 py-2">
+                      <li key={i} className="rounded-xl border border-zinc-200 dark:border-white/15 px-2.5 py-2">
                         <p className="font-medium">{qText(c.questionId)}</p>
-                        <p className="mt-1 border-l-2 border-zinc-300 dark:border-zinc-600 pl-2 text-zinc-700 dark:text-zinc-200">“{c.content}”</p>
+                        <p className="mt-1 border-l-2 border-zinc-300 dark:border-white/20 pl-2 text-zinc-700 dark:text-zinc-200">“{c.content}”</p>
                         <p className="mt-1 text-xs text-zinc-500">{dayTime(c.createdAt)}</p>
                       </li>
                     ))}
                   </ul>
                 )}
               </details>
-              <details className="overflow-hidden rounded-2xl border dark:border-zinc-800">
+              <details className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10">
                 <summary className="flex min-h-[44px] cursor-pointer items-center justify-between px-3 py-2 font-semibold">
                   <span>✓ Хадгалсан</span>
-                  <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-medium">{sel.saved.length}</span>
+                  <span className="rounded-full bg-zinc-100 dark:bg-white/5 px-2 py-0.5 text-xs font-medium">{sel.saved.length}</span>
                 </summary>
-                {sel.saved.length === 0 ? <p className="border-t dark:border-zinc-800 px-3 py-2 text-zinc-500">Хоосон</p> : (
-                  <ul className="grid grid-cols-2 gap-2 border-t dark:border-zinc-800 p-2">
+                {sel.saved.length === 0 ? <p className="border-t border-zinc-200 dark:border-white/10 px-3 py-2 text-zinc-500">Хоосон</p> : (
+                  <ul className="grid grid-cols-2 gap-2 border-t border-zinc-200 dark:border-white/10 p-2">
                     {sel.saved.map((s, i) => (
-                      <li key={i} className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-2.5 py-2">
+                      <li key={i} className="rounded-xl border border-zinc-200 dark:border-white/15 px-2.5 py-2">
                         <p className="font-medium">{qText(s.questionId)}</p>
                         <p className="mt-1 text-xs text-zinc-500">{dayTime(s.createdAt)}</p>
                       </li>

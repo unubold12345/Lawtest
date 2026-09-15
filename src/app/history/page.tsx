@@ -40,9 +40,9 @@ export default function HistoryPage() {
   };
 
   const dotCls = (st: string) =>
-    st === "correct" ? "bg-green-600 text-white" :
-    st === "wrong" ? "bg-red-600 text-white" :
-    st === "unanswered" ? "bg-zinc-300 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200" :
+    st === "correct" ? "bg-emerald-600 text-white" :
+    st === "wrong" ? "bg-rose-600 text-white" :
+    st === "unanswered" ? "bg-zinc-300 text-zinc-700 dark:bg-white/10 dark:text-zinc-200" :
     "bg-amber-400 text-white";
   const dotSym = (st: string) => (st === "correct" ? "✓" : st === "wrong" ? "✗" : st === "unanswered" ? "○" : "?");
 
@@ -91,7 +91,7 @@ export default function HistoryPage() {
   if (attempts.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-2 sm:px-6 py-6 sm:py-10">
-        <p className="rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-900 dark:border-zinc-800">
+        <p className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-500 dark:bg-white/[0.04] dark:border-white/10">
           Одоогоор шалгалт өгөөгүй. <Link href="/quiz" className="underline">Шалгалт эхлэх</Link>
         </p>
       </div>
@@ -109,14 +109,14 @@ export default function HistoryPage() {
           const isOpen = expanded === a.id;
           const pct = Math.round((a.score / a.total) * 100);
           return (
-            <div key={a.id} className="rounded-2xl border bg-white dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden">
-              <button onClick={() => openAttempt(a.id, isOpen)} className="w-full p-3 sm:p-4 flex justify-between items-center text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 gap-2 min-h-[56px]">
+            <div key={a.id} className="rounded-2xl border border-zinc-200 bg-white dark:bg-white/[0.04] dark:border-white/10 overflow-hidden">
+              <button onClick={() => openAttempt(a.id, isOpen)} className="w-full p-3 sm:p-4 flex justify-between items-center text-left hover:bg-zinc-50 dark:hover:bg-white/5 gap-2 min-h-[56px]">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm sm:text-base">{a.score} / {a.total} · {pct}%</p>
                   <p className="text-xs text-zinc-500 break-words">{new Date(a.date).toLocaleString()} · {a.category} · {fmt(a.elapsed)} · {a.mode === "study" ? "Сургалт" : "Шалгалт"}</p>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                  <span className={`rounded-full px-2.5 sm:px-3 py-1 text-xs font-medium ${a.score / a.total >= 0.6 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                  <span className={`rounded-full px-2.5 sm:px-3 py-1 text-xs font-medium ${a.score / a.total >= 0.6 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300" : "bg-rose-50 text-rose-700 dark:bg-rose-400/10 dark:text-rose-300"}`}>
                     {a.score / a.total >= 0.6 ? "Тэнцсэн" : "Унасан"}
                   </span>
                   <span className="text-sm text-zinc-400">{isOpen ? "▲" : "▼"}</span>
@@ -126,7 +126,7 @@ export default function HistoryPage() {
               {isOpen && (() => {
                 if (!a.questionIds || a.questionIds.length === 0) {
                   return (
-                    <div className="border-t p-4 bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800">
+                    <div className="border-t border-zinc-200 p-4 bg-zinc-50 dark:bg-white/[0.02] dark:border-white/10">
                       <p className="text-sm text-zinc-500">Дэлгэрэнгүй сорилго олдсонгүй (хуучин түүх).</p>
                     </div>
                   );
@@ -146,12 +146,12 @@ export default function HistoryPage() {
                 );
                 const allOpen = shown.length > 0 && shown.every((x) => x.q && openQ[x.qid]);
                 return (
-                  <div className="border-t p-3 sm:p-4 space-y-2 sm:space-y-3 bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800">
+                  <div className="border-t border-zinc-200 p-3 sm:p-4 space-y-2 sm:space-y-3 bg-zinc-50 dark:bg-white/[0.02] dark:border-white/10">
                     {/* stat chips */}
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="rounded-full bg-green-100 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-200">✓ Зөв · {nOk}</span>
-                      <span className="rounded-full bg-red-100 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-red-800 dark:bg-red-900/40 dark:text-red-200">✗ Буруу · {items.filter((x) => x.st === "wrong").length}</span>
-                      <span className="rounded-full bg-zinc-200 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">○ Хариулаагүй · {items.filter((x) => x.st === "unanswered").length}</span>
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">✓ Зөв · {nOk}</span>
+                      <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-rose-700 dark:bg-rose-400/10 dark:text-rose-300">✗ Буруу · {items.filter((x) => x.st === "wrong").length}</span>
+                      <span className="rounded-full bg-zinc-200 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-zinc-700 dark:bg-white/5 dark:text-zinc-300">○ Хариулаагүй · {items.filter((x) => x.st === "unanswered").length}</span>
                     </div>
                     {/* filter tabs */}
                     <div className="flex items-center gap-1.5 overflow-x-auto">
@@ -163,7 +163,7 @@ export default function HistoryPage() {
                         <button
                           key={t.k}
                           onClick={() => setReviewFilter(t.k)}
-                          className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] sm:text-sm border min-h-[32px] ${eff === t.k ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-700"}`}
+                          className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] sm:text-sm border min-h-[32px] ${eff === t.k ? "bg-indigo-600 text-white dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "bg-white border-zinc-200 hover:bg-zinc-50 dark:bg-white/[0.04] dark:border-white/15 dark:hover:bg-white/5"}`}
                         >
                           {t.label}
                         </button>
@@ -184,7 +184,7 @@ export default function HistoryPage() {
                       const ok = st === "correct";
                       const open = !!openQ[qid];
                       return (
-                        <div key={qid} className={`rounded-xl sm:rounded-2xl border min-w-0 overflow-hidden ${unknown ? "bg-zinc-50 border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800" : ok ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"} dark:bg-zinc-900`}>
+                        <div key={qid} className={`rounded-xl sm:rounded-2xl border min-w-0 overflow-hidden ${unknown ? "bg-zinc-50 border-zinc-200 dark:bg-white/[0.04] dark:border-white/10" : ok ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-400/10 dark:border-emerald-400/30" : "bg-rose-50 border-rose-200 dark:bg-rose-400/10 dark:border-rose-400/30"}`}>
                           <button onClick={() => setOpenQ((p) => ({ ...p, [qid]: !p[qid] }))} className="w-full flex items-center gap-2 p-3 text-left min-w-0">
                             <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${dotCls(st)}`}>{dotSym(st)}</span>
                             <span className="text-zinc-400 text-[11px] shrink-0">{i + 1}.</span>
@@ -198,12 +198,12 @@ export default function HistoryPage() {
                                 {q.options.map((opt, oi) => (
                                   <div
                                     key={oi}
-                                    className={`rounded-lg border px-2.5 py-1.5 text-[12px] flex gap-1.5 min-w-0 overflow-hidden ${!unknown && oi === c ? "border-green-500 bg-green-100 dark:bg-green-900/50" : ""} ${oi === ans && !ok && !unknown ? "border-red-500 bg-red-100 dark:bg-red-900/50" : "bg-white dark:bg-zinc-800 dark:border-zinc-700"}`}
+                                    className={`rounded-lg border px-2.5 py-1.5 text-[12px] flex gap-1.5 min-w-0 overflow-hidden ${!unknown && oi === c ? "!border-emerald-500 !bg-emerald-50 dark:!bg-emerald-400/10" : ""} ${oi === ans && !ok && !unknown ? "!border-rose-500 !bg-rose-50 dark:!bg-rose-400/10" : "bg-white dark:bg-white/[0.04] dark:border-white/10"}`}
                                   >
                                     <span className="font-bold shrink-0">{letters[oi]}.</span>
                                     <span className="flex-1 min-w-0 break-words leading-snug">{opt}</span>
-                                    {!unknown && oi === c && <span className="text-green-700 dark:text-green-300 text-xs font-bold shrink-0">✓</span>}
-                                    {oi === ans && oi !== c && !unknown && <span className="text-red-700 dark:text-red-300 text-xs shrink-0">← таны сонголт</span>}
+                                    {!unknown && oi === c && <span className="text-emerald-700 dark:text-emerald-400 text-xs font-bold shrink-0">✓</span>}
+                                    {oi === ans && oi !== c && !unknown && <span className="text-rose-700 dark:text-rose-400 text-xs shrink-0">← таны сонголт</span>}
                                   </div>
                                 ))}
                               </div>

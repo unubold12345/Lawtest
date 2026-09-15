@@ -10,8 +10,8 @@
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #07070c;
+  --foreground: #f4f4f5;
   color-scheme: dark;
 }
 
@@ -20,6 +20,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
+  --color-accent: #6366f1;
+  --color-accent-2: #8b5cf6;
 }
 
 html {
@@ -34,6 +36,27 @@ body {
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
 }
+
+/* modern dark canvas — deep near-black with ambient indigo / violet glows */
+.dark body {
+  background:
+    radial-gradient(900px 480px at 12% -6%, rgba(99, 102, 241, 0.16), transparent 62%),
+    radial-gradient(820px 460px at 88% -4%, rgba(139, 92, 246, 0.14), transparent 62%),
+    radial-gradient(1000px 620px at 50% 112%, rgba(56, 189, 248, 0.07), transparent 65%),
+    var(--background);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(99, 102, 241, 0.35);
+}
+
+/* keyboard focus ring (indigo) */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.75);
+  outline-offset: 2px;
+}
+
 * {
   scrollbar-width: thin;
 }

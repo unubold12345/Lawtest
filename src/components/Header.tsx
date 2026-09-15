@@ -36,25 +36,25 @@ export default function Header() {
     return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [open ]);
   const linkCls = (href: string) =>
-    `px-3 py-1.5 sm:py-2 rounded-full text-[13px] sm:text-sm font-medium transition-colors min-h-[32px] sm:min-h-0 flex items-center justify-center ${pathname === href ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"}`;
+    `px-3 py-1.5 sm:py-2 rounded-full text-[13px] sm:text-sm font-medium transition-colors min-h-[32px] sm:min-h-0 flex items-center justify-center ${pathname === href ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 dark:bg-indigo-500/15 dark:text-indigo-200 dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100"}`;
 
   return (
     <>
-    <header className="sticky top-0 z-30 border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:bg-zinc-900/90 dark:border-zinc-800">
+    <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl supports-[backdrop-filter]:bg-white/75 dark:border-white/10 dark:bg-[#07070c]/75 dark:supports-[backdrop-filter]:bg-[#07070c]/65">
       <div className="relative mx-auto max-w-6xl px-2 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-6 min-w-0">
           <button
             aria-label="menu"
             aria-expanded={open}
             onClick={() => setOpen(true)}
-            className="sm:hidden inline-flex h-9 w-9 items-center justify-center rounded-full border dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            className="sm:hidden inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 dark:border-white/15 dark:hover:bg-white/5"
           >
             <span className="text-[15px] leading-none">☰</span>
           </button>
           <Link href="/" className="hidden sm:flex items-center gap-1.5 shrink-0" aria-label="Lexlab нүүр">
             <BrandMark />
             <span className="text-[15px] sm:text-lg font-extrabold tracking-tighter">
-              Lex<span className="font-medium">lab</span>
+              Lex<span className="font-medium text-zinc-500 dark:text-indigo-300">lab</span>
             </span>
           </Link>
           <nav className="hidden sm:flex items-center gap-1">
@@ -69,7 +69,7 @@ export default function Header() {
         <Link href="/" className="sm:hidden absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5" aria-label="Lexlab нүүр">
           <BrandMark />
           <span className="text-[15px] font-extrabold tracking-tighter">
-            Lex<span className="font-medium">lab</span>
+            Lex<span className="font-medium text-zinc-500 dark:text-indigo-300">lab</span>
           </span>
         </Link>
         <div className="flex items-center gap-2 shrink-0">
@@ -77,12 +77,12 @@ export default function Header() {
           {user ? (
             <>
               {displayName && <span className="hidden lg:inline text-sm text-zinc-600 dark:text-zinc-400 max-w-[140px] truncate">{displayName}</span>}
-              <button onClick={() => signOut({ callbackUrl: "/" })} className="hidden sm:inline-flex rounded-full border px-4 py-2.5 sm:py-2 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 min-h-[40px] items-center">
+              <button onClick={() => signOut({ callbackUrl: "/" })} className="hidden sm:inline-flex rounded-full border border-zinc-200 px-4 py-2.5 sm:py-2 text-sm hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px] items-center">
                 Гарах
               </button>
             </>
           ) : (
-            <Link href="/login" className="hidden sm:inline-flex rounded-full bg-zinc-900 px-5 py-2.5 sm:py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px] items-center">
+            <Link href="/login" className="hidden sm:inline-flex rounded-full bg-indigo-600 px-5 py-2.5 sm:py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] items-center">
               Нэвтрэх
             </Link>
           )}
@@ -96,18 +96,18 @@ export default function Header() {
         aria-hidden={!open}
       />
       <aside
-        className={`sm:hidden fixed left-0 top-0 bottom-0 z-50 w-[270px] max-w-[80vw] bg-white dark:bg-zinc-900 shadow-xl transition-transform duration-200 flex flex-col ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`sm:hidden fixed left-0 top-0 bottom-0 z-50 w-[270px] max-w-[80vw] bg-white dark:bg-[#0b0b12] shadow-2xl dark:shadow-black/60 dark:border-r dark:border-white/10 transition-transform duration-200 flex flex-col ${open ? "translate-x-0" : "-translate-x-full"}`}
         aria-hidden={!open}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b dark:border-zinc-800">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/80 dark:border-white/10">
           <span className="flex items-center gap-1.5 font-extrabold tracking-tighter">
             <BrandMark />
-            Lex<span className="font-medium">lab</span>
+            Lex<span className="font-medium text-zinc-500 dark:text-indigo-300">lab</span>
           </span>
           <button
             aria-label="close menu"
             onClick={() => setOpen(false)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 dark:border-white/15 dark:hover:bg-white/5"
           >
             <span className="text-[15px] leading-none">✕</span>
           </button>
@@ -126,22 +126,22 @@ export default function Header() {
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}
-              className={`flex items-center px-4 min-h-[44px] rounded-xl text-[14px] font-medium transition-colors ${pathname === l.href ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
+              className={`flex items-center px-4 min-h-[44px] rounded-xl text-[14px] font-medium transition-colors ${pathname === l.href ? "bg-indigo-600 text-white dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-zinc-100"}`}
             >
               {l.label}
             </Link>
           ))}
         </nav>
-        <div className="mt-auto p-4 border-t dark:border-zinc-800">
+        <div className="mt-auto p-4 border-t border-zinc-200/80 dark:border-white/10">
           {user ? (
             <div className="space-y-2">
               {displayName && <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">{displayName}</p>}
-              <button onClick={() => signOut({ callbackUrl: "/" })} className="flex w-full justify-center rounded-full border px-4 py-2.5 text-sm dark:border-zinc-700 min-h-[44px] items-center">
+              <button onClick={() => signOut({ callbackUrl: "/" })} className="flex w-full justify-center rounded-full border border-zinc-200 px-4 py-2.5 text-sm dark:border-white/15 dark:hover:bg-white/5 min-h-[44px] items-center">
                 Гарах
               </button>
             </div>
           ) : (
-            <Link href="/login" onClick={() => setOpen(false)} className="flex w-full justify-center rounded-full bg-zinc-900 py-3 text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[44px] items-center">
+            <Link href="/login" onClick={() => setOpen(false)} className="flex w-full justify-center rounded-full bg-indigo-600 py-3 text-sm font-medium text-white hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[44px] items-center">
               Нэвтрэх
             </Link>
           )}

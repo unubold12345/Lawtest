@@ -22,7 +22,7 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
   };
 
   if (!mounted) {
-    return <span className={`inline-flex h-8 w-8 rounded-full border dark:border-zinc-700 ${className}`} aria-hidden />;
+    return <span className={`inline-flex h-8 w-8 rounded-full border border-zinc-200 dark:border-white/15 ${className}`} aria-hidden />;
   }
 
   return (
@@ -30,7 +30,7 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
       onClick={toggle}
       aria-label={dark ? "Гэрэл горим" : "Харанхуй горим"}
       title={dark ? "Гэрэл горим" : "Харанхуй горим"}
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 ${className}`}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 ${className}`}
     >
       <span className="text-[15px] leading-none">{dark ? "☀" : "☾"}</span>
     </button>

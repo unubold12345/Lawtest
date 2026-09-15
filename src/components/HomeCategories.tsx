@@ -29,13 +29,13 @@ export default function HomeCategories({ mains, hasAccess }: { mains: Main[]; ha
         return (
           <div
             key={main}
-            className={`rounded-lg sm:rounded-xl border p-3 sm:p-4 ${t === 0 ? "bg-amber-50/60 border-amber-200 dark:bg-zinc-800 dark:border-zinc-700" : "bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700"}`}
+            className={`rounded-lg sm:rounded-xl border p-3 sm:p-4 transition-colors ${t === 0 ? "bg-amber-50/60 border-amber-200 dark:bg-amber-400/[0.06] dark:border-amber-400/20" : "bg-zinc-50 border-zinc-200 hover:border-zinc-300 dark:bg-white/[0.04] dark:border-white/10 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/10"}`}
           >
             <Link href={`/browse?cat=${encodeURIComponent(main)}`} className="font-semibold hover:underline text-[13px] sm:text-base">
               {locked && <span aria-label="төлбөртэй">🔒 </span>}{main} <span className="font-normal text-zinc-500">· {t}</span>
             </Link>
             {t === 0 && (
-              <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+              <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
                 хоосон
               </span>
             )}
@@ -47,7 +47,7 @@ export default function HomeCategories({ mains, hasAccess }: { mains: Main[]; ha
                   <Link
                     key={sub}
                     href={`/browse?cat=${encodeURIComponent(main)}&sub=${encodeURIComponent(sub)}`}
-                    className="rounded-full bg-white border px-2 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-600"
+                    className="rounded-full bg-white border border-zinc-200 px-2 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs hover:bg-zinc-50 dark:bg-white/[0.06] dark:border-white/10 dark:hover:bg-indigo-500/15 dark:hover:border-indigo-400/30 dark:hover:text-indigo-200 transition-colors"
                   >
                     {sub} · {n}
                   </Link>
@@ -57,7 +57,7 @@ export default function HomeCategories({ mains, hasAccess }: { mains: Main[]; ha
             {subs.length > LIMIT && (
               <button
                 onClick={() => toggle(main)}
-                className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+                className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-medium text-zinc-600 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-300"
               >
                 {isExpanded ? "Хураах ↑" : `+${hidden} илүү үзэх ↓`}
               </button>

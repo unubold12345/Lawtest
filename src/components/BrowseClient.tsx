@@ -259,19 +259,19 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   return (
     <div className="space-y-3 sm:space-y-4 px-3 sm:px-0">
       {/* controls */}
-      <div className="rounded-xl sm:rounded-2xl border bg-white p-3 sm:p-4 dark:bg-zinc-900 dark:border-zinc-800 space-y-2 sm:space-y-3">
+      <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] space-y-2 sm:space-y-3">
         <input
           ref={searchRef}
           value={q}
           onChange={(e) => onSearch(e.target.value)}
           placeholder="Хайх... сорилго эсвэл хариулт"
-          className="w-full rounded-full border px-3 py-2 sm:px-4 sm:py-2 text-[13px] sm:text-sm outline-none focus:ring-2 focus:ring-zinc-900 dark:bg-zinc-800 dark:border-zinc-700"
+          className="w-full rounded-full border border-zinc-200 px-3 py-2 sm:px-4 sm:py-2 text-[13px] sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60"
         />
         <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
           <select
             value={mainCategory}
             onChange={(e) => onMain(e.target.value)}
-            className="w-full rounded-lg sm:rounded-full border px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[44px]"
+            className="w-full rounded-lg sm:rounded-full border border-zinc-200 px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[44px]"
           >
             <option value="all">Бүх үндсэн ({questions.length})</option>
             {mainCategories.map((c) => (
@@ -281,7 +281,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
           <select
             value={subCategory}
             onChange={(e) => onSub(e.target.value)}
-            className="w-full rounded-lg sm:rounded-full border px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[44px]"
+            className="w-full rounded-lg sm:rounded-full border border-zinc-200 px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[44px]"
             disabled={mainCategory === "all" && subCategories.length === 0}
           >
             <option value="all">Бүх дэд ({filteredBase.length})</option>
@@ -295,7 +295,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
             <button
               key={p.id}
               onClick={() => onStatus(p.id)}
-              className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] ${status === p.id ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"}`}
+              className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] ${status === p.id ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : `border-zinc-200 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 ${p.id === "mine" ? "text-emerald-600 dark:text-emerald-400" : p.id === "noted" ? "text-violet-600 dark:text-violet-300" : p.id === "answered" ? "text-indigo-600 dark:text-indigo-300" : p.id === "unanswered" ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-700 dark:text-zinc-300"}`}`}
             >
               {p.label} · {p.n}
             </button>
@@ -305,11 +305,11 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
 
       {/* locked-category banner (all view) */}
       {!lockedMain && lockedCount > 0 && (
-        <div className="rounded-xl sm:rounded-2xl border border-dashed bg-white p-3 sm:p-4 dark:bg-zinc-900 dark:border-zinc-700 flex flex-col sm:flex-row sm:items-center gap-2">
-          <p className="flex-1 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">
+        <div className="rounded-xl sm:rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-400/30 dark:bg-amber-400/10 flex flex-col sm:flex-row sm:items-center gap-2">
+          <p className="flex-1 text-[12px] sm:text-sm text-amber-700 dark:text-amber-300">
             🔒 {lockedCount} сорилго түгжээтэй — бусад бүх ангилал төлбөртэй.
           </p>
-          <Link href="/plan" className="shrink-0 inline-flex items-center justify-center rounded-full bg-zinc-900 px-5 py-2 text-[12px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[36px]">
+          <Link href="/plan" className="shrink-0 inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
             Эрх авах →
           </Link>
         </div>
@@ -317,28 +317,28 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
 
       {/* readiness + practice */}
       {lockedMain ? (
-        <div className="rounded-xl sm:rounded-2xl border bg-white p-6 sm:p-8 text-center dark:bg-zinc-900 dark:border-zinc-800">
+        <div className="rounded-xl sm:rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8 text-center dark:border-amber-400/30 dark:bg-amber-400/10">
           <p className="text-3xl">🔒</p>
           <h2 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй ангилал</h2>
-          <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">
+          <p className="mt-1 text-[12px] sm:text-sm text-amber-700 dark:text-amber-300">
             «{mainCategory}» ангиллын сорилго үзэх, шалгалт өгөх нь <b>Эрх авах</b> төлөвлөгөөнд багтдаг. Үнэгүй: {FREE_CATEGORY}.
           </p>
-          <Link href="/plan" className="mt-4 inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">
+          <Link href="/plan" className="mt-4 inline-flex items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
             Эрх авах — 39,900₮ →
           </Link>
         </div>
       ) : (
-      <div className="rounded-xl sm:rounded-2xl border bg-white p-3 sm:p-4 dark:bg-zinc-900 dark:border-zinc-800">
+      <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[12px] sm:text-sm font-medium">Шалгалтад бэлэн: {readyPct}%</p>
           <p className="text-[11px] sm:text-xs text-zinc-500">{statusCounts.answered + statusCounts.mine}/{statusCounts.total} хариулттай</p>
         </div>
-        <div className="mt-2 h-2 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
-          <div className="h-full rounded-full bg-zinc-900 dark:bg-white transition-all" style={{ width: `${readyPct}%` }} />
+        <div className="mt-2 h-2 rounded-full bg-zinc-200 dark:bg-white/10 overflow-hidden">
+          <div className="h-full rounded-full bg-zinc-900 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 transition-all" style={{ width: `${readyPct}%` }} />
         </div>
         <Link
           href={quizHref}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px] sm:min-h-[44px]"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-indigo-600 px-5 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] sm:min-h-[44px]"
         >
           Энэ шүүлтүүрээр шалгалт өгөх → <span className="opacity-70">({filteredBase.length})</span>
         </Link>
@@ -361,10 +361,10 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
           const totalVotes = voteCounts.reduce((a, b) => a + b, 0);
           const mark = st === "mine" ? "✓" : st === "answered" ? "●" : "○";
           return (
-            <div key={item.id} id={`qrow-${item.id}`} className={`rounded-xl border bg-white dark:bg-zinc-900 dark:border-zinc-800 scroll-mt-20 ${isActive ? "border-zinc-900 dark:border-white" : ""}`}>
+            <div key={item.id} id={`qrow-${item.id}`} className={`rounded-xl border bg-white dark:bg-white/[0.04] scroll-mt-20 ${isActive ? "border-indigo-500 dark:border-indigo-400/60" : "border-zinc-200 dark:border-white/10"}`}>
               <button onClick={() => toggleExpand(item.id)} className="flex w-full items-start gap-2 px-3 py-2.5 sm:px-4 sm:py-3 text-left">
                 <span className="shrink-0 text-[11px] sm:text-xs text-zinc-400 w-7 pt-0.5">{globalIdx}.</span>
-                <span className={`shrink-0 pt-0.5 text-[13px] sm:text-sm ${st === "unanswered" ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-900 dark:text-white"} ${st === "mine" ? "font-bold" : ""}`}>{mark}</span>
+                <span className={`shrink-0 pt-0.5 text-[13px] sm:text-sm ${st === "unanswered" ? "text-zinc-300 dark:text-zinc-600" : st === "mine" ? "text-emerald-600 dark:text-emerald-400" : "text-indigo-600 dark:text-indigo-300"} ${st === "mine" ? "font-bold" : ""}`}>{mark}</span>
                 <span className="min-w-0 flex-1">
                   <span className={`block leading-snug break-words ${isOpen ? "text-[13px] sm:text-[15px] font-medium" : "text-[12px] sm:text-sm line-clamp-2"}`}>{item.question}</span>
                   <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] text-zinc-400">{item.category}{item.subCategory ? ` · ${item.subCategory}` : ""}{!locked && eff !== null ? ` · ${LETTERS[eff]}` : ""}{!locked && notedIds.has(item.id) ? " · ✎" : ""}</span>
@@ -373,18 +373,18 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
               </button>
 
               {isOpen && (
-                <div className="border-t px-3 py-3 sm:px-4 sm:py-4 dark:border-zinc-800">
+                <div className="border-t px-3 py-3 sm:px-4 sm:py-4 dark:border-white/10">
                   <div className="flex gap-1 flex-wrap">
-                    {item.category && <span className="rounded-full bg-zinc-900 text-white px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-white dark:text-zinc-900">{item.category}</span>}
-                    {item.subCategory && <span className="rounded-full bg-zinc-100 px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-zinc-800">{item.subCategory}</span>}
-                    {!locked && mine && <span className="rounded-full bg-zinc-900 text-white px-2 py-0.5 text-[10px] sm:text-xs dark:bg-white dark:text-zinc-900">✓ Та хадгалсан</span>}
-                    {!locked && eff === null && <span className="rounded-full border border-dashed px-2 py-0.5 text-[10px] sm:text-xs text-zinc-500 dark:border-zinc-700">○ Хариултгүй</span>}
+                    {item.category && <span className="rounded-full bg-indigo-50 text-indigo-600 px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-indigo-500/10 dark:text-indigo-300">{item.category}</span>}
+                    {item.subCategory && <span className="rounded-full bg-zinc-100 text-zinc-600 px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-white/5 dark:text-zinc-300">{item.subCategory}</span>}
+                    {!locked && mine && <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] sm:text-xs dark:bg-emerald-400/10 dark:text-emerald-400">✓ Та хадгалсан</span>}
+                    {!locked && eff === null && <span className="rounded-full border border-dashed border-zinc-200 px-2 py-0.5 text-[10px] sm:text-xs text-zinc-500 dark:border-white/15">○ Хариултгүй</span>}
                   </div>
 
                   {locked && eff !== null && (
                     <button
                       onClick={() => setRevealed((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
-                      className="mt-2 rounded-full border px-2.5 py-1 text-[11px] sm:text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      className="mt-2 rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] sm:text-xs font-medium hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"
                     >
                       {isRevealed ? "Нуух" : "Зөв хариулт харах"}
                     </button>
@@ -397,9 +397,9 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                       return (
                         <div
                           key={i}
-                          className={`rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-2.5 text-[13px] sm:text-sm flex gap-2 ${showCorrect ? "bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-zinc-900 dark:border-white" : "border-zinc-200 dark:border-zinc-700"}`}
+                          className={`rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-2.5 text-[13px] sm:text-sm flex gap-2 ${showCorrect ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-100" : "border-zinc-200 dark:border-white/10"}`}
                         >
-                          <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${showCorrect ? "bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white" : "bg-zinc-100 dark:bg-zinc-800"}`}>{LETTERS[i]}</span>
+                          <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${showCorrect ? "bg-emerald-600 text-white dark:bg-emerald-500/30 dark:text-emerald-100" : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{LETTERS[i]}</span>
                           <span className="leading-snug">{opt}</span>
                           {showCorrect && <span className="ml-auto font-medium text-xs shrink-0">✓ Зөв</span>}
                         </div>
@@ -409,19 +409,19 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                   {isRevealed && item.explanation && <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Тайлбар: {item.explanation}</p>}
 
                   {!locked && !isAuthed && (
-                    <div className="mt-3 rounded-lg border border-dashed p-2.5 sm:p-3 text-[11px] sm:text-xs text-zinc-500 dark:border-zinc-700">
-                      Зөв хариулт хадгалахын тулд <Link href="/login" className="font-medium text-zinc-900 underline dark:text-white">нэвтэрнэ үү</Link>.
+                    <div className="mt-3 rounded-lg border border-dashed border-indigo-200 bg-indigo-50/60 p-2.5 sm:p-3 text-[11px] sm:text-xs text-indigo-700 dark:border-indigo-400/30 dark:bg-indigo-500/10 dark:text-indigo-200">
+                      Зөв хариулт хадгалахын тулд <Link href="/login" className="font-medium text-zinc-900 underline hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300">нэвтэрнэ үү</Link>.
                     </div>
                   )}
 
                   {!locked && isAuthed && !fullAccess && (
-                    <div className="mt-3 rounded-lg border border-dashed p-2.5 sm:p-3 text-[11px] sm:text-xs text-zinc-500 dark:border-zinc-700">
-                      Зөв хариулт хадгалах нь төлбөртэй — <Link href="/plan" className="font-medium text-zinc-900 underline dark:text-white">Эрх авах</Link>.
+                    <div className="mt-3 rounded-lg border border-dashed border-amber-200 bg-amber-50 p-2.5 sm:p-3 text-[11px] sm:text-xs text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
+                      Зөв хариулт хадгалах нь төлбөртэй — <Link href="/plan" className="font-medium text-zinc-900 underline hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300">Эрх авах</Link>.
                     </div>
                   )}
 
                   {!locked && canSave && (
-                    <div className="mt-3 rounded-lg border border-dashed p-2.5 sm:p-3 dark:border-zinc-700">
+                    <div className="mt-3 rounded-lg border border-dashed border-zinc-200 p-2.5 sm:p-3 dark:border-white/10">
                       <p className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400">
                         {eff === null
                           ? "Зөв хариулт тодорхойгүй — сонгоод хадгална уу:"
@@ -434,7 +434,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                             <button
                               key={i}
                               onClick={() => chooseAnswer(item.id, i)}
-                              className={`rounded-full px-3.5 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-sm border flex items-center gap-1 min-h-[34px] sm:min-h-[40px] ${eff === i ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"}`}
+                              className={`rounded-full px-3.5 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-sm border flex items-center gap-1 min-h-[34px] sm:min-h-[40px] ${eff === i ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"}`}
                             >
                               <span className="font-bold">{LETTERS[i]}</span>
                               <span className={`text-[11px] ${eff === i ? "opacity-70" : "text-zinc-400"}`}>· {c}</span>
@@ -442,7 +442,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                           );
                         })}
                       </div>
-                      {flash[item.id] && <p className="mt-1.5 text-[11px] sm:text-xs font-medium">{flash[item.id]}</p>}
+                      {flash[item.id] && <p className="mt-1.5 text-[11px] sm:text-xs font-medium text-emerald-600 dark:text-emerald-400">{flash[item.id]}</p>}
                       {totalVotes > 0 && (
                         <p className="mt-1.5 text-[10px] sm:text-xs text-zinc-500">
                           Нийт {totalVotes} санал
@@ -454,7 +454,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                         </p>
                       )}
                       {mine && (
-                        <button onClick={() => setPendingClear(item.id)} className="mt-1.5 text-[11px] sm:text-xs underline text-zinc-500">
+                        <button onClick={() => setPendingClear(item.id)} className="mt-1.5 text-[11px] sm:text-xs underline text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400">
                           Хадгалснаа арилгах
                         </button>
                       )}
@@ -482,14 +482,14 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
 
       {!lockedMain && totalPages > 1 && (
         <div className="flex items-center justify-center gap-1.5 sm:gap-2 py-2 flex-wrap">
-          <button disabled={safePage === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded-full border px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 dark:border-zinc-700 min-h-[36px]">←</button>
+          <button disabled={safePage === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">←</button>
           {pageWindow.map((n, i, arr) => (
             <span key={n} className="flex items-center gap-1.5 sm:gap-2">
               {i > 0 && arr[i - 1] !== n - 1 && <span className="text-zinc-400 text-xs">…</span>}
-              <button onClick={() => setPage(n)} className={`h-9 w-9 rounded-full text-[12px] sm:text-sm border ${n === safePage ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "dark:border-zinc-700"}`}>{n}</button>
+              <button onClick={() => setPage(n)} className={`h-9 w-9 rounded-full text-[12px] sm:text-sm border ${n === safePage ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"}`}>{n}</button>
             </span>
           ))}
-          <button disabled={safePage === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="rounded-full border px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 dark:border-zinc-700 min-h-[36px]">→</button>
+          <button disabled={safePage === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">→</button>
         </div>
       )}
 
@@ -501,17 +501,17 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
         const isChange = curEff !== null && curEff !== pending.index;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <button aria-label="close" onClick={() => setPending(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-            <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+            <button aria-label="close" onClick={() => setPending(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60" />
+            <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
               <h3 className="font-semibold">{isChange ? "Зөв хариултыг солих уу?" : "Зөв хариулт хадгалах уу?"}</h3>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-3">{pq.question}</p>
-              <div className="mt-4 rounded-xl border bg-zinc-50 px-4 py-3 dark:bg-zinc-800 dark:border-zinc-700">
+              <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
                 <p className="text-sm"><span className="font-bold">{LETTERS[pending.index]}.</span> {pq.options[pending.index]}</p>
                 {curEff !== null && <p className="mt-1 text-xs text-zinc-500">Одоогийн: {LETTERS[curEff]} · Шинэ: {LETTERS[pending.index]}</p>}
               </div>
               <p className="mt-3 text-xs text-zinc-500">Андуурч дарсан бол Цуцлах дарна уу — шууд хадгалагдахгүй.</p>
               <div className="mt-5 flex justify-end gap-2">
-                <button onClick={() => setPending(null)} className="rounded-full border px-5 py-2 text-sm dark:border-zinc-700">Цуцлах</button>
+                <button onClick={() => setPending(null)} className="rounded-full border border-zinc-200 px-5 py-2 text-sm hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5">Цуцлах</button>
                 <button
                   autoFocus
                   onClick={async () => {
@@ -520,7 +520,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
                     flashSaved(id, `✓ ${LETTERS[index]} хадгалагдлаа`);
                     setPending(null);
                   }}
-                  className="rounded-full bg-zinc-900 px-6 py-2 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+                  className="rounded-full bg-indigo-600 px-6 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400"
                 >
                   Хадгалах
                 </button>
@@ -535,19 +535,19 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
         const pq = questions.find((x) => x.id === pendingClear);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <button aria-label="close" onClick={() => setPendingClear(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-            <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+            <button aria-label="close" onClick={() => setPendingClear(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60" />
+            <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
               <h3 className="font-semibold">Хадгалсан хариултыг арилгах уу?</h3>
               {pq && <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-3">{pq.question}</p>}
               <div className="mt-5 flex justify-end gap-2">
-                <button onClick={() => setPendingClear(null)} className="rounded-full border px-5 py-2 text-sm dark:border-zinc-700">Цуцлах</button>
+                <button onClick={() => setPendingClear(null)} className="rounded-full border border-zinc-200 px-5 py-2 text-sm hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5">Цуцлах</button>
                 <button
                   autoFocus
                   onClick={async () => {
                     await persistAnswer(pendingClear as string, null);
                     setPendingClear(null);
                   }}
-                  className="rounded-full bg-zinc-900 px-6 py-2 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+                  className="rounded-full bg-rose-600 px-6 py-2 text-sm font-medium text-white shadow-sm shadow-rose-600/30 hover:bg-rose-500 dark:bg-gradient-to-r dark:from-rose-500 dark:to-rose-600 dark:text-white dark:shadow-lg dark:shadow-rose-950/40 dark:hover:from-rose-400 dark:hover:to-rose-500"
                 >
                   Арилгах
                 </button>

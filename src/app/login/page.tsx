@@ -176,19 +176,19 @@ export default function LoginPage() {
         <p className="mt-4 text-2xl font-extrabold tracking-tight">Lexlab</p>
         <p className="mt-2 text-[13px] sm:text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">2026 оны Хуульчийн Мэргэжлийн Шалгалтын Сорилго</p>
       </div>
-    <div className="mt-6 sm:mt-8 w-full max-w-md rounded-2xl sm:rounded-3xl border bg-white p-6 sm:p-10 shadow-xl shadow-zinc-900/5 dark:bg-zinc-900 dark:border-zinc-800 dark:shadow-black/30">
+    <div className="mt-6 sm:mt-8 w-full max-w-md rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-6 sm:p-10 shadow-xl shadow-zinc-900/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/30">
       <div id="recaptcha-container" />
       <h1 className="text-center text-lg sm:text-xl font-semibold">{view === "login" ? "Нэвтрэх" : view === "register" ? "Бүртгүүлэх" : "Нууц үг сэргээх"}</h1>
 
-      {ok && <p className="mt-6 rounded-xl bg-green-50 border border-green-200 px-3 py-2.5 text-[13px] sm:text-sm text-green-800 dark:bg-green-950/30">{ok}</p>}
-      {err && <p className="mt-3 text-[13px] sm:text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">{err}</p>}
+      {ok && <p className="mt-6 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2.5 text-[13px] sm:text-sm text-emerald-700 dark:bg-emerald-400/10 dark:border-emerald-400/30 dark:text-emerald-300">{ok}</p>}
+      {err && <p className="mt-3 text-[13px] sm:text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5 dark:bg-rose-400/10 dark:border-rose-400/30 dark:text-rose-400">{err}</p>}
 
       {view === "login" && (
         <>
           <form onSubmit={submitLogin} className="mt-6 sm:mt-8 grid gap-4 sm:gap-5">
-            <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Утас" inputMode="tel" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:bg-zinc-800 dark:border-zinc-700 min-h-[48px] sm:min-h-[52px]" />
-            <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Нууц үг" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:bg-zinc-800 dark:border-zinc-700 min-h-[48px] sm:min-h-[52px]" />
-            <button disabled={loading} type="submit" className="mt-1 rounded-full bg-zinc-900 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : "Нэвтрэх"}</button>
+            <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Утас" inputMode="tel" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
+            <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Нууц үг" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
+            <button disabled={loading} type="submit" className="mt-1 rounded-full bg-indigo-600 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : "Нэвтрэх"}</button>
           </form>
           <div className="mt-5 sm:mt-6 flex items-center justify-between text-xs sm:text-sm text-zinc-500">
             <button onClick={() => switchView("recover")} className="underline">Нууц үг мартсан?</button>
@@ -201,13 +201,13 @@ export default function LoginPage() {
         <>
           <form onSubmit={submitRegister} className="mt-6 sm:mt-8 grid gap-4 sm:gap-5">
             <div className="flex gap-2">
-              <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Утас" inputMode="tel" className="flex-1 rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:bg-zinc-800 dark:border-zinc-700 min-h-[48px] sm:min-h-[52px]" />
-              <button type="button" onClick={() => sendOtp("register")} disabled={loading || cooldown > 0} className="rounded-full border px-4 py-3 text-xs sm:text-sm font-medium disabled:opacity-40 dark:border-zinc-700 min-h-[48px] sm:min-h-[52px] shrink-0">{cooldown > 0 ? `${cooldown}с` : "Код авах"}</button>
+              <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Утас" inputMode="tel" className="flex-1 rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
+              <button type="button" onClick={() => sendOtp("register")} disabled={loading || cooldown > 0} className="rounded-full border px-4 py-3 text-xs sm:text-sm font-medium disabled:opacity-40 dark:border-white/15 min-h-[48px] sm:min-h-[52px] shrink-0">{cooldown > 0 ? `${cooldown}с` : "Код авах"}</button>
             </div>
-            {otpSent && <input required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Баталгаажуулах код" inputMode="numeric" className="rounded-xl border px-4 py-3.5 sm:py-4 text-center tracking-[0.3em] text-sm sm:text-base dark:bg-zinc-800 dark:border-zinc-700 min-h-[48px] sm:min-h-[52px]" />}
-            {devCode && <p className="rounded-xl border border-dashed px-3 py-2 text-[13px] sm:text-sm text-zinc-500 break-all dark:border-zinc-700">Код: <b className="tracking-widest text-zinc-900 dark:text-white">{devCode}</b></p>}
-            <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Нууц үг" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:bg-zinc-800 dark:border-zinc-700 min-h-[48px] sm:min-h-[52px]" />
-            <button disabled={loading || !otpSent || code.length !== 6} type="submit" className="mt-1 rounded-full bg-zinc-900 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : "Бүртгүүлэх"}</button>
+            {otpSent && <input required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Баталгаажуулах код" inputMode="numeric" className="rounded-xl border px-4 py-3.5 sm:py-4 text-center tracking-[0.3em] text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />}
+            {devCode && <p className="rounded-xl border border-dashed px-3 py-2 text-[13px] sm:text-sm text-zinc-500 break-all dark:border-white/15">Код: <b className="tracking-widest text-zinc-900 dark:text-white">{devCode}</b></p>}
+            <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Нууц үг" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
+            <button disabled={loading || !otpSent || code.length !== 6} type="submit" className="mt-1 rounded-full bg-indigo-600 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : "Бүртгүүлэх"}</button>
           </form>
           <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-zinc-500">Бүртгэлтэй юу? <button onClick={() => switchView("login")} className="underline font-medium text-zinc-700 dark:text-zinc-300">Нэвтрэх</button></p>
         </>
@@ -217,13 +217,13 @@ export default function LoginPage() {
         <>
           <form onSubmit={submitRecover} className="mt-6 sm:mt-8 grid gap-4 sm:gap-5">
             <div className="flex gap-2">
-              <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Утас" inputMode="tel" className="flex-1 rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:bg-zinc-800 dark:border-zinc-700 min-h-[48px] sm:min-h-[52px]" />
-              <button type="button" onClick={() => sendOtp("recover")} disabled={loading || cooldown > 0} className="rounded-full border px-4 py-3 text-xs sm:text-sm font-medium disabled:opacity-40 dark:border-zinc-700 min-h-[48px] sm:min-h-[52px] shrink-0">{cooldown > 0 ? `${cooldown}с` : "Код авах"}</button>
+              <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Утас" inputMode="tel" className="flex-1 rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
+              <button type="button" onClick={() => sendOtp("recover")} disabled={loading || cooldown > 0} className="rounded-full border px-4 py-3 text-xs sm:text-sm font-medium disabled:opacity-40 dark:border-white/15 min-h-[48px] sm:min-h-[52px] shrink-0">{cooldown > 0 ? `${cooldown}с` : "Код авах"}</button>
             </div>
-            {devCode && <p className="rounded-xl border border-dashed px-3 py-2 text-[13px] sm:text-sm text-zinc-500 break-all dark:border-zinc-700">Код: <b className="tracking-widest text-zinc-900 dark:text-white">{devCode}</b></p>}
-            {otpSent && <input required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Баталгаажуулах код" inputMode="numeric" className="rounded-xl border px-4 py-3.5 sm:py-4 text-center tracking-[0.3em] text-sm sm:text-base dark:bg-zinc-800 dark:border-zinc-700 min-h-[48px] sm:min-h-[52px]" />}
-            <input required type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Шинэ нууц үг" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:bg-zinc-800 dark:border-zinc-700 min-h-[48px] sm:min-h-[52px]" />
-            <button disabled={loading || code.length !== 6} type="submit" className="mt-1 rounded-full bg-zinc-900 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : "Сэргээх"}</button>
+            {devCode && <p className="rounded-xl border border-dashed px-3 py-2 text-[13px] sm:text-sm text-zinc-500 break-all dark:border-white/15">Код: <b className="tracking-widest text-zinc-900 dark:text-white">{devCode}</b></p>}
+            {otpSent && <input required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Баталгаажуулах код" inputMode="numeric" className="rounded-xl border px-4 py-3.5 sm:py-4 text-center tracking-[0.3em] text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />}
+            <input required type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Шинэ нууц үг" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
+            <button disabled={loading || code.length !== 6} type="submit" className="mt-1 rounded-full bg-indigo-600 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : "Сэргээх"}</button>
           </form>
           <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-zinc-500"><button onClick={() => switchView("login")} className="underline font-medium text-zinc-700 dark:text-zinc-300">← Нэвтрэх рүү буцах</button></p>
         </>

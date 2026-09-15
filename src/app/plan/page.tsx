@@ -46,82 +46,82 @@ export default async function PlanPage() {
   return (
     <div className="mx-auto max-w-3xl px-3 sm:px-6 py-6 sm:py-10 space-y-4 sm:space-y-6">
       <div className="text-center">
-        <p className="text-[11px] sm:text-xs font-medium uppercase tracking-[0.14em] text-zinc-400">Төлбөртэй төлөвлөгөө</p>
+        <p className="text-[11px] sm:text-xs font-medium uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-300">Төлбөртэй төлөвлөгөө</p>
         <h1 className="mt-1 text-[22px] sm:text-3xl font-extrabold tracking-tight">Эрх авах</h1>
         <p className="mt-2 text-[13px] sm:text-base text-zinc-500">
-          Нэг удаа <b className="text-zinc-900 dark:text-white">{priceFmt}₮</b> төлөөд бүх эрхээ насан туршдаа нээнэ.
+          Нэг удаа <b className="text-indigo-600 dark:text-indigo-300">{priceFmt}₮</b> төлөөд бүх эрхээ насан туршдаа нээнэ.
         </p>
       </div>
 
       {hasPaid ? (
-        <div className="rounded-2xl border border-green-200 bg-green-50 p-5 sm:p-6 text-center dark:bg-green-950/20 dark:border-green-900">
-          <p className="text-2xl">✓</p>
-          <p className="mt-1 font-semibold text-[15px] sm:text-lg">Эрх нээгдсэн</p>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 sm:p-6 text-center dark:border-emerald-400/30 dark:bg-emerald-400/10">
+          <p className="text-2xl text-emerald-600 dark:text-emerald-400">✓</p>
+          <p className="mt-1 font-semibold text-[15px] sm:text-lg text-emerald-700 dark:text-emerald-300">Эрх нээгдсэн</p>
           <p className="mt-1 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">
             Танд бүх ангилал, шалгалт, хадгалах цэс нээлттэй.
           </p>
           <div className="mt-4 flex flex-col sm:flex-row gap-2 justify-center">
-            <Link href="/browse" className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[44px] inline-flex items-center justify-center">Бүх сорилго →</Link>
-            <Link href="/quiz" className="rounded-full border px-6 py-2.5 text-sm dark:border-zinc-700 min-h-[44px] inline-flex items-center justify-center">Шалгалт өгөх →</Link>
+            <Link href="/browse" className="rounded-full bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[44px] inline-flex items-center justify-center">Бүх сорилго →</Link>
+            <Link href="/quiz" className="rounded-full border border-zinc-200 px-6 py-2.5 text-sm dark:border-white/15 min-h-[44px] inline-flex items-center justify-center">Шалгалт өгөх →</Link>
           </div>
         </div>
       ) : (
         <>
           {/* price card */}
-          <div className="rounded-2xl border bg-white p-5 sm:p-6 dark:bg-zinc-900 dark:border-zinc-800">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-white/10 dark:bg-white/[0.04]">
             <div className="flex items-end justify-between gap-2">
               <div>
                 <p className="font-semibold text-[14px] sm:text-base">Бүтэн эрх</p>
                 <p className="text-[11px] sm:text-xs text-zinc-500">Нэг удаагийн төлбөр · насан турш</p>
               </div>
-              <p className="text-[22px] sm:text-3xl font-extrabold tracking-tight">{priceFmt}₮</p>
+              <p className="text-[22px] sm:text-3xl font-extrabold tracking-tight text-indigo-600 dark:text-indigo-300">{priceFmt}₮</p>
             </div>
             <div className="mt-4 grid gap-2 text-[12px] sm:text-sm">
-              <div className="flex justify-between rounded-xl bg-zinc-50 px-3 py-2 dark:bg-zinc-800"><span>🆓 Үнэгүй</span><span className="text-zinc-500">{FREE_CATEGORY} · 1815 сорилго</span></div>
-              <div className="flex justify-between rounded-xl bg-zinc-900 text-white px-3 py-2 dark:bg-white dark:text-zinc-900"><span>🔓 Эрхтэй</span><span>Бүх ангилал + хадгалах</span></div>
+              <div className="flex justify-between rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5"><span>🆓 Үнэгүй</span><span className="text-zinc-500">{FREE_CATEGORY} · 1815 сорилго</span></div>
+              <div className="flex justify-between rounded-xl bg-indigo-600 text-white px-3 py-2 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25"><span>🔓 Эрхтэй</span><span>Бүх ангилал + хадгалах</span></div>
             </div>
             <div className="mt-4 grid gap-1.5 text-[12px] sm:text-sm">
-              <p>✓ Бүх дэд ангиллын сорилго харах</p>
-              <p>✓ Бүх ангиллаар шалгалт өгөх</p>
-              <p>✓ Зөв хариулт хадгалах</p>
-              <p>✓ Шалгалт түр зогсоож, үргэлжлүүлэх</p>
+              <p className="first-letter:text-emerald-600 dark:first-letter:text-emerald-400">✓ Бүх дэд ангиллын сорилго харах</p>
+              <p className="first-letter:text-emerald-600 dark:first-letter:text-emerald-400">✓ Бүх ангиллаар шалгалт өгөх</p>
+              <p className="first-letter:text-emerald-600 dark:first-letter:text-emerald-400">✓ Зөв хариулт хадгалах</p>
+              <p className="first-letter:text-emerald-600 dark:first-letter:text-emerald-400">✓ Шалгалт түр зогсоож, үргэлжлүүлэх</p>
             </div>
           </div>
 
           {/* payment */}
-          <div className="rounded-2xl border bg-white p-5 sm:p-6 dark:bg-zinc-900 dark:border-zinc-800">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-white/10 dark:bg-white/[0.04]">
             <p className="font-semibold text-[14px] sm:text-base">1. QR-аар {priceFmt}₮ төлөх</p>
             <div className="mt-3 flex justify-center">
               {qrExists ? (
-                <Image src="/payment-qr.png" alt="Төлбөрийн QR" width={256} height={256} className="w-56 h-56 sm:w-64 sm:h-64 rounded-2xl border object-contain bg-white" />
+                <Image src="/payment-qr.png" alt="Төлбөрийн QR" width={256} height={256} className="w-56 h-56 sm:w-64 sm:h-64 rounded-2xl border border-zinc-200 object-contain bg-white dark:border-white/10" />
               ) : (
-                <div className="flex w-56 h-56 sm:w-64 sm:h-64 items-center justify-center rounded-2xl border border-dashed text-center text-[12px] text-zinc-400 px-6">
+                <div className="flex w-56 h-56 sm:w-64 sm:h-64 items-center justify-center rounded-2xl border border-dashed border-zinc-200 text-center text-[12px] text-zinc-400 px-6 dark:border-white/15">
                   Төлбөрийн QR удахгүй байршина
                 </div>
               )}
             </div>
             <p className="mt-4 font-semibold text-[14px] sm:text-base">2. Дансаар төлөх</p>
-            <div className="mt-3 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-700">
+            <div className="mt-3 rounded-2xl border border-zinc-200 p-4 dark:border-white/15">
               <div className="flex items-center gap-3">
-                <Image src="/golomt-logo.png" alt="Голомт банк" width={651} height={318} className="h-10 sm:h-12 w-auto object-contain bg-white rounded-lg px-2 py-1 border border-zinc-100 dark:border-zinc-700" />
+                <Image src="/golomt-logo.png" alt="Голомт банк" width={651} height={318} className="h-10 sm:h-12 w-auto object-contain bg-white rounded-lg px-2 py-1 border border-zinc-100 dark:border-white/15" />
                 <p className="font-semibold text-[13px] sm:text-sm">Голомт банк</p>
               </div>
               <dl className="mt-3 grid gap-2 text-[12px] sm:text-sm">
-                <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-zinc-800">
+                <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
                   <dt className="text-zinc-500">IBAN</dt>
                   <dd className="font-mono font-semibold tracking-wider">06001500</dd>
                 </div>
-                <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-zinc-800">
+                <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
                   <dt className="text-zinc-500">Данс</dt>
                   <dd className="font-mono font-semibold tracking-[0.2em]">2405 1622 19</dd>
                 </div>
-                <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-zinc-800">
+                <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
                   <dt className="text-zinc-500">Хүлээн авагч</dt>
                   <dd className="font-semibold text-right">Лхамсүрэн Өнөболд</dd>
                 </div>
-                <div className="flex justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-950/30">
+                <div className="flex justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-400/10">
                   <dt className="text-zinc-500">Гүйлгээний утга</dt>
-                  <dd className="font-semibold text-right">Бүртгэлтэй утасны дугаар</dd>
+                  <dd className="font-semibold text-right text-amber-700 dark:text-amber-300">Бүртгэлтэй утасны дугаар</dd>
                 </div>
               </dl>
             </div>

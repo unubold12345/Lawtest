@@ -570,10 +570,10 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   if (state === "setup" && !isAuthed) {
     return (
       <div className="mx-auto max-w-md w-full px-3 sm:px-0">
-        <div className="rounded-xl sm:rounded-2xl border bg-white p-6 sm:p-8 text-center dark:bg-zinc-900 dark:border-zinc-800">
+        <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-6 sm:p-8 text-center dark:border-white/10 dark:bg-white/[0.04]">
           <h1 className="text-[16px] sm:text-lg font-semibold">Шалгалт өгөхийн тулд нэвтэрнэ үү</h1>
           <p className="mt-1.5 text-[12px] sm:text-sm text-zinc-500">Шалгалт өгөх, дүн харах, үргэлжлүүлэх нь бүртгэлтэй хэрэглэгчид л боломжтой.</p>
-          <Link href="/login" className="mt-5 flex w-full items-center justify-center rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">
+          <Link href="/login" className="mt-5 flex w-full items-center justify-center rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
             Нэвтрэх →
           </Link>
         </div>
@@ -592,7 +592,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
     return (
       <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0">
-      <button onClick={() => (fullAccess ? setSettingsOpen(true) : setPaywallNote(true))} className="w-full rounded-xl sm:rounded-2xl border bg-white p-3.5 sm:p-5 dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden text-left hover:border-zinc-400 transition-colors min-w-0">
+      <button onClick={() => (fullAccess ? setSettingsOpen(true) : setPaywallNote(true))} className="w-full rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-white/10 dark:bg-white/[0.04] overflow-hidden text-left hover:border-indigo-400 dark:hover:border-indigo-400/50 transition-colors min-w-0">
         <div className="flex items-center justify-between gap-2 min-w-0">
           <span className="font-semibold text-[14px] sm:text-base truncate">{fullAccess ? "⚙" : "🔒"} Шалгалт тохиргоо</span>
           <span className="text-[11px] sm:text-xs text-zinc-500 shrink-0">Өөрчлөх →</span>
@@ -601,13 +601,13 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Тохиргоо өөрчлөх нь Эрх авах төлөвлөгөөнд багтдаг — үнэгүй эрхээр дэд ангиллаар шалгалт өгнө.</p>}
       </button>
       {query.trim() && (
-        <div className="flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl border border-dashed bg-white px-3.5 py-2.5 sm:px-5 sm:py-3 dark:bg-zinc-900 dark:border-zinc-700">
+        <div className="flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl border border-dashed border-zinc-200 bg-white px-3.5 py-2.5 sm:px-5 sm:py-3 dark:border-white/15 dark:bg-white/[0.04]">
           <p className="min-w-0 truncate text-[12px] sm:text-sm">Шүүлтүүр: “{query.trim()}” — {poolSize} сорилго</p>
-          <button onClick={() => setQuery("")} className="shrink-0 rounded-full border px-3 py-1 text-[11px] sm:text-xs dark:border-zinc-700">Арилгах</button>
+          <button onClick={() => setQuery("")} className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-[11px] sm:text-xs dark:border-white/15">Арилгах</button>
         </div>
       )}
       {lastExam && (
-        <div className="flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl border bg-white px-3.5 py-2.5 sm:px-5 sm:py-3 dark:bg-zinc-900 dark:border-zinc-800">
+        <div className="flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white px-3.5 py-2.5 sm:px-5 sm:py-3 dark:border-white/10 dark:bg-white/[0.04]">
           <div className="min-w-0">
             <p className="text-[10px] sm:text-xs text-zinc-500">Сүүлийн шалгалт</p>
             <p className="truncate text-[12px] sm:text-sm font-medium">
@@ -616,15 +616,15 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
               <span className="font-normal text-zinc-500"> · {new Date(lastExam.date).toLocaleString()}</span>
             </p>
           </div>
-          <Link href="/history" className="shrink-0 rounded-full bg-zinc-900 px-4 py-1.5 sm:py-2 text-[11px] sm:text-xs font-medium text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900">
+          <Link href="/history" className="shrink-0 rounded-full bg-indigo-600 px-4 py-1.5 sm:py-2 text-[11px] sm:text-xs font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400">
             Түүх →
           </Link>
         </div>
       )}
 
       {Object.keys(savedExams).length > 0 && (
-        <div className="rounded-xl sm:rounded-2xl border border-dashed bg-white p-3 sm:p-4 dark:bg-zinc-900 dark:border-zinc-700">
-          <p className="text-[11px] sm:text-xs font-medium text-zinc-500">⏸ Хадгалсан шалгалтууд</p>
+        <div className="rounded-xl sm:rounded-2xl border border-dashed border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/15 dark:bg-white/[0.04]">
+          <p className="text-[11px] sm:text-xs font-medium text-amber-600 dark:text-amber-400">⏸ Хадгалсан шалгалтууд</p>
           <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2">
             {Object.values(savedExams)
               .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
@@ -633,7 +633,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                 const done = Object.keys(rec.answers || {}).length;
                 const timeTxt = rec.minutes > 0 ? fmt(Math.max(rec.timeLeft, 0)) : `⏱ ${fmt(rec.elapsed || 0)}`;
                 return (
-                  <div key={rec.key} className="rounded-lg sm:rounded-xl border bg-zinc-50 px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700 min-w-0">
+                  <div key={rec.key} className="rounded-lg sm:rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-white/5 min-w-0">
                     <div className="min-w-0">
                       <p className="text-[12px] sm:text-sm font-medium break-words sm:truncate">{rec.tag ?? rec.key}</p>
                       <p className="text-[10px] sm:text-xs text-zinc-500">
@@ -641,17 +641,17 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                       </p>
                     </div>
                     <div className="mt-2 flex items-center gap-1.5">
-                      <button onClick={() => resume(rec)} className="flex-1 min-w-0 rounded-full bg-zinc-900 px-2 py-1.5 text-[11px] font-medium text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 truncate">
+                      <button onClick={() => resume(rec)} className="flex-1 min-w-0 rounded-full bg-indigo-600 px-2 py-1.5 text-[11px] font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 truncate">
                         Үргэлжлүүлэх →
                       </button>
-                      <button onClick={() => setPendingDeleteExam(rec.key)} aria-label="Устгах" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[12px] text-zinc-500 hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-700">✕</button>
+                      <button onClick={() => setPendingDeleteExam(rec.key)} aria-label="Устгах" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[12px] text-zinc-500 hover:bg-rose-50 hover:text-rose-600 dark:border-white/15 dark:hover:bg-rose-400/10 dark:hover:text-rose-400">✕</button>
                     </div>
                   </div>
                 );
               })}
           </div>
           {Object.keys(savedExams).length > 4 && (
-            <button onClick={() => setExamsModalOpen(true)} className="mt-2 w-full rounded-full border py-2 text-[12px] sm:text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 min-h-[36px]">
+            <button onClick={() => setExamsModalOpen(true)} className="mt-2 w-full rounded-full border border-zinc-200 py-2 text-[12px] sm:text-sm font-medium hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">
               +{Object.keys(savedExams).length - 4} илүү үзэх ↓
             </button>
           )}
@@ -662,12 +662,12 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       {paywallNote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button aria-label="close" onClick={() => setPaywallNote(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-[#0c0c14]/95 dark:border dark:border-white/10 dark:backdrop-blur-xl">
             <p className="text-3xl">🔒</p>
             <h3 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй эрх шаардлагатай</h3>
               <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Үндсэн шалгалт, шалгалт тохиргоо, бусад ангилал болон хадгалах нь 39,900₮-ийн бүтэн эрхэд багтдаг.</p>
-              <Link href="/plan" className="mt-4 flex w-full items-center justify-center rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах →</Link>
-              <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border py-2.5 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[40px]">Хаах</button>
+              <Link href="/plan" className="mt-4 flex w-full items-center justify-center rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">Эрх авах →</Link>
+              <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border border-zinc-200 py-2.5 text-[13px] sm:text-sm dark:border-white/15 min-h-[40px]">Хаах</button>
             </div>
           </div>
         )}
@@ -676,12 +676,12 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       {pendingDeleteExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button aria-label="close" onClick={() => setPendingDeleteExam(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-[#0c0c14]/95 dark:border dark:border-white/10 dark:backdrop-blur-xl">
             <h3 className="font-semibold text-[14px] sm:text-base">Хадгалсан шалгалтыг устгах уу?</h3>
             <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">«{savedExams[pendingDeleteExam]?.tag ?? pendingDeleteExam}» устаж, буцаах боломжгүй болно.</p>
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setPendingDeleteExam(null)} className="rounded-full border px-5 py-2 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[36px]">Цуцлах</button>
-              <button onClick={() => { deleteSaved(pendingDeleteExam); setPendingDeleteExam(null); }} className="rounded-full bg-zinc-900 px-5 py-2 text-[13px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[36px]">Устгах</button>
+              <button onClick={() => setPendingDeleteExam(null)} className="rounded-full border border-zinc-200 px-5 py-2 text-[13px] sm:text-sm dark:border-white/15 min-h-[36px]">Цуцлах</button>
+              <button onClick={() => { deleteSaved(pendingDeleteExam); setPendingDeleteExam(null); }} className="rounded-full bg-rose-600 px-5 py-2 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-rose-600/30 hover:bg-rose-500 dark:bg-gradient-to-r dark:from-rose-500 dark:to-rose-600 dark:text-white dark:shadow-lg dark:shadow-rose-950/40 dark:hover:from-rose-400 dark:hover:to-rose-500 min-h-[36px]">Устгах</button>
             </div>
           </div>
         </div>
@@ -691,10 +691,10 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       {examsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button aria-label="close" onClick={() => setExamsModalOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div className="relative w-full max-w-md max-h-[80vh] overflow-auto rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+          <div className="relative w-full max-w-md max-h-[80vh] overflow-auto rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-[#0c0c14]/95 dark:border dark:border-white/10 dark:backdrop-blur-xl">
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-semibold text-[14px] sm:text-base">⏸ Хадгалсан шалгалтууд ({Object.keys(savedExams).length})</h3>
-              <button onClick={() => setExamsModalOpen(false)} aria-label="Хаах" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[13px] text-zinc-500 dark:border-zinc-700">✕</button>
+              <button onClick={() => setExamsModalOpen(false)} aria-label="Хаах" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[13px] text-zinc-500 dark:border-white/15">✕</button>
             </div>
             <div className="mt-3 grid gap-1.5">
               {Object.values(savedExams)
@@ -703,7 +703,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                   const done = Object.keys(rec.answers || {}).length;
                   const timeTxt = rec.minutes > 0 ? fmt(Math.max(rec.timeLeft, 0)) : `⏱ ${fmt(rec.elapsed || 0)}`;
                   return (
-                    <div key={rec.key} className="rounded-lg border bg-zinc-50 px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700 min-w-0">
+                    <div key={rec.key} className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-white/5 min-w-0">
                       <div className="min-w-0">
                         <p className="text-[12px] sm:text-sm font-medium break-words">{rec.tag ?? rec.key}</p>
                         <p className="text-[10px] sm:text-xs text-zinc-500">
@@ -711,10 +711,10 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                         </p>
                       </div>
                       <div className="mt-2 flex items-center gap-1.5">
-                        <button onClick={() => { setExamsModalOpen(false); resume(rec); }} className="flex-1 min-w-0 rounded-full bg-zinc-900 px-2 py-1.5 text-[11px] font-medium text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 truncate">
+                        <button onClick={() => { setExamsModalOpen(false); resume(rec); }} className="flex-1 min-w-0 rounded-full bg-indigo-600 px-2 py-1.5 text-[11px] font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 truncate">
                           Үргэлжлүүлэх →
                         </button>
-                        <button onClick={() => setPendingDeleteExam(rec.key)} aria-label="Устгах" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[12px] text-zinc-500 hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-700">✕</button>
+                        <button onClick={() => setPendingDeleteExam(rec.key)} aria-label="Устгах" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[12px] text-zinc-500 hover:bg-rose-50 hover:text-rose-600 dark:border-white/15 dark:hover:bg-rose-400/10 dark:hover:text-rose-400">✕</button>
                       </div>
                     </div>
                   );
@@ -728,29 +728,29 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       {settingsOpen && fullAccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           <button aria-label="close" onClick={() => setSettingsOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl sm:rounded-2xl bg-white p-4 sm:p-8 shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+          <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl sm:rounded-2xl bg-white p-4 sm:p-8 shadow-xl dark:bg-[#0c0c14]/95 dark:border dark:border-white/10 dark:backdrop-blur-xl">
             <div className="flex items-center justify-between gap-2">
               <h1 className="text-[16px] sm:text-2xl font-semibold break-words">Шалгалт тохиргоо</h1>
-              <button onClick={() => setSettingsOpen(false)} aria-label="Хаах" className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full border text-[13px] dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800">✕</button>
+              <button onClick={() => setSettingsOpen(false)} aria-label="Хаах" className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-[13px] dark:border-white/15 hover:bg-zinc-50 dark:hover:bg-white/5">✕</button>
             </div>
         
 
         <div className="mt-4 sm:mt-8 grid gap-4 sm:gap-6 min-w-0">
           <label className="grid gap-1.5 sm:gap-2 min-w-0">
             <span className="text-[12px] sm:text-sm font-medium">Үндсэн ангилал</span>
-            <select value={mainCategory} onChange={(e) => { setMainCategory(e.target.value); setSubCategory("all"); }} className="w-full min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]">
+            <select value={mainCategory} onChange={(e) => { setMainCategory(e.target.value); setSubCategory("all"); }} className="w-full min-w-0 rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]">
               <option value="all">Бүх үндсэн ({poolBase.length})</option>
               {mainCategories.map((c) => <option key={c} value={c}>{!fullAccess && c !== FREE_CATEGORY ? "🔒 " : ""}{c} ({questions.filter((q) => q.category === c).length})</option>)}
             </select>
           </label>
           {!fullAccess && mainCategory !== "all" && mainCategory !== FREE_CATEGORY && (
-            <div className="rounded-lg sm:rounded-xl border border-dashed p-3 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400 dark:border-zinc-700">
-              🔒 «{mainCategory}» нь төлбөртэй ангилал — <Link href="/plan" className="font-medium text-zinc-900 underline dark:text-white">Эрх авах</Link> үед нээгдэнэ. Үнэгүй: {FREE_CATEGORY}.
+            <div className="rounded-lg sm:rounded-xl border border-dashed border-zinc-200 p-3 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400 dark:border-white/15">
+              🔒 «{mainCategory}» нь төлбөртэй ангилал — <Link href="/plan" className="font-medium text-indigo-600 underline dark:text-indigo-300">Эрх авах</Link> үед нээгдэнэ. Үнэгүй: {FREE_CATEGORY}.
             </div>
           )}
           <label className="grid gap-1.5 sm:gap-2 min-w-0">
             <span className="text-[12px] sm:text-sm font-medium">Дэд ангилал</span>
-            <select value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="w-full min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]">
+            <select value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="w-full min-w-0 rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]">
               <option value="all">Бүх дэд ({mainCategory === "all" ? questions.length : questions.filter((q) => q.category === mainCategory).length})</option>
               {subCategories.map((c) => <option key={c} value={c}>{c} ({questions.filter((x) => (mainCategory === "all" || x.category === mainCategory) && x.subCategory === c).length})</option>)}
             </select>
@@ -760,7 +760,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
             <span className="text-[12px] sm:text-sm font-medium">Сорилгын тоо · {poolSize}</span>
             <div className="flex flex-wrap gap-1.5 sm:gap-2 min-w-0">
               {[10, 20, 30, 50, poolSize].filter((v, i, a) => a.indexOf(v) === i).map((n) => (
-                <button key={n} onClick={() => { setCount(n); setCustomCount(""); }} className={`rounded-full px-3 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm border min-h-[32px] sm:min-h-[44px] shrink-0 ${customCount === "" && count === n ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "hover:bg-zinc-50 dark:border-zinc-700"}`}>{n === poolSize ? `Бүгд (${n})` : n}</button>
+                <button key={n} onClick={() => { setCount(n); setCustomCount(""); }} className={`rounded-full px-3 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm border min-h-[32px] sm:min-h-[44px] shrink-0 ${customCount === "" && count === n ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"}`}>{n === poolSize ? `Бүгд (${n})` : n}</button>
               ))}
             </div>
             <label className="flex items-center gap-2 min-w-0">
@@ -779,7 +779,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                   if (!Number.isFinite(v)) return;
                   setCount(Math.min(Math.max(v, 1), Math.max(poolSize, 1)));
                 }}
-                className="w-28 min-w-0 rounded-lg sm:rounded-xl border px-3 py-1.5 sm:py-2 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[32px] sm:min-h-[44px]"
+                className="w-28 min-w-0 rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-1.5 sm:py-2 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[32px] sm:min-h-[44px]"
               />
               {customCount !== "" && (
                 <span className="text-[12px] sm:text-sm font-medium">{count} сонгосон</span>
@@ -791,19 +791,19 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
             <label className="grid gap-1.5 sm:gap-2 min-w-0">
               <span className="text-[12px] sm:text-sm font-medium">Горим</span>
               <div className="flex gap-1.5 sm:gap-2 min-w-0">
-                <button onClick={() => setMode("exam")} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${mode === "exam" ? "bg-zinc-900 text-white" : "dark:border-zinc-700"}`}>Шалгалт</button>
-                <button onClick={() => { setMode("study"); setMinutes(0); }} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${mode === "study" ? "bg-zinc-900 text-white" : "dark:border-zinc-700"}`}>Сургалт</button>
+                <button onClick={() => setMode("exam")} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${mode === "exam" ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"}`}>Шалгалт</button>
+                <button onClick={() => { setMode("study"); setMinutes(0); }} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${mode === "study" ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"}`}>Сургалт</button>
               </div>
             </label>
             <div className={`grid gap-1.5 sm:gap-2 min-w-0 ${mode === "study" ? "opacity-50" : ""}`}>
               <span className="text-[12px] sm:text-sm font-medium">Хугацаа</span>
-              <div className="w-full min-w-0 rounded-lg sm:rounded-xl border bg-zinc-50 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800/60 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px] flex items-center text-zinc-500">
+              <div className="w-full min-w-0 rounded-lg sm:rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] min-h-[36px] sm:min-h-[48px] flex items-center text-zinc-500">
                 {mode === "exam" ? `${Math.min(count, poolSize)} мин · 1 мин/сорилго` : "Хязгааргүй"}
               </div>
             </div>
           </div>
 
-          <button onClick={() => start()} disabled={poolSize === 0} className="w-full rounded-full bg-zinc-900 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white hover:bg-zinc-800 disabled:opacity-40 dark:bg-white dark:text-zinc-900 min-h-[40px] sm:min-h-[48px]">
+          <button onClick={() => start()} disabled={poolSize === 0} className="w-full rounded-full bg-indigo-600 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-40 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] sm:min-h-[48px]">
             Эхлэх — {Math.min(count, poolSize)} сорилго
           </button>
         </div>
@@ -811,25 +811,25 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         </div>
       )}
 
-      <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border bg-white p-4 sm:p-8 dark:bg-zinc-900 dark:border-zinc-800">
+      <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-4 sm:p-8 dark:border-white/10 dark:bg-white/[0.04]">
         <h2 className="text-[14px] sm:text-xl font-semibold break-words">Дэд ангиллаар шалгалт</h2>
 
         <div className="mt-3 sm:mt-4 grid gap-1.5 sm:gap-2 min-w-0">
           <span className="text-[12px] sm:text-sm font-medium">Дэд ангилал</span>
           <div className="relative min-w-0">
-            <button type="button" onClick={() => setSubDropOpen((v) => !v)} className="flex w-full max-w-full min-w-0 items-center justify-between gap-2 rounded-lg sm:rounded-xl border bg-white px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:bg-zinc-800 dark:border-zinc-700 min-h-[36px] sm:min-h-[48px]">
+            <button type="button" onClick={() => setSubDropOpen((v) => !v)} className="flex w-full max-w-full min-w-0 items-center justify-between gap-2 rounded-lg sm:rounded-xl border border-zinc-200 bg-white px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] min-h-[36px] sm:min-h-[48px]">
               <span className="truncate text-left">{subPair ? `${subPair.main} / ${subPair.sub} (${subPair.count})` : "Дэд ангилал сонгох…"}</span>
               <span className="shrink-0 text-xs text-zinc-400">{subDropOpen ? "▴" : "▾"}</span>
             </button>
             {subDropOpen && (
               <>
                 <button aria-label="close" onClick={() => setSubDropOpen(false)} className="fixed inset-0 z-10 cursor-default bg-transparent" />
-                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg sm:rounded-xl border bg-white py-1 shadow-xl dark:bg-zinc-800 dark:border-zinc-700">
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg sm:rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:bg-[#0c0c14]/95 dark:border-white/10 dark:backdrop-blur-xl">
                   {mainCategories.map((m) => (
                     <div key={m}>
                       <p className="truncate px-3 pt-2 pb-0.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{m}</p>
                       {subPairs.map((p, i) => p.main === m ? (
-                        <button key={i} type="button" title={`${p.sub} (${p.count})`} onClick={() => { setSubPick(String(i)); setSubDropOpen(false); }} className={`block w-full truncate px-3 py-2 text-left text-[12px] sm:text-[13px] hover:bg-zinc-100 dark:hover:bg-zinc-700 ${subPick === String(i) ? "bg-zinc-100 dark:bg-zinc-700 font-medium" : ""}`}>
+                        <button key={i} type="button" title={`${p.sub} (${p.count})`} onClick={() => { setSubPick(String(i)); setSubDropOpen(false); }} className={`block w-full truncate px-3 py-2 text-left text-[12px] sm:text-[13px] hover:bg-zinc-100 dark:hover:bg-white/10 ${subPick === String(i) ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200 font-medium" : ""}`}>
                           {savedExams[`${p.main} / ${p.sub}`] ? "⏸ " : ""}{p.sub} ({p.count})
                         </button>
                       ) : null)}
@@ -842,18 +842,18 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         </div>
 
         {subPair && (subPair.main !== FREE_CATEGORY && !fullAccess ? (
-          <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl border border-dashed p-4 text-center dark:border-zinc-700">
+          <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl border border-dashed border-zinc-200 p-4 text-center dark:border-white/15">
             <p className="text-2xl">🔒</p>
             <p className="mt-1 font-medium text-[13px] sm:text-sm">Төлбөртэй дэд ангилал</p>
             <p className="mt-1 text-[11px] sm:text-xs text-zinc-500">«{subPair.sub}»-аар шалгалт өгөх нь Эрх авах төлөвлөгөөнд багтдаг.</p>
-            <Link href="/plan" className="mt-3 inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-2.5 text-[12px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[40px]">
+            <Link href="/plan" className="mt-3 inline-flex items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
               Эрх авах — 39,900₮ →
             </Link>
           </div>
         ) : (
           <div className="mt-3 sm:mt-4 min-w-0">
             {subStats && subStats.n > 0 && subStats.best && subStats.last ? (
-              <div className="rounded-lg sm:rounded-xl bg-zinc-50 p-3 sm:p-4 dark:bg-zinc-800">
+              <div className="rounded-lg sm:rounded-xl bg-zinc-50 p-3 sm:p-4 dark:bg-white/5">
                 <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-center">
                   <div>
                     <p className="text-[16px] sm:text-2xl font-bold leading-none">{subStats.n}</p>
@@ -871,19 +871,19 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                 <p className="mt-2 text-center text-[11px] sm:text-xs text-zinc-500">Сүүлд: {subStats.last.score}/{subStats.last.total}</p>
               </div>
             ) : (
-              <p className="rounded-lg sm:rounded-xl bg-zinc-50 p-3 sm:p-4 text-[12px] sm:text-sm text-zinc-500 dark:bg-zinc-800">Энэ дэд ангиллаар оролдлого байхгүй байна — эхлээд шалгалт өгнө үү.</p>
+              <p className="rounded-lg sm:rounded-xl bg-zinc-50 p-3 sm:p-4 text-[12px] sm:text-sm text-zinc-500 dark:bg-white/5">Энэ дэд ангиллаар оролдлого байхгүй байна — эхлээд шалгалт өгнө үү.</p>
             )}
             {subUnknowns.length > 0 && (
-              <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl border border-dashed p-3 sm:p-4 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400 dark:border-zinc-700">
-                <p className="font-medium text-zinc-900 dark:text-white">Та энэ дэд ангиллын {subUnknowns.length} хариултгүй сорилгоос {subUnsaved}-г нь хадгалаагүй байна.</p>
+              <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 text-[12px] sm:text-sm text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
+                <p className="font-medium text-amber-900 dark:text-amber-100">Та энэ дэд ангиллын {subUnknowns.length} хариултгүй сорилгоос {subUnsaved}-г нь хадгалаагүй байна.</p>
                 <p className="mt-1">Хадгалаагүй сорилгыг хамгийн олон санал авсан сонголтоор дүгнэнэ. Хэн ч хадгалаагүй эсвэл санал тэнцсэн бол автоматаар зөв гэж үзнэ.</p>
-                <p className="mt-1">Өөрийн хариултаа <Link href="/browse" className="font-medium text-zinc-900 underline dark:text-white">Бүх сорилго</Link> дээр хадгалж болно.</p>
+                <p className="mt-1">Өөрийн хариултаа <Link href="/browse" className="font-medium text-indigo-700 underline dark:text-indigo-300">Бүх сорилго</Link> дээр хадгалж болно.</p>
               </div>
             )}
             <button
               onClick={() => { setMainCategory(subPair.main); setSubCategory(subPair.sub); setCount(subPair.count); setCustomCount(""); start({ main: subPair.main, sub: subPair.sub, n: subPair.count }); }}
               disabled={subPair.count === 0}
-              className="mt-3 sm:mt-4 w-full rounded-full bg-zinc-900 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white hover:bg-zinc-800 disabled:opacity-40 dark:bg-white dark:text-zinc-900 min-h-[40px] sm:min-h-[48px]"
+              className="mt-3 sm:mt-4 w-full rounded-full bg-indigo-600 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-40 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] sm:min-h-[48px]"
             >
               Эхлэх — бүх {subPair.count} сорилго
             </button>
@@ -893,24 +893,24 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
       {/* Их алддаг сорилгууд — always visible on setup; collapsed, questions hidden until tapped */}
       {mistakeList.length > 0 ? (
-        <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border bg-white dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden">
+        <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-white/[0.04] overflow-hidden">
           <button onClick={() => setMistakesOpen((o) => !o)} className="w-full flex items-center justify-between gap-2 p-3.5 sm:p-5 text-left min-w-0 min-h-[48px]">
             <span className="font-semibold text-[14px] sm:text-base truncate">Их алддаг сорилгууд · {mistakeList.length}</span>
             <span className="shrink-0 text-[11px] sm:text-xs text-zinc-500">{mistakesOpen ? "Нуух ▾" : "Сорилгуудыг харах ▸"}</span>
           </button>
           {mistakesOpen && (
             <div className="px-3 pb-3 sm:px-4 sm:pb-4">
-              <button onClick={startMistakeExam} className="w-full rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">
+              <button onClick={startMistakeExam} className="w-full rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
                 Эдгээрээр шалгалт өгөх →
               </button>
               <div className="mt-2 grid gap-1.5">
                 {mistakeList.map(({ id, q, wrongCount, manual }) => (
-                  <div key={id} className="flex items-center gap-2 rounded-lg border bg-zinc-50 px-2.5 py-2 dark:bg-zinc-800 dark:border-zinc-700 min-w-0">
+                  <div key={id} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 dark:border-white/10 dark:bg-white/5 min-w-0">
                     <p className="flex-1 min-w-0 text-[12px] sm:text-sm leading-snug break-words line-clamp-2">{q.question}</p>
-                    <span className="shrink-0 rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
+                    <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-rose-700 dark:bg-rose-400/15 dark:text-rose-300">
                       {wrongCount > 0 ? `✗ ${wrongCount}` : "гараар"}
                     </span>
-                    <button onClick={() => deleteMistake(id)} aria-label="Устгах" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[12px] text-zinc-500 hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-700">✕</button>
+                    <button onClick={() => deleteMistake(id)} aria-label="Устгах" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[12px] text-zinc-500 hover:bg-rose-50 hover:text-rose-600 dark:border-white/15 dark:hover:bg-rose-400/10 dark:hover:text-rose-400">✕</button>
                   </div>
                 ))}
               </div>
@@ -918,7 +918,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           )}
         </div>
       ) : (
-        <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border bg-white dark:bg-zinc-900 dark:border-zinc-800 p-3.5 sm:p-5">
+        <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-white/[0.04] p-3.5 sm:p-5">
           <p className="font-semibold text-[14px] sm:text-base">Их алддаг сорилгууд</p>
           <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">
             {isAuthed
@@ -928,7 +928,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         </div>
       )}
 
-      <div className="w-full min-w-0 rounded-xl sm:rounded-2xl bg-zinc-950 border border-zinc-800 p-4 sm:p-8 text-white dark:bg-zinc-900 dark:border-zinc-700 overflow-hidden">
+      <div className="w-full min-w-0 rounded-xl sm:rounded-2xl bg-zinc-950 border border-zinc-800 p-4 sm:p-8 text-white dark:bg-gradient-to-br dark:from-indigo-600/25 dark:to-violet-600/20 dark:border-indigo-400/25 overflow-hidden">
         <h2 className="text-[14px] sm:text-xl font-semibold break-words">Үндсэн шалгалт</h2>
         <p className="mt-1 text-[11px] sm:text-sm leading-snug text-zinc-300">Бодит шалгалтын форматаар — бүх сангаас 200 сорилго, 200 минут, шалгалтын горим. Үсэг нуугдаж, хариултууд холигдоно.</p>
         {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Үндсэн шалгалт нь Эрх авах төлөвлөгөөнд багтдаг.</p>}
@@ -952,7 +952,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         {!fullAccess ? (
           <button
             onClick={() => setPaywallNote(true)}
-            className="mt-3 sm:mt-4 w-full rounded-full bg-white py-2.5 sm:py-3 font-semibold text-[13px] sm:text-base text-zinc-900 hover:bg-zinc-100 disabled:opacity-40 min-h-[40px] sm:min-h-[48px]"
+            className="mt-3 sm:mt-4 w-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 py-2.5 sm:py-3 font-semibold text-[13px] sm:text-base text-white shadow-lg shadow-indigo-950/40 hover:from-indigo-400 hover:to-violet-400 disabled:opacity-40 min-h-[40px] sm:min-h-[48px]"
           >
             🔒 Үндсэн шалгалт эхлэх
           </button>
@@ -960,7 +960,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           <button
             onClick={() => { setMainCategory("all"); setSubCategory("all"); setCount(200); setCustomCount(""); setMinutes(200); start({ main: "all", sub: "all", n: 200, mins: 200, m: "exam", tag: "Үндсэн шалгалт" }); }}
             disabled={questions.length === 0}
-            className="mt-3 sm:mt-4 w-full rounded-full bg-white py-2.5 sm:py-3 font-semibold text-[13px] sm:text-base text-zinc-900 hover:bg-zinc-100 disabled:opacity-40 min-h-[40px] sm:min-h-[48px]"
+            className="mt-3 sm:mt-4 w-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 py-2.5 sm:py-3 font-semibold text-[13px] sm:text-base text-white shadow-lg shadow-indigo-950/40 hover:from-indigo-400 hover:to-violet-400 disabled:opacity-40 min-h-[40px] sm:min-h-[48px]"
           >
             Үндсэн шалгалт эхлэх
           </button>
@@ -981,32 +981,32 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     const answered = ans !== undefined;
     return (
       <div className="mx-auto max-w-3xl w-full space-y-3 sm:space-y-4 min-w-0 overflow-hidden px-3 sm:px-0 max-sm:min-h-[calc(100dvh-12rem)] max-sm:flex max-sm:flex-col max-sm:justify-center">
-        <div className="rounded-xl sm:rounded-2xl border bg-white p-2.5 sm:p-4 flex items-center justify-between dark:bg-zinc-900 dark:border-zinc-800 gap-2 min-w-0 overflow-hidden">
+        <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-2.5 sm:p-4 flex items-center justify-between dark:border-white/10 dark:bg-white/[0.04] gap-2 min-w-0 overflow-hidden">
           <span className="text-[12px] sm:text-sm font-medium shrink-0">{idx + 1} / {total}</span>
-          <div className="h-1.5 sm:h-2 flex-1 mx-2 sm:mx-4 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-            <div className="h-full bg-zinc-900 dark:bg-white transition-all" style={{ width: `${((idx + 1) / total) * 100}%` }} />
+          <div className="h-1.5 sm:h-2 flex-1 mx-2 sm:mx-4 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+            <div className="h-full bg-indigo-600 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 transition-all" style={{ width: `${((idx + 1) / total) * 100}%` }} />
           </div>
-          {minutes > 0 ? <span className={`text-[12px] sm:text-sm font-mono shrink-0 ${timeLeft < 60 ? "text-red-600" : ""}`}>{fmt(timeLeft)}</span> : <span title="Зарцуулсан хугацаа" className="text-[12px] sm:text-sm font-mono shrink-0">⏱ {fmt(elapsed)}</span>}
-          <button onClick={() => setPaused(true)} aria-label="Түр зогсоох" title="Түр зогсоох" className="shrink-0 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border text-[12px] sm:text-sm dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800">⏸</button>
-          <button onClick={() => setConfirmExit(true)} aria-label="Шалгалт цуцлах" title="Шалгалт цуцлах" className="shrink-0 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border text-[12px] sm:text-sm dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800">✕</button>
+          {minutes > 0 ? <span className={`text-[12px] sm:text-sm font-mono shrink-0 ${timeLeft < 60 ? "text-rose-600 dark:text-rose-400" : ""}`}>{fmt(timeLeft)}</span> : <span title="Зарцуулсан хугацаа" className="text-[12px] sm:text-sm font-mono shrink-0">⏱ {fmt(elapsed)}</span>}
+          <button onClick={() => setPaused(true)} aria-label="Түр зогсоох" title="Түр зогсоох" className="shrink-0 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-zinc-200 text-[12px] sm:text-sm dark:border-white/15 hover:bg-zinc-50 dark:hover:bg-white/5">⏸</button>
+          <button onClick={() => setConfirmExit(true)} aria-label="Шалгалт цуцлах" title="Шалгалт цуцлах" className="shrink-0 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-zinc-200 text-[12px] sm:text-sm dark:border-white/15 hover:bg-zinc-50 dark:hover:bg-white/5">✕</button>
         </div>
 
         {/* pause overlay: hides the question while timer is stopped */}
         {paused && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm dark:bg-zinc-950/95" />
-            <div className="relative w-full max-w-sm rounded-2xl border bg-white p-6 text-center shadow-xl dark:bg-zinc-900 dark:border-zinc-800">
+            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm dark:bg-[#0c0c14]/95" />
+            <div className="relative w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 text-center shadow-xl dark:bg-[#0c0c14]/95 dark:border-white/10 dark:backdrop-blur-xl">
               <p className="text-3xl">⏸</p>
               <h3 className="mt-2 font-semibold text-[15px] sm:text-lg">Түр зогссон</h3>
               <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Хугацаа зогссон · {minutes > 0 ? fmt(timeLeft) : fmt(elapsed)}</p>
-              <button onClick={() => setPaused(false)} className="mt-4 w-full rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">Үргэлжлүүлэх ▶</button>
+              <button onClick={() => setPaused(false)} className="mt-4 w-full rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">Үргэлжлүүлэх ▶</button>
             </div>
           </div>
         )}
 
-          <div className="rounded-xl sm:rounded-2xl border bg-white p-3 sm:p-6 dark:bg-zinc-900 dark:border-zinc-800 min-w-0 overflow-hidden">
+          <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-6 dark:border-white/10 dark:bg-white/[0.04] min-w-0 overflow-hidden">
           <h2 className="text-[14px] sm:text-lg font-medium leading-snug sm:leading-relaxed break-words [overflow-wrap:anywhere] min-w-0">{current.question}</h2>
-          {noFile && <p className="mt-1.5 text-[11px] sm:text-xs rounded-full bg-amber-100 px-2 py-0.5 sm:px-3 sm:py-1 inline-block max-w-full break-words text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">{isAuto ? "Хэн ч энэ сорилгыг хадгалаагүй эсвэл санал тэнцсэн — автоматаар зөв гэж үзнэ." : judgeCur.source === "personal" ? "Таны хадгалсан хариултаар дүгнэнэ." : judgeCur.source === "majority" ? "Хамгийн олон санал авсан сонголтоор дүгнэнэ." : "Зөв хариулт хараахан тодорхойгүй — Browse дээр хадгална уу"}</p>}
+          {noFile && <p className="mt-1.5 text-[11px] sm:text-xs rounded-full bg-amber-50 px-2 py-0.5 sm:px-3 sm:py-1 inline-block max-w-full break-words text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">{isAuto ? "Хэн ч энэ сорилгыг хадгалаагүй эсвэл санал тэнцсэн — автоматаар зөв гэж үзнэ." : judgeCur.source === "personal" ? "Таны хадгалсан хариултаар дүгнэнэ." : judgeCur.source === "majority" ? "Хамгийн олон санал авсан сонголтоор дүгнэнэ." : "Зөв хариулт хараахан тодорхойгүй — Browse дээр хадгална уу"}</p>}
 
           <div className="mt-3 sm:mt-6 grid gap-1.5 sm:gap-3 min-w-0">
             {(optionOrder[current.id] ?? current.options.map((_, oi) => oi)).map((oi) => {
@@ -1018,9 +1018,9 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                 <button
                   key={oi}
                   onClick={() => { setAnswers((a) => ({ ...a, [current.id]: oi })); if (mode === "study") setShowStudyFeedback(false); }}
-                  className={`text-left rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 flex gap-2 sm:gap-3 text-[13px] sm:text-sm transition-colors min-w-0 overflow-hidden ${selected ? "border-zinc-900 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "border-zinc-200 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"} ${showCorrect && isCorrect ? "!border-green-500 !bg-green-50 !text-green-900 dark:!bg-green-950 dark:!text-green-100" : ""} ${showCorrect && selected && !isCorrect ? "!border-red-500 !bg-red-50 !text-red-900 dark:!bg-red-950 dark:!text-red-100" : ""}`}
+                  className={`text-left rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 flex gap-2 sm:gap-3 text-[13px] sm:text-sm transition-colors min-w-0 overflow-hidden ${selected ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-100" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/10 dark:hover:bg-white/5"} ${showCorrect && isCorrect ? "!border-emerald-500 !bg-emerald-50 !text-emerald-900 dark:!bg-emerald-400/10 dark:!text-emerald-200" : ""} ${showCorrect && selected && !isCorrect ? "!border-rose-500 !bg-rose-50 !text-rose-900 dark:!bg-rose-400/10 dark:!text-rose-200" : ""}`}
                 >
-                  <span className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${selected ? "bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white" : "bg-zinc-100 dark:bg-zinc-800"}`}>•</span>
+                  <span className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${selected ? "bg-white text-indigo-700 dark:bg-white/15 dark:text-indigo-100" : "bg-zinc-100 dark:bg-white/5"}`}>•</span>
                   <span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere] leading-snug">{opt}</span>
                 </button>
               );
@@ -1030,29 +1030,29 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           {mode === "study" && answered && (
             <div className="mt-3 sm:mt-4 flex gap-2 min-w-0">
               {isAuto ? (
-                <p className="text-[12px] sm:text-sm font-medium text-green-600 break-words">✓ Автоматаар зөв</p>
+                <p className="text-[12px] sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 break-words">✓ Автоматаар зөв</p>
               ) : noFile && judgeCur.source !== "unknown" ? (
                 !showStudyFeedback ? (
-                  <button onClick={() => setShowStudyFeedback(true)} className="rounded-full border px-4 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm dark:border-zinc-700 shrink-0">Хариу шалгах</button>
+                  <button onClick={() => setShowStudyFeedback(true)} className="rounded-full border border-zinc-200 px-4 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm dark:border-white/15 shrink-0">Хариу шалгах</button>
                 ) : (
-                  <p className={`text-[12px] sm:text-sm font-medium break-words min-w-0 ${ans === correct ? "text-green-600" : "text-red-600"}`}>{ans === correct ? "✓ Зөв!" : "✗ Буруу"}</p>
+                  <p className={`text-[12px] sm:text-sm font-medium break-words min-w-0 ${ans === correct ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>{ans === correct ? "✓ Зөв!" : "✗ Буруу"}</p>
                 )
               ) : isUnknown ? (
-                <p className="text-[12px] sm:text-sm text-amber-700 dark:text-amber-300 break-words">Зөв хариулт тодорхойгүй тул дүгнээгүй — Browse дээр хадгалж болно.</p>
+                <p className="text-[12px] sm:text-sm text-amber-600 dark:text-amber-400 break-words">Зөв хариулт тодорхойгүй тул дүгнээгүй — Browse дээр хадгалж болно.</p>
               ) : !showStudyFeedback ? (
-                <button onClick={() => setShowStudyFeedback(true)} className="rounded-full border px-4 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm dark:border-zinc-700 shrink-0">Хариу шалгах</button>
+                <button onClick={() => setShowStudyFeedback(true)} className="rounded-full border border-zinc-200 px-4 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm dark:border-white/15 shrink-0">Хариу шалгах</button>
               ) : (
-                <p className={`text-[12px] sm:text-sm font-medium break-words min-w-0 ${ans === correct ? "text-green-600" : "text-red-600"}`}>{ans === correct ? "✓ Зөв!" : "✗ Буруу"}</p>
+                <p className={`text-[12px] sm:text-sm font-medium break-words min-w-0 ${ans === correct ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>{ans === correct ? "✓ Зөв!" : "✗ Буруу"}</p>
               )}
             </div>
           )}
 
           <div className="mt-4 sm:mt-6 flex justify-between gap-2 sm:gap-3 min-w-0">
-            <button onClick={() => { setIdx((v) => Math.max(0, v - 1)); setShowStudyFeedback(false); }} disabled={idx === 0} className="rounded-full border px-4 py-2 sm:px-5 sm:py-2 text-[13px] sm:text-sm disabled:opacity-40 dark:border-zinc-700 min-h-[36px] sm:min-h-[44px] shrink-0">Өмнөх</button>
+            <button onClick={() => { setIdx((v) => Math.max(0, v - 1)); setShowStudyFeedback(false); }} disabled={idx === 0} className="rounded-full border border-zinc-200 px-4 py-2 sm:px-5 sm:py-2 text-[13px] sm:text-sm disabled:opacity-40 dark:border-white/15 min-h-[36px] sm:min-h-[44px] shrink-0">Өмнөх</button>
             {idx === total - 1 ? (
-              <button onClick={submit} className="rounded-full bg-zinc-900 px-5 py-2 sm:px-6 sm:py-2 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[36px] sm:min-h-[44px] shrink-0">Дуусгах</button>
+              <button onClick={submit} className="rounded-full bg-indigo-600 px-5 py-2 sm:px-6 sm:py-2 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px] sm:min-h-[44px] shrink-0">Дуусгах</button>
             ) : (
-              <button onClick={() => { setIdx((v) => v + 1); setShowStudyFeedback(false); }} className="rounded-full bg-zinc-900 px-5 py-2 sm:px-6 sm:py-2 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[36px] sm:min-h-[44px] shrink-0">Дараах</button>
+              <button onClick={() => { setIdx((v) => v + 1); setShowStudyFeedback(false); }} className="rounded-full bg-indigo-600 px-5 py-2 sm:px-6 sm:py-2 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px] sm:min-h-[44px] shrink-0">Дараах</button>
             )}
           </div>
         </div>
@@ -1061,12 +1061,12 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         {paywallNote && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button aria-label="close" onClick={() => setPaywallNote(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-            <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+            <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-[#0c0c14]/95 dark:border dark:border-white/10 dark:backdrop-blur-xl">
               <p className="text-3xl">🔒</p>
               <h3 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй эрх шаардлагатай</h3>
               <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Бусад ангиллаар шалгалт өгөх, хадгалах нь 39,900₮-ийн бүтэн эрхэд багтдаг.</p>
-              <Link href="/plan" className="mt-4 flex w-full items-center justify-center rounded-full bg-zinc-900 py-2.5 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах →</Link>
-              <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border py-2.5 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[40px]">Хаах</button>
+              <Link href="/plan" className="mt-4 flex w-full items-center justify-center rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">Эрх авах →</Link>
+              <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border border-zinc-200 py-2.5 text-[13px] sm:text-sm dark:border-white/15 min-h-[40px]">Хаах</button>
             </div>
           </div>
         )}
@@ -1075,14 +1075,14 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         {confirmExit && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button aria-label="close" onClick={() => setConfirmExit(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-            <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-zinc-900 dark:border dark:border-zinc-800">
+            <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-[#0c0c14]/95 dark:border dark:border-white/10 dark:backdrop-blur-xl">
               {!fullAccess ? (
                 <>
                   <h3 className="font-semibold text-[14px] sm:text-base">🔒 Хадгалах нь төлбөртэй</h3>
                   <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Шалгалт түр зогсоож, үргэлжлүүлэх нь Эрх авах төлөвлөгөөнд багтдаг.</p>
                   <div className="mt-4 grid gap-2">
-                    <Link href="/plan" className="flex w-full items-center justify-center rounded-full bg-zinc-900 px-5 py-2 text-[13px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[40px]">Эрх авах — 39,900₮ →</Link>
-                    <button onClick={() => { setConfirmExit(false); setShowStudyFeedback(false); setState("setup"); }} className="rounded-full border px-5 py-2 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[36px]">Хадгалахгүй гарах</button>
+                    <Link href="/plan" className="flex w-full items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">Эрх авах — 39,900₮ →</Link>
+                    <button onClick={() => { setConfirmExit(false); setShowStudyFeedback(false); setState("setup"); }} className="rounded-full border border-zinc-200 px-5 py-2 text-[13px] sm:text-sm dark:border-white/15 min-h-[36px]">Хадгалахгүй гарах</button>
                   </div>
                 </>
               ) : (
@@ -1090,8 +1090,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                   <h3 className="font-semibold text-[14px] sm:text-base">Шалгалтыг түр зогсоох уу?</h3>
                   <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Хариултууд хадгалагдаж, явсан газраасаа үргэлжлүүлнэ.</p>
                   <div className="mt-4 flex justify-end gap-2">
-                    <button onClick={() => setConfirmExit(false)} className="rounded-full border px-5 py-2 text-[13px] sm:text-sm dark:border-zinc-700 min-h-[36px]">Үргэлжлүүлэх</button>
-                    <button onClick={() => { saveExamNow(); setConfirmExit(false); setShowStudyFeedback(false); setState("setup"); }} className="rounded-full bg-zinc-900 px-5 py-2 text-[13px] sm:text-sm font-medium text-white dark:bg-white dark:text-zinc-900 min-h-[36px]">Хадгалах</button>
+                    <button onClick={() => setConfirmExit(false)} className="rounded-full border border-zinc-200 px-5 py-2 text-[13px] sm:text-sm dark:border-white/15 min-h-[36px]">Үргэлжлүүлэх</button>
+                    <button onClick={() => { saveExamNow(); setConfirmExit(false); setShowStudyFeedback(false); setState("setup"); }} className="rounded-full bg-indigo-600 px-5 py-2 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">Хадгалах</button>
                   </div>
                 </>
               )}
@@ -1119,26 +1119,26 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     .filter(({ st }) => effFilter === "all" ? true : effFilter === "correct" ? st === "correct" : (st === "wrong" || st === "unanswered"));
   const allOpen = reviewItems.length > 0 && reviewItems.every(({ q }) => expanded[q.id]);
   const dotCls = (st: string) =>
-    st === "correct" ? "bg-green-600 text-white" :
-    st === "wrong" ? "bg-red-600 text-white" :
-    st === "unanswered" ? "bg-zinc-300 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200" :
+    st === "correct" ? "bg-emerald-600 text-white dark:bg-emerald-500" :
+    st === "wrong" ? "bg-rose-600 text-white dark:bg-rose-500" :
+    st === "unanswered" ? "bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-300" :
     "bg-amber-400 text-white";
   const dotSym = (st: string) => (st === "correct" ? "✓" : st === "wrong" ? "✗" : st === "unanswered" ? "○" : "?");
   return (
     <div className="mx-auto max-w-3xl w-full space-y-3 sm:space-y-6 min-w-0 overflow-hidden px-3 sm:px-0">
       {/* summary dashboard */}
-      <div className="rounded-xl sm:rounded-2xl border bg-white p-4 sm:p-8 text-center dark:bg-zinc-900 dark:border-zinc-800 min-w-0 overflow-hidden">
+      <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-4 sm:p-8 text-center dark:border-white/10 dark:bg-white/[0.04] min-w-0 overflow-hidden">
         <h1 className="text-[16px] sm:text-2xl font-semibold">Дүн</h1>
         <p className="mt-1 sm:mt-2 text-3xl sm:text-5xl font-bold">{score} / {total}</p>
         <p className="mt-1 text-[12px] sm:text-base text-zinc-500">{pct}% · {fmt(elapsed)} зарцуулсан</p>
-        {mode === "study" && <p className="mt-1 text-[11px] sm:text-xs text-amber-700 dark:text-amber-300">Сургалтын горим — дүн түүхэнд хадгалагдаагүй</p>}
+        {mode === "study" && <p className="mt-1 text-[11px] sm:text-xs text-amber-600 dark:text-amber-400">Сургалтын горим — дүн түүхэнд хадгалагдаагүй</p>}
 
         {/* stat chips */}
         <div className="mt-3 sm:mt-4 flex flex-wrap justify-center gap-1.5 sm:gap-2">
-          <span className="rounded-full bg-green-100 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-200">✓ Зөв · {resultStats.ok}</span>
-          <span className="rounded-full bg-red-100 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-red-800 dark:bg-red-900/40 dark:text-red-200">✗ Буруу · {resultStats.wrong}</span>
-          <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">○ Хариулаагүй · {resultStats.un}</span>
-          {resultStats.unk > 0 && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">? Тодорхойгүй · {resultStats.unk}</span>}
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-400">✓ Зөв · {resultStats.ok}</span>
+          <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-rose-600 dark:bg-rose-400/10 dark:text-rose-400">✗ Буруу · {resultStats.wrong}</span>
+          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">○ Хариулаагүй · {resultStats.un}</span>
+          {resultStats.unk > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">? Тодорхойгүй · {resultStats.unk}</span>}
         </div>
 
         {/* per-category breakdown */}
@@ -1152,8 +1152,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                     <span className="truncate text-zinc-600 dark:text-zinc-400">{name}</span>
                     <span className="shrink-0 font-medium">{v.ok}/{v.tot} · {p}%</span>
                   </div>
-                  <div className="mt-0.5 h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                    <div className={`h-full rounded-full ${p >= 70 ? "bg-green-500" : p >= 40 ? "bg-amber-400" : "bg-red-400"}`} style={{ width: `${p}%` }} />
+                  <div className="mt-0.5 h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+                    <div className={`h-full rounded-full ${p >= 70 ? "bg-emerald-500" : p >= 40 ? "bg-amber-400" : "bg-rose-500"}`} style={{ width: `${p}%` }} />
                   </div>
                 </div>
               );
@@ -1162,8 +1162,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         )}
 
         <div className="mt-4 sm:mt-6 flex justify-center gap-2">
-          <button onClick={backToSetup} className="rounded-full border px-5 py-2 sm:px-6 sm:py-3 text-[13px] sm:text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 min-h-[36px] sm:min-h-0">← Шалгалт</button>
-          <button onClick={restart} className="rounded-full bg-zinc-900 px-6 py-2 sm:px-8 sm:py-3 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[36px] sm:min-h-0">Дахин эхлэх</button>
+          <button onClick={backToSetup} className="rounded-full border border-zinc-200 px-5 py-2 sm:px-6 sm:py-3 text-[13px] sm:text-sm font-medium hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px] sm:min-h-0">← Шалгалт</button>
+          <button onClick={restart} className="rounded-full bg-indigo-600 px-6 py-2 sm:px-8 sm:py-3 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px] sm:min-h-0">Дахин эхлэх</button>
         </div>
       </div>
 
@@ -1178,7 +1178,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           <button
             key={t.k}
             onClick={() => setReviewFilter(t.k)}
-            className={`shrink-0 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-sm border min-h-[32px] sm:min-h-[36px] ${(resultStats.wrong + resultStats.un > 0 ? reviewFilter : "all") === t.k ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-700"}`}
+            className={`shrink-0 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-sm border min-h-[32px] sm:min-h-[36px] ${(resultStats.wrong + resultStats.un > 0 ? reviewFilter : "all") === t.k ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/5"}`}
           >
             {t.label}
           </button>
@@ -1188,7 +1188,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
             if (allOpen) setExpanded({});
             else { const o: Record<string, boolean> = {}; reviewItems.forEach(({ q }) => { o[q.id] = true; }); setExpanded((p) => ({ ...p, ...o })); }
           }}
-          className="shrink-0 ml-auto text-[11px] sm:text-xs underline text-zinc-500"
+          className="shrink-0 ml-auto text-[11px] sm:text-xs underline text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-300"
         >
           {allOpen ? "Бүгдийг хураах" : "Бүгдийг нээх"}
         </button>
@@ -1205,7 +1205,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
           const ok = st === "correct";
           const open = !!expanded[q.id];
           return (
-            <div key={q.id} className={`rounded-xl sm:rounded-2xl border min-w-0 overflow-hidden ${unknown ? "bg-zinc-50 border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800" : ok ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"} dark:bg-zinc-900`}>
+            <div key={q.id} className={`rounded-xl sm:rounded-2xl border min-w-0 overflow-hidden ${unknown ? "bg-zinc-50 border-zinc-200 dark:bg-white/[0.04] dark:border-white/10" : ok ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-400/10 dark:border-emerald-400/30" : "bg-rose-50 border-rose-200 dark:bg-rose-400/10 dark:border-rose-400/30"}`}>
               <button onClick={() => setExpanded((p) => ({ ...p, [q.id]: !p[q.id] }))} className="w-full flex items-center gap-2 p-3 sm:p-4 text-left min-w-0">
                 <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${dotCls(st)}`}>{dotSym(st)}</span>
                 <span className="text-zinc-400 text-[11px] sm:text-sm shrink-0">{i + 1}.</span>
@@ -1217,7 +1217,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                   <p className="text-[10px] sm:text-xs text-zinc-500 break-words">{q.category}{q.subCategory ? ` · ${q.subCategory}` : ""} {unknown ? "· хариултгүй" : auto ? "· Автоматаар зөв" : j.source === "majority" ? "· Олонхын санал" : j.source === "personal" ? "· Та хадгалсан" : ""} {st === "unanswered" ? "· хариулаагүй" : ""}</p>
                   <div className="mt-2 grid gap-1.5 sm:gap-2 min-w-0">
                     {q.options.map((opt, oi) => (
-                      <div key={oi} className={`rounded-lg sm:rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm flex gap-1.5 sm:gap-2 min-w-0 overflow-hidden ${!unknown && !auto && oi === c ? "border-green-500 bg-green-100 dark:bg-green-900" : ""} ${oi === a && !ok && !unknown && !auto ? "border-red-500 bg-red-100 dark:bg-red-900" : "bg-white dark:bg-zinc-800"}`}>
+                      <div key={oi} className={`rounded-lg sm:rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm flex gap-1.5 sm:gap-2 min-w-0 overflow-hidden ${!unknown && !auto && oi === c ? "border-emerald-500 bg-emerald-100 dark:bg-emerald-400/10" : ""} ${oi === a && !ok && !unknown && !auto ? "border-rose-500 bg-rose-100 dark:bg-rose-400/10" : "bg-white dark:bg-white/5"}`}>
                         <span className="font-bold shrink-0">{letters[oi]}.</span><span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere] leading-snug">{opt} {!unknown && !auto && oi === c && "✓"} {!unknown && !auto && oi === c && j.source === "personal" && <span className="text-[10px]">· Та хадгалсан</span>} {oi === a && oi !== c && !unknown && !auto && "← таны сонголт"}</span>
                       </div>
                     ))}
@@ -1225,7 +1225,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                   {isAuthed && (st === "wrong" || st === "unanswered") && (
                     mistakes[q.id] && (mistakes[q.id].wrongCount >= 2 || mistakes[q.id].manual)
                       ? <p className="mt-2 text-[11px] sm:text-xs text-zinc-500">✓ Их алддагт нэмэгдсэн{mistakes[q.id].wrongCount > 0 ? ` · ✗ ${mistakes[q.id].wrongCount}` : ""}</p>
-                      : <button onClick={() => addManualMistake(q.id)} className="mt-2 rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 min-h-[36px]">+ Их алддагт нэмэх</button>
+                      : <button onClick={() => addManualMistake(q.id)} className="mt-2 rounded-full border border-zinc-200 px-3 py-1.5 text-[11px] sm:text-xs font-medium hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">+ Их алддагт нэмэх</button>
                   )}
                   {unknown && <p className="mt-1.5 text-[11px] sm:text-xs text-zinc-500 break-words">Зөв хариулт хараахан тодорхойгүй — Browse дээр A–D сонгоод хадгална уу.</p>}
                   {auto && <p className="mt-1.5 text-[11px] sm:text-xs text-zinc-500 break-words">Хэн ч хадгалаагүй эсвэл санал тэнцсэн — автоматаар зөв гэж үзсэн.</p>}
@@ -1239,8 +1239,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
       {/* bottom nav back to quiz */}
       <div className="flex justify-center gap-2 pb-2">
-        <button onClick={backToSetup} className="rounded-full border px-5 py-2 text-[13px] sm:text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 min-h-[36px]">← Шалгалт</button>
-        <button onClick={restart} className="rounded-full bg-zinc-900 px-6 py-2 text-[13px] sm:text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[36px]">Дахин эхлэх</button>
+        <button onClick={backToSetup} className="rounded-full border border-zinc-200 px-5 py-2 text-[13px] sm:text-sm font-medium hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">← Шалгалт</button>
+        <button onClick={restart} className="rounded-full bg-indigo-600 px-6 py-2 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">Дахин эхлэх</button>
       </div>
     </div>
   );

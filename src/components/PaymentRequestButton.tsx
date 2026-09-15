@@ -31,7 +31,7 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
       <div>
         <Link
           href="/login"
-          className="flex w-full items-center justify-center rounded-full bg-zinc-900 py-3 text-[14px] sm:text-base font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 min-h-[48px]"
+          className="flex w-full items-center justify-center rounded-full bg-indigo-600 py-3 text-[14px] sm:text-base font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px]"
         >
           Нэвтэрч ороод хүсэлт илгээх →
         </Link>
@@ -43,8 +43,8 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
   }
   if (pending) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center dark:bg-amber-950/20 dark:border-amber-900">
-        <p className="font-medium text-[14px] sm:text-base">⏳ Хүсэлт илгээгдсэн</p>
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center dark:border-amber-400/30 dark:bg-amber-400/10">
+        <p className="font-medium text-[14px] sm:text-base text-amber-700 dark:text-amber-300">⏳ Хүсэлт илгээгдсэн</p>
         <p className="mt-1 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">
           Админ төлбөрийг шалгаад эрхийг нээнэ. Эрх нээгдэхэд энэ хуудас өөрчлөгдөнө.
         </p>
@@ -56,11 +56,11 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
       <button
         onClick={send}
         disabled={busy}
-        className="w-full rounded-full bg-zinc-900 py-3 text-[14px] sm:text-base font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900 min-h-[48px]"
+        className="w-full rounded-full bg-indigo-600 py-3 text-[14px] sm:text-base font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px]"
       >
         {busy ? "Илгээж байна…" : "Төлбөр төлсөн — эрх нээх хүсэлт илгээх"}
       </button>
-      {err && <p className="mt-2 text-center text-[12px] sm:text-sm text-red-600">{err}</p>}
+      {err && <p className="mt-2 text-center text-[12px] sm:text-sm text-rose-600 dark:text-rose-400">{err}</p>}
     </div>
   );
 }
