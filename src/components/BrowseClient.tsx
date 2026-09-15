@@ -27,6 +27,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   // saving answers is a paid feature
   const canSave = isAuthed && fullAccess;
   const searchRef = useRef<HTMLInputElement>(null);
+  const viewsRef = useRef<HTMLDivElement>(null);
 
   const [q, setQ] = useState("");
   const [mainCategory, setMainCategory] = useState<string>(() => searchParams.get("cat") || "all");
@@ -45,7 +46,9 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const [view, setView] = useState<View>("list");
   const [gridCols, setGridCols] = useState<number>(2);
   const [cardIdx, setCardIdx] = useState(0);
-  const [controlsOpen, setControlsOpen] = useState(true);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const [isPhone, setIsPhone] = useState(false);
+  const [focusView, setFocusView] = useState(false);
   // paid categories are listed but their content is locked
   const lockedMain = mainCategory !== "all" && mainCategory !== FREE_CATEGORY && !fullAccess;
   const lockedCount = fullAccess ? 0 : questions.filter((x) => x.category !== FREE_CATEGORY).length;
@@ -74,6 +77,23 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subCategories]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const sync = () => setIsPhone(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (!focusView) return;
+    setFocusView(false);
+    const el = viewsRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    if (top < 0) window.scrollTo({ top: window.scrollY + top, behavior: "instant" });
+  }, [focusView]);
 
   // ---- answer state helpers ----
   const effOf = (item: Question): number | null => {
@@ -150,6 +170,11 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     : gridCols === 3 ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
     : gridCols === 4 ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
     : "grid-cols-1 sm:grid-cols-2";
+  const phoneTiles = view === "grid" && isPhone && gridCols >= 2;
+  const tileColsClass = gridCols === 4 ? "grid-cols-4" : gridCols === 3 ? "grid-cols-3" : "grid-cols-2";
+  const gridDenseClass = !phoneTiles && gridCols >= 2 ? "grid-flow-row-dense" : "";
+  // grid ≥2 cols: accordion — expanding one question collapses the previous one (otherwise wide cards stack up and jump rows)
+  const gridAccordion = !phoneTiles && view === "grid" && gridCols >= 2;
 
   // fetch all my saved answers once — paged fetch alone deadlocks the ✓ Минийх filter (empty page → no fetch → stays empty)
   useEffect(() => {
@@ -229,7 +254,8 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   };
 
   const toggleExpand = (id: string) => {
-    setExpanded((p) => ({ ...p, [id]: !p[id] }));
+    if (gridAccordion) setExpanded((p) => (p[id] ? {} : { [id]: true }));
+    else setExpanded((p) => ({ ...p, [id]: !p[id] }));
     setActiveId(id);
   };
 
@@ -268,7 +294,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
         e.preventDefault();
         const at = paged.findIndex((x) => x.id === activeId);
         const nxt = paged[(at + 1 + paged.length) % paged.length];
-        setExpanded((p) => ({ ...p, [nxt.id]: true }));
+        setExpanded((p) => (gridAccordion ? { [nxt.id]: true } : { ...p, [nxt.id]: true }));
         setActiveId(nxt.id);
         requestAnimationFrame(() => document.getElementById(`qrow-${nxt.id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
         return;
@@ -277,7 +303,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
         e.preventDefault();
         const at = paged.findIndex((x) => x.id === activeId);
         const prv = paged[(at - 1 + paged.length) % paged.length];
-        setExpanded((p) => ({ ...p, [prv.id]: true }));
+        setExpanded((p) => (gridAccordion ? { [prv.id]: true } : { ...p, [prv.id]: true }));
         setActiveId(prv.id);
         requestAnimationFrame(() => document.getElementById(`qrow-${prv.id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
         return;
@@ -286,7 +312,18 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId, paged, myDb, isAuthed, pending, pendingClear, view, filtered]);
+  }, [activeId, paged, myDb, isAuthed, pending, pendingClear, view, filtered, gridCols, isPhone]);
+
+  // entering accordion mode (grid ≥2 cols): keep at most one card open
+  useEffect(() => {
+    if (!gridAccordion) return;
+    setExpanded((p) => {
+      const open = Object.keys(p).filter((k) => p[k]);
+      if (open.length <= 1) return p;
+      const keep = activeId && p[activeId] ? activeId : open[open.length - 1];
+      return { [keep]: true };
+    });
+  }, [gridAccordion, activeId]);
 
   // quiz link preserves current view (prep flow)
   const quizHref = (() => {
@@ -323,8 +360,18 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     const voteCounts: number[] = counts[item.id] || [];
     const totalVotes = voteCounts.reduce((a, b) => a + b, 0);
     const mark = st === "mine" ? "✓" : st === "answered" ? "●" : "○";
+    // grid view (desktop, 2+ columns): the expanded question spans the full row,
+    // other tiles repack around it via grid-auto-flow: dense
+    const gridSpan =
+      view === "grid" && !phoneTiles && gridCols >= 2 && isOpen
+        ? gridCols === 2
+          ? "sm:col-span-2"
+          : gridCols === 3
+            ? "sm:col-span-2 lg:col-span-3"
+            : "sm:col-span-2 lg:col-span-4"
+        : "";
     return (
-      <div key={item.id} id={`qrow-${item.id}`} className={`rounded-xl border bg-white dark:bg-white/[0.04] scroll-mt-20 ${isActive ? "border-indigo-500 dark:border-indigo-400/60" : "border-zinc-200 dark:border-white/10"}`}>
+      <div key={item.id} id={`qrow-${item.id}`} className={`rounded-xl border bg-white dark:bg-white/[0.04] scroll-mt-20 ${gridSpan} ${isActive ? "border-indigo-500 dark:border-indigo-400/60" : "border-zinc-200 dark:border-white/10"}`}>
         <button onClick={() => toggleExpand(item.id)} className="flex w-full items-start gap-2 px-3 py-2.5 sm:px-4 sm:py-3 text-left">
           <span className="shrink-0 text-[11px] sm:text-xs text-zinc-400 w-7 pt-0.5">{globalIdx}.</span>
           <span className={`shrink-0 pt-0.5 text-[13px] sm:text-sm ${st === "unanswered" ? "text-zinc-300 dark:text-zinc-600" : st === "mine" ? "text-emerald-600 dark:text-emerald-400" : "text-indigo-600 dark:text-indigo-300"} ${st === "mine" ? "font-bold" : ""}`}>{mark}</span>
@@ -606,7 +653,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
       )}
 
       {!lockedMain && view === "card" && (
-      <div className="space-y-2">
+      <div ref={viewsRef} className="space-y-2">
         <div className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-2 py-2 dark:border-white/10 dark:bg-white/[0.04]">
           <button onClick={() => goCard(-1)} disabled={filtered.length <= 1} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">← Өмнөх</button>
           <span className="text-[11px] sm:text-xs text-zinc-500">{filtered.length === 0 ? "0 / 0" : `${safeCardIdx + 1} / ${filtered.length}`}</span>
@@ -617,8 +664,28 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
       )}
 
       {!lockedMain && view === "grid" && (
-      <div className={`grid gap-1.5 sm:gap-2 ${gridColsClass}`}>
-        {paged.map((item, idx) => renderItem(item, (safePage - 1) * PAGE_SIZE + idx + 1))}
+      <div ref={viewsRef} className={`grid gap-1.5 sm:gap-2 ${phoneTiles ? tileColsClass : `${gridColsClass} ${gridDenseClass}`}`}>
+        {phoneTiles
+          ? paged.map((item, idx) => {
+              const n = (safePage - 1) * PAGE_SIZE + idx + 1;
+              const dot = mineOf(item) ? "bg-emerald-500" : notedOf(item) ? "bg-violet-500" : "";
+              const clamp = gridCols === 2 ? "line-clamp-2" : gridCols === 3 ? "line-clamp-1" : "";
+              const narrow = gridCols === 4;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => { setView("card"); setCardIdx(n - 1); setFocusView(true); }}
+                  aria-label={`Асуулт ${n} — карт харах`}
+                  className={`relative flex flex-col gap-1 rounded-xl border border-zinc-200 bg-white p-2 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/10 ${narrow ? "h-14 items-center justify-center" : "min-h-[64px] items-stretch text-left"}`}
+                >
+                  <span className={`font-semibold leading-none text-zinc-800 dark:text-zinc-200 ${narrow ? "text-[15px]" : "text-[13px]"}`}>{n}</span>
+                  {clamp && <span className={`break-words text-[10px] leading-tight text-zinc-500 dark:text-zinc-400 ${clamp}`}>{item.question}</span>}
+                  {dot && <span className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full ${dot}`} />}
+                </button>
+              );
+            })
+          : paged.map((item, idx) => renderItem(item, (safePage - 1) * PAGE_SIZE + idx + 1))}
       </div>
       )}
 

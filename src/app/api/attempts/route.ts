@@ -55,10 +55,11 @@ export async function POST(req: Request) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   const session = await auth();
   const userId = (session?.user as unknown as { id?: string })?.id;
   if (!userId) return NextResponse.json({ error: "Нэвтрээгүй байна" }, { status: 401 });
-  await prisma.attempt.deleteMany({ where: { userId } });
+  const id = new URL(req.url).searchParams.get("id");
+  await prisma.attempt.deleteMany({ where: id ? { userId, id } : { userId } });
   return NextResponse.json({ ok: true });
 }

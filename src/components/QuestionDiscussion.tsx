@@ -85,7 +85,7 @@ export default function QuestionDiscussion({ questionId }: { questionId: string 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Хэлэлцүүлэг">
       <div className="absolute inset-0 bg-black/60 dark:bg-black/70" onClick={() => setOpen(false)} />
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-4 shadow-xl sm:p-5 dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
+      <div className="relative w-full max-w-md sm:max-w-2xl rounded-2xl bg-white p-4 shadow-xl sm:p-5 dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm sm:text-base font-semibold">❝ Хэлэлцүүлэг{comments.length > 0 ? ` · ${comments.length}` : ""}</p>
           <button onClick={() => setOpen(false)} aria-label="Хаах" className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-[13px] hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5">✕</button>
@@ -96,7 +96,7 @@ export default function QuestionDiscussion({ questionId }: { questionId: string 
           ) : comments.length === 0 ? (
             <p className="text-[13px] sm:text-sm text-zinc-500">Одоогоор сэтгэгдэл алга — эхнийх нь та байгаарай.</p>
           ) : (
-            <div className="grid gap-2 max-h-[50vh] overflow-auto pr-1">
+            <div className="grid gap-2 max-h-[50vh] sm:max-h-[65vh] overflow-auto pr-1">
               {comments.map((c) => (
                 <div key={c.id} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-white/10 dark:bg-white/[0.04]">
                   <div className="flex justify-between gap-2">
