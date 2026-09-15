@@ -196,12 +196,12 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      <div className={view === "grid" ? "mt-6 grid gap-4 sm:grid-cols-2 sm:items-start" : "mt-6 grid gap-4"}>
+      <div className={view === "grid" ? "mt-6 grid gap-4 sm:grid-cols-2 sm:items-start sm:grid-flow-row-dense" : "mt-6 grid gap-4"}>
         {shownAttempts.map((a) => {
           const isOpen = expanded === a.id;
           const pct = Math.round((a.score / a.total) * 100);
           return (
-            <div key={a.id} className="rounded-2xl border border-zinc-200 bg-white dark:bg-white/[0.04] dark:border-white/10 overflow-hidden">
+            <div key={a.id} className={`rounded-2xl border border-zinc-200 bg-white dark:bg-white/[0.04] dark:border-white/10 overflow-hidden${view === "grid" && isOpen ? " sm:col-span-2" : ""}`}>
               <button onClick={() => openAttempt(a.id, isOpen)} className="w-full p-3 sm:p-4 flex justify-between items-center text-left hover:bg-zinc-50 dark:hover:bg-white/5 gap-2 min-h-[56px]">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm sm:text-base">{a.score} / {a.total} · {pct}%</p>
