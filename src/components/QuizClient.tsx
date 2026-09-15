@@ -8,6 +8,7 @@ import { fileHasAnswer, getAllOverrides } from "@/lib/answerOverrides";
 import { fileAnswer, judgeQuestion } from "@/lib/voteJudge";
 import { readLocalSavedExams, writeLocalSavedExam, removeLocalSavedExam, type SavedExam } from "@/lib/savedExams";
 import { FREE_CATEGORY } from "@/lib/access";
+import DropSelect from "@/components/DropSelect";
 
 type Mode = "exam" | "study";
 type QuizState = "setup" | "running" | "result";
@@ -113,6 +114,17 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   };
   // resolved answer: file (locked) → my saved → majority vote → auto-correct (tie/none)
   const judgeOf = useCallback((q: Question) => judgeQuestion(q, { overrides, my: voteMy, counts: voteCounts }), [overrides, voteMy, voteCounts]);
+
+  useEffect(() => {
+    if (!isAuthed) return;
+    let cancelled = false;
+    fetch("/api/saved-answers?mine=1")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d?.my) setVoteMy((p) => ({ ...d.my, ...p })); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isAuthed]);
+  const hasUsableAnswer = (q: Question) => fileHasAnswer(q) || overrides[q.id] !== undefined || voteMy[q.id] !== undefined;
 
   const [state, setState] = useState<QuizState>("setup");
   const [count, setCount] = useState(20);
@@ -342,6 +354,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     } else {
       if (mc !== "all") pool = pool.filter((q) => q.category === mc);
       if (sc !== "all") pool = pool.filter((q) => q.subCategory === sc);
+      else pool = pool.filter(hasUsableAnswer);
       pool = applyQuery(pool);
     }
     deleteSaved(label);
@@ -589,9 +602,11 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       let out = poolBase;
       if (mainCategory !== "all") out = out.filter((x) => x.category === mainCategory);
       if (subCategory !== "all") out = out.filter((x) => x.subCategory === subCategory);
+      else out = out.filter(hasUsableAnswer);
       return applyQuery(out);
     })();
     const poolSize = pool.length;
+    const examCount = (arr: Question[]) => (subCategory === "all" ? arr.filter(hasUsableAnswer).length : arr.length);
     const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
     return (
       <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0">
@@ -739,25 +754,37 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         
 
         <div className="mt-4 sm:mt-8 grid gap-4 sm:gap-6 min-w-0">
-          <label className="grid gap-1.5 sm:gap-2 min-w-0">
+          <div className="grid gap-1.5 sm:gap-2 min-w-0">
             <span className="text-[12px] sm:text-sm font-medium">Үндсэн ангилал</span>
-            <select value={mainCategory} onChange={(e) => { setMainCategory(e.target.value); setSubCategory("all"); }} className="w-full min-w-0 rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]">
-              <option value="all">Бүх үндсэн ({poolBase.length})</option>
-              {mainCategories.map((c) => <option key={c} value={c}>{!fullAccess && c !== FREE_CATEGORY ? "🔒 " : ""}{c} ({questions.filter((q) => q.category === c).length})</option>)}
-            </select>
-          </label>
+            <DropSelect
+              value={mainCategory}
+              onChange={(v) => { setMainCategory(v); setSubCategory("all"); }}
+              ariaLabel="Үндсэн ангилал"
+              buttonClassName="rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]"
+              options={[
+                { value: "all", label: `Бүх үндсэн (${examCount(poolBase)})` },
+                ...mainCategories.map((c) => ({ value: c, label: `${!fullAccess && c !== FREE_CATEGORY ? "🔒 " : ""}${c} (${examCount(questions.filter((q) => q.category === c))})` })),
+              ]}
+            />
+          </div>
           {!fullAccess && mainCategory !== "all" && mainCategory !== FREE_CATEGORY && (
             <div className="rounded-lg sm:rounded-xl border border-dashed border-zinc-200 p-3 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400 dark:border-white/15">
               🔒 «{mainCategory}» нь төлбөртэй ангилал — <Link href="/plan" className="font-medium text-indigo-600 underline dark:text-indigo-300">Эрх авах</Link> үед нээгдэнэ. Үнэгүй: {FREE_CATEGORY}.
             </div>
           )}
-          <label className="grid gap-1.5 sm:gap-2 min-w-0">
+          <div className="grid gap-1.5 sm:gap-2 min-w-0">
             <span className="text-[12px] sm:text-sm font-medium">Дэд ангилал</span>
-            <select value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="w-full min-w-0 rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]">
-              <option value="all">Бүх дэд ({mainCategory === "all" ? questions.length : questions.filter((q) => q.category === mainCategory).length})</option>
-              {subCategories.map((c) => <option key={c} value={c}>{c} ({questions.filter((x) => (mainCategory === "all" || x.category === mainCategory) && x.subCategory === c).length})</option>)}
-            </select>
-          </label>
+            <DropSelect
+              value={subCategory}
+              onChange={(v) => setSubCategory(v)}
+              ariaLabel="Дэд ангилал"
+              buttonClassName="rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]"
+              options={[
+                { value: "all", label: `Бүх дэд (${examCount(mainCategory === "all" ? questions : questions.filter((q) => q.category === mainCategory))})` },
+                ...subCategories.map((c) => ({ value: c, label: `${c} (${examCount(questions.filter((x) => (mainCategory === "all" || x.category === mainCategory) && x.subCategory === c))})` })),
+              ]}
+            />
+          </div>
 
           <div className="grid gap-1.5 sm:gap-2 min-w-0">
             <span className="text-[12px] sm:text-sm font-medium">Сорилгын тоо · {poolSize}</span>

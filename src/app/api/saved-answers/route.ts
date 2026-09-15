@@ -30,6 +30,14 @@ async function currentUserId(): Promise<string | undefined> {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+    if (searchParams.get("mine") === "1") {
+      const userId = await currentUserId();
+      if (!userId) return NextResponse.json({ my: {} });
+      const rows = await prisma.savedAnswer.findMany({ where: { userId }, select: { questionId: true, answer: true } });
+      const my: Record<string, number> = {};
+      for (const r of rows) my[r.questionId] = r.answer;
+      return NextResponse.json({ my });
+    }
     const idsParam = searchParams.get("ids") || searchParams.get("questionId") || "";
     const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean);
     if (ids.length === 0) return NextResponse.json({ counts: {}, my: {} });

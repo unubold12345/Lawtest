@@ -57,6 +57,19 @@ body {
   outline-offset: 2px;
 }
 
+/* selects must never outgrow their box, even when a long option is selected */
+select {
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+
+/* native select popups follow the theme (Windows Chrome defaults the list to white) */
+select option {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
 * {
   scrollbar-width: thin;
 }

@@ -9,6 +9,7 @@ import { FREE_CATEGORY } from "@/lib/access";
 import QuestionDiscussion from "@/components/QuestionDiscussion";
 import QuestionNote from "@/components/QuestionNote";
 import QuestionReport from "@/components/QuestionReport";
+import DropSelect from "@/components/DropSelect";
 
 const PAGE_SIZE = 20;
 const LETTERS = ["A", "B", "C", "D", "E"];
@@ -268,27 +269,27 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
           className="w-full rounded-full border border-zinc-200 px-3 py-2 sm:px-4 sm:py-2 text-[13px] sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60"
         />
         <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-          <select
+          <DropSelect
             value={mainCategory}
-            onChange={(e) => onMain(e.target.value)}
-            className="w-full rounded-lg sm:rounded-full border border-zinc-200 px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[44px]"
-          >
-            <option value="all">Бүх үндсэн ({questions.length})</option>
-            {mainCategories.map((c) => (
-              <option key={c} value={c}>{c} ({questions.filter((x) => x.category === c).length})</option>
-            ))}
-          </select>
-          <select
+            onChange={onMain}
+            ariaLabel="Үндсэн ангилал"
+            buttonClassName="rounded-lg sm:rounded-full border border-zinc-200 px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[44px]"
+            options={[
+              { value: "all", label: `Бүх үндсэн (${questions.length})` },
+              ...mainCategories.map((c) => ({ value: c, label: `${c} (${questions.filter((x) => x.category === c).length})` })),
+            ]}
+          />
+          <DropSelect
             value={subCategory}
-            onChange={(e) => onSub(e.target.value)}
-            className="w-full rounded-lg sm:rounded-full border border-zinc-200 px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[44px]"
+            onChange={onSub}
+            ariaLabel="Дэд ангилал"
+            buttonClassName="rounded-lg sm:rounded-full border border-zinc-200 px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[44px]"
             disabled={mainCategory === "all" && subCategories.length === 0}
-          >
-            <option value="all">Бүх дэд ({filteredBase.length})</option>
-            {subCategories.map((c) => (
-              <option key={c} value={c}>{c} ({questions.filter((x) => (mainCategory === "all" || x.category === mainCategory) && x.subCategory === c).length})</option>
-            ))}
-          </select>
+            options={[
+              { value: "all", label: `Бүх дэд (${filteredBase.length})` },
+              ...subCategories.map((c) => ({ value: c, label: `${c} (${questions.filter((x) => (mainCategory === "all" || x.category === mainCategory) && x.subCategory === c).length})` })),
+            ]}
+          />
         </div>
         <div className="flex flex-wrap gap-1.5 sm:gap-2">
           {statusPills.map((p) => (

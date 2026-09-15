@@ -69,6 +69,9 @@ were kept identical to v1.
 ### Gotchas
 
 - `dark:bg-gradient-to-br` only sets `background-image`. If the element also has a light `bg-white` base, the alpha stops composite over white in dark mode — always pair with a dark `background-color` (e.g. `dark:bg-white/[0.03]`). Fixed once on the home exam banner.
+- Native `<select>` popup lists: light option text inherits `dark:text-zinc-100` while Windows Chrome paints the list white → invisible options. Fixed globally in `globals.css`: `select option { background-color: var(--background); color: var(--foreground); }` (theme vars, works in both modes).
+- Native `<select>` width: a long selected option gives the select an intrinsic min-content width (grid/flex items default to `min-width: auto`) → overflows its card. Fixed globally: `select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }` plus explicit `min-w-0` on BrowseClient's two selects.
+- Native `<select>` OPEN list width is OS/browser-controlled and cannot be constrained by CSS — it widens to fit the longest option text. Fixed by replacing all 4 native selects (browse main/sub, exam-settings main/sub) with `src/components/DropSelect.tsx`, a custom dropdown modeled on the quiz setup "Дэд ангилал сонгох…" picker (button + fixed backdrop closer + `absolute left-0 right-0` panel with truncated options). Option labels, counts, 🔒 prefixes, disabled state and handlers unchanged; settings `label` wrappers became `div` + `aria-label` on the trigger.
 - Status tints need `!` overrides where a base surface class is also present (see option rows above).
 
 ### Files restyled in this pass
