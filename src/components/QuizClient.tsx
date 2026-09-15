@@ -59,6 +59,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
   const isAuthed = !!session?.user;
+  const userId = (session?.user as unknown as { id?: string } | undefined)?.id ?? null;
   const fullAccess =
     (session?.user as unknown as { hasPaid?: boolean; role?: string } | undefined)?.hasPaid === true ||
     (session?.user as unknown as { role?: string } | undefined)?.role === "ADMIN";
@@ -70,6 +71,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const [paywallNote, setPaywallNote] = useState(false);
   const accessRef = useRef(true);
   accessRef.current = fullAccess;
+  const userRef = useRef<string | null>(null);
+  userRef.current = userId;
   const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }), []);
   const mainCategories = useMemo(() => ([...new Set(questions.map((x) => x.category).filter(Boolean))] as string[]).sort((a, b) => collator.compare(a, b)), [questions, collator]);
   // pre-filter from /browse practice link: ?main=&sub=&q=
@@ -158,7 +161,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   // load saved (paused) exams: local always, DB merge when authed
   useEffect(() => {
     if (state !== "setup") return;
-    const local = readLocalSavedExams();
+    const local = readLocalSavedExams(userId);
     setSavedExams(local);
     if (isAuthed) {
       fetch("/api/saved-exams")
@@ -175,7 +178,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         })
         .catch(() => {});
     }
-  }, [state, isAuthed]);
+  }, [state, isAuthed, userId]);
 
   // mistakes (Их алддаг сорилгууд): wrongCount>=2 or manually added shows in section
   useEffect(() => {
@@ -253,7 +256,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
   // keep the running exam in localStorage if the tab closes / user navigates away (paid feature)
   useEffect(() => {
-    return () => { if (accessRef.current && liveRef.current) writeLocalSavedExam(liveRef.current); };
+    return () => { if (accessRef.current && liveRef.current) writeLocalSavedExam(liveRef.current, userRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -265,7 +268,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     }
     const rec = buildRecord();
     if (!rec) return;
-    writeLocalSavedExam(rec);
+    writeLocalSavedExam(rec, userRef.current);
     setSavedExams((prev) => ({ ...prev, [rec.key]: rec }));
     if (isAuthed) {
       fetch("/api/saved-exams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: rec.key, data: rec }) }).catch(() => {});
@@ -273,7 +276,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   };
 
   const deleteSaved = (key: string) => {
-    removeLocalSavedExam(key);
+    removeLocalSavedExam(key, userRef.current);
     setSavedExams((prev) => { if (!prev[key]) return prev; const n = { ...prev }; delete n[key]; return n; });
     if (isAuthed) {
       fetch("/api/saved-exams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, data: null }) }).catch(() => {});
@@ -476,7 +479,7 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     if (state !== "running") return;
     const h = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      if (liveRef.current) writeLocalSavedExam(liveRef.current);
+      if (liveRef.current) writeLocalSavedExam(liveRef.current, userRef.current);
     };
     window.addEventListener("beforeunload", h);
     return () => window.removeEventListener("beforeunload", h);
