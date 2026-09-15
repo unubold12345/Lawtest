@@ -46,7 +46,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col overscroll-y-none">
         <SessionProvider>
           <Header />
-          <main className="flex-1 w-full min-w-0 overflow-x-hidden">{children}</main>
+          <main className="flex-1 w-full min-w-0 overflow-x-clip">{children}</main>
           <footer className="border-t border-zinc-200/80 px-2 py-4 sm:py-6 text-center dark:border-white/10">
             <p className="text-xs text-zinc-500 dark:text-zinc-500">
               © {new Date().getFullYear()} Lexlab

@@ -31,12 +31,13 @@ export async function GET() {
       const a = Array.isArray(q.answer) ? q.answer[0] : q.answer;
       const n = q.options.length;
       const reasons: string[] = [];
-      if (a === null || a === undefined) {
-        reasons.push("Хариулт хоосон");
-      } else if (!Number.isInteger(a) || (a as number) < 0 || (a as number) >= n) {
-        reasons.push(
-          `Хариулт (${typeof a === "number" && a < letters.length ? letters[a] : a}) сонголтоос хэтэрсэн — ${n} сонголттой`
-        );
+      // null answer is legit: no-answer pools (II.*, MockMain) are decided by community vote
+      if (a !== null && a !== undefined) {
+        if (!Number.isInteger(a) || (a as number) < 0 || (a as number) >= n) {
+          reasons.push(
+            `Хариулт (${typeof a === "number" && a < letters.length ? letters[a] : a}) сонголтоос хэтэрсэн — ${n} сонголттой`
+          );
+        }
       }
       if (n !== 4) reasons.push(`${n} сонголттой — 4 байх ёстой`);
       if (reasons.length === 0) return null;
