@@ -665,53 +665,6 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-t border-zinc-100 pt-2 dark:border-white/5">
-          <div className="inline-flex items-center gap-0.5 rounded-full border border-zinc-200 bg-zinc-50 p-0.5 dark:border-white/15 dark:bg-white/5" role="group" aria-label="Харагдац">
-            {([{ v: "list", label: "Жагсаалт" }, { v: "card", label: "Карт" }, { v: "grid", label: "Сүлжээ" }] as { v: View; label: string }[]).map((o) => (
-              <button
-                key={o.v}
-                onClick={() => setView(o.v)}
-                aria-label={o.label}
-                aria-pressed={view === o.v}
-                title={o.label}
-                className={`inline-flex h-8 w-11 items-center justify-center rounded-full transition-colors ${view === o.v ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-500 hover:bg-white hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100"}`}
-              >
-                {o.v === "list" ? (
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-                    <path d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                ) : o.v === "card" ? (
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
-                    <path d="M7.5 9.5h7M7.5 13.5h4" />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                    <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
-                    <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
-                    <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
-                    <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
-                  </svg>
-                )}
-              </button>
-            ))}
-          </div>
-          {view === "grid" && (
-            <span className="ml-1 flex items-center gap-1">
-              <span className="text-[11px] sm:text-xs text-zinc-500">Багана:</span>
-              {[1, 2, 3, 4].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setGridCols(n)}
-                  aria-label={`${n} багана`}
-                  className={`h-8 w-8 rounded-full border text-[12px] sm:text-sm font-medium ${gridCols === n ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
-                >
-                  {n}
-                </button>
-              ))}
-            </span>
-          )}
-        </div>
         </div>
         )}
       </div>
@@ -769,6 +722,57 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
           Энэ шүүлтүүрээр шалгалт өгөх → <span className="opacity-70">({filteredBase.length})</span>
         </Link>
       </div>
+      )}
+
+      {/* view switcher — above the list */}
+      {!lockedMain && (
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <div className="inline-flex items-center gap-0.5 rounded-full border border-zinc-200 bg-zinc-50 p-0.5 dark:border-white/15 dark:bg-white/5" role="group" aria-label="Харагдац">
+            {([{ v: "list", label: "Жагсаалт" }, { v: "card", label: "Карт" }, { v: "grid", label: "Сүлжээ" }] as { v: View; label: string }[]).map((o) => (
+              <button
+                key={o.v}
+                onClick={() => setView(o.v)}
+                aria-label={o.label}
+                aria-pressed={view === o.v}
+                title={o.label}
+                className={`inline-flex h-8 w-11 items-center justify-center rounded-full transition-colors ${view === o.v ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-500 hover:bg-white hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100"}`}
+              >
+                {o.v === "list" ? (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                    <path d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                ) : o.v === "card" ? (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+                    <path d="M7.5 9.5h7M7.5 13.5h4" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+                    <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+                    <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+                    <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+          {view === "grid" && (
+            <span className="ml-1 flex items-center gap-1">
+              <span className="text-[11px] sm:text-xs text-zinc-500">Багана:</span>
+              {[1, 2, 3, 4].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setGridCols(n)}
+                  aria-label={`${n} багана`}
+                  className={`h-8 w-8 rounded-full border text-[12px] sm:text-sm font-medium ${gridCols === n ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+                >
+                  {n}
+                </button>
+              ))}
+            </span>
+          )}
+        </div>
       )}
 
       {/* views: list / card / grid */}
