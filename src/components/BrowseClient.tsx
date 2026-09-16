@@ -18,6 +18,7 @@ const PAGE_SIZE = 20;
 const LETTERS = ["A", "B", "C", "D", "E"];
 
 type Status = "all" | "answered" | "unanswered" | "mine" | "noted";
+type QTypeFilter = "all" | "case" | "knowledge";
 type View = "list" | "card" | "grid";
 
 // placeholder while the full question for a visible row is being fetched by id
@@ -51,6 +52,10 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
   const [mainCategory, setMainCategory] = useState<string>(() => searchParams.get("cat") || "all");
   const [subCategory, setSubCategory] = useState<string>(() => searchParams.get("sub") || "all");
   const [status, setStatus] = useState<Status>("all");
+  const [qtype, setQtype] = useState<QTypeFilter>(() => {
+    const t = searchParams.get("type");
+    return t === "case" || t === "knowledge" ? t : "all";
+  });
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -159,12 +164,12 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
   const statusOf = (item: Question): "answered" | "unanswered" | "mine" =>
     mineOf(item) ? "mine" : effOf(item) === null ? "unanswered" : "answered";
 
-  // row-level helpers (index rows): [id, mainIdx, subIdx, hasAnswer]
+  // row-level helpers (index rows): [id, mainIdx, subIdx, hasAnswer, isCase]
   const statusOfRow = (r: IndexRow): "answered" | "unanswered" | "mine" =>
     r[3] === 1 ? "answered" : isAuthed && typeof myDb[r[0]] === "number" ? "mine" : "unanswered";
   const notedOfRow = (r: IndexRow): boolean => isAuthed && notedIds.has(r[0]);
 
-  const filteredBase = useMemo(() => {
+  const filteredNoType = useMemo(() => {
     let out = index.rows;
     if (mainCategory !== "all") {
       const mi = index.mains.findIndex((m) => m.name === mainCategory);
@@ -175,6 +180,17 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
     if (searchIds) out = out.filter((r) => searchIds.has(r[0]));
     return out;
   }, [index, mainCategory, subCategory, fullAccess, searchIds]);
+
+  const typeCounts = useMemo(() => {
+    let c = 0;
+    filteredNoType.forEach((r) => { if (r[4] === 1) c++; });
+    return { case: c, knowledge: filteredNoType.length - c };
+  }, [filteredNoType]);
+
+  const filteredBase = useMemo(
+    () => (qtype === "all" ? filteredNoType : filteredNoType.filter((r) => (r[4] === 1) === (qtype === "case"))),
+    [filteredNoType, qtype]
+  );
 
   const statusCounts = useMemo(() => {
     let answered = 0, unanswered = 0, mine = 0, noted = 0;
@@ -304,6 +320,7 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
   const onMain = (v: string) => { setMainCategory(v); setSubCategory("all"); setPage(1); setCardIdx(0); };
   const onSub = (v: string) => { setSubCategory(v); setPage(1); setCardIdx(0); };
   const onStatus = (v: Status) => { setStatus(v); setPage(1); setCardIdx(0); };
+  const onQtype = (v: "case" | "knowledge") => { setQtype((p) => (p === v ? "all" : v)); setPage(1); setCardIdx(0); };
 
   // ---- saving ----
   const persistAnswer = async (id: string, index: number | null) => {
@@ -409,6 +426,7 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
     if (mainCategory !== "all") sp.set("main", mainCategory);
     if (subCategory !== "all") sp.set("sub", subCategory);
     if (q.trim()) sp.set("q", q.trim());
+    if (qtype !== "all") sp.set("type", qtype);
     const s = sp.toString();
     return s ? `/quiz?${s}` : "/quiz";
   })();
@@ -581,7 +599,7 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
             Шүүлтүүр
             {!controlsOpen && (
               <span className="truncate text-[11px] sm:text-xs font-normal text-zinc-500">
-                · {filtered.length} илэрц{q.trim() ? ` · «${q.trim()}»` : ""}{mainCategory !== "all" ? ` · ${mainCategory}` : ""}{subCategory !== "all" ? ` · ${subCategory}` : ""}
+                · {filtered.length} илэрц{q.trim() ? ` · «${q.trim()}»` : ""}{mainCategory !== "all" ? ` · ${mainCategory}` : ""}{subCategory !== "all" ? ` · ${subCategory}` : ""}{qtype !== "all" ? ` · ${qtype === "case" ? "Кейс" : "Онол"}` : ""}
               </span>
             )}
           </span>
@@ -618,6 +636,23 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
               ...subCategories.map((c) => ({ value: c, label: `${c} (${subCountFor(c)})` })),
             ]}
           />
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="text-[11px] sm:text-xs text-zinc-500">Төрөл:</span>
+          {([
+            { id: "case" as const, label: "Кейс", n: typeCounts.case, hint: "Нөхцөл байдалд дүгнэлт хийх — сэтгэн бодох чадвар" },
+            { id: "knowledge" as const, label: "Онол", n: typeCounts.knowledge, hint: "Онолын мэдлэг шалгах — шууд эргэн санах" },
+          ]).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => onQtype(t.id)}
+              aria-pressed={qtype === t.id}
+              title={t.hint}
+              className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] ${qtype === t.id ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+            >
+              {t.label} · {t.n}
+            </button>
+          ))}
         </div>
         <div className="flex flex-wrap gap-1.5 sm:gap-2">
           {statusPills.map((p) => (

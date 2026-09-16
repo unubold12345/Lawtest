@@ -3,8 +3,8 @@
 
 export type IndexSub = { name: string; count: number };
 export type IndexMain = { name: string; count: number; subs: IndexSub[] };
-// tuple form keeps the payload small: [id, mainIdx, subIdx, hasAnswer]
-export type IndexRow = [string, number, number, number];
+// tuple form keeps the payload small: [id, mainIdx, subIdx, hasAnswer, isCase]
+export type IndexRow = [string, number, number, number, number];
 export type IndexData = { total: number; mains: IndexMain[]; allSubs: IndexSub[]; rows: IndexRow[] };
 
 export function indexMainName(index: IndexData, row: IndexRow): string {

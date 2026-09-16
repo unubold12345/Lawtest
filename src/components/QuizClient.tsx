@@ -107,13 +107,17 @@ export default function QuizClient({ index }: { index: IndexData }) {
     return map;
   }, [index]);
   const mainCategories = useMemo(() => index.mains.map((m) => m.name), [index]);
-  // pre-filter from /browse practice link: ?main=&sub=&q=
+  // pre-filter from /browse practice link: ?main=&sub=&q=&type=
   const [mainCategory, setMainCategory] = useState<string>(() => {
     const m = searchParams.get("main");
     return m && index.mains.some((x) => x.name === m) ? m : "all";
   });
   const [subCategory, setSubCategory] = useState<string>(() => searchParams.get("sub") || "all");
   const [query, setQuery] = useState<string>(() => searchParams.get("q") || "");
+  const [qtype, setQtype] = useState<"all" | "case" | "knowledge">(() => {
+    const t = searchParams.get("type");
+    return t === "case" || t === "knowledge" ? t : "all";
+  });
   const [queryIds, setQueryIds] = useState<Set<string> | null>(null);
   const subCategories = useMemo(() => {
     if (mainCategory === "all") return index.allSubs.map((s) => s.name);
@@ -422,6 +426,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
       }
       if (sc !== "all") rows = rows.filter((r) => indexSubName(index, r) === sc);
       else rows = rows.filter(usableRow);
+      if (qtype !== "all") rows = rows.filter((r) => (r[4] === 1) === (qtype === "case"));
       const s = query.trim();
       if (s) {
         const ids = await filterIds(s);
@@ -684,6 +689,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
       }
       if (subCategory !== "all") out = out.filter((r) => indexSubName(index, r) === subCategory);
       else out = out.filter(usableRow);
+      if (qtype !== "all") out = out.filter((r) => (r[4] === 1) === (qtype === "case"));
       if (queryIds) out = out.filter((r) => queryIds.has(r[0]));
       return out;
     })();
@@ -691,7 +697,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const examCountRows = (rows: IndexRow[]) => (subCategory === "all" ? rows.filter(usableRow).length : rows.length);
     const labelMainIdx = mainCategory === "all" ? -1 : index.mains.findIndex((m) => m.name === mainCategory);
     const labelMainRows = labelMainIdx < 0 ? index.rows : rowsByMain[labelMainIdx] ?? [];
-    const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
+    const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${qtype === "all" ? "" : qtype === "case" ? "Кейс · " : "Онол · "}${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
     return (
       <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0 min-h-[100vh]">
       <button onClick={() => (fullAccess ? setSettingsOpen(true) : setPaywallNote(true))} className="w-full rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-white/10 dark:bg-white/[0.04] overflow-hidden text-left hover:border-indigo-400 dark:hover:border-indigo-400/50 transition-colors min-w-0">
@@ -901,6 +907,15 @@ export default function QuizClient({ index }: { index: IndexData }) {
                 ...subCategories.map((c) => ({ value: c, label: `${c} (${examCountRows(labelMainRows.filter((r) => indexSubName(index, r) === c))})` })),
               ]}
             />
+          </div>
+
+          <div className="grid gap-1.5 sm:gap-2 min-w-0">
+            <span className="text-[12px] sm:text-sm font-medium">Төрөл</span>
+            <div className="flex gap-1.5 sm:gap-2 min-w-0">
+              {([{ v: "all", label: "Бүгд" }, { v: "case", label: "Кейс" }, { v: "knowledge", label: "Онол" }] as { v: "all" | "case" | "knowledge"; label: string }[]).map((o) => (
+                <button key={o.v} onClick={() => setQtype(o.v)} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${qtype === o.v ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"}`}>{o.label}</button>
+              ))}
+            </div>
           </div>
 
           <div className="grid gap-1.5 sm:gap-2 min-w-0">

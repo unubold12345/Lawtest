@@ -1,5 +1,6 @@
 import { loadQuestions } from "@/lib/questions";
 import type { Question } from "@/types/question";
+import { classifyQType } from "@/lib/qtype";
 import type { IndexData, IndexMain, IndexRow, IndexSub } from "@/lib/questionIndex";
 
 // Server-only builder for the lightweight question index (see questionIndex.ts).
@@ -59,7 +60,7 @@ export function buildIndex(): IndexData {
     const cat = q.category || "";
     const m = mainIdx.get(cat) ?? -1;
     const s = m >= 0 && q.subCategory ? (subIdx[m].get(q.subCategory) ?? -1) : -1;
-    return [q.id, m, s, hasFileAnswer(q) ? 1 : 0];
+    return [q.id, m, s, hasFileAnswer(q) ? 1 : 0, classifyQType(q.question) === "case" ? 1 : 0];
   });
 
   lastSrc = questions;
