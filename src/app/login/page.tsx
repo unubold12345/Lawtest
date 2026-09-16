@@ -14,6 +14,14 @@ function toE164(raw: string): string | null {
   return null;
 }
 
+// Where to land after auth — /login?next=/plan returns to the plan page.
+// Only local paths are accepted (no open redirect).
+function nextPath(): string {
+  if (typeof window === "undefined") return "/";
+  const n = new URLSearchParams(window.location.search).get("next");
+  return n && n.startsWith("/") && !n.startsWith("//") && !n.includes("\\") ? n : "/";
+}
+
 export default function LoginPage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -34,7 +42,7 @@ export default function LoginPage() {
 
   // Already logged in → bounce straight home, no flash of the form.
   useEffect(() => {
-    if (session?.user) router.replace("/");
+    if (session?.user) router.replace(nextPath());
   }, [session, router]);
 
   // Switching views starts with empty inputs — typed text must not leak
@@ -129,7 +137,7 @@ export default function LoginPage() {
     try {
       const res = await signIn("credentials", { phone, password, redirect: false });
       if (res?.error) { setErr("Утас эсвэл нууц үг буруу"); return; }
-      router.push("/"); router.refresh();
+      router.push(nextPath()); router.refresh();
     } catch { setErr("Серверийн алдаа"); } finally { setLoading(false); }
   };
 
@@ -148,7 +156,7 @@ export default function LoginPage() {
       setOk("Бүртгүүллээ — нэвтэрч байна...");
       const res = await signIn("credentials", { phone, password, redirect: false });
       if (res?.error) { setErr("Бүртгүүлсэн боловч нэвтрэхэд алдаа"); return; }
-      router.push("/"); router.refresh();
+      router.push(nextPath()); router.refresh();
     } catch { setErr("Серверийн алдаа"); } finally { setLoading(false); }
   };
 

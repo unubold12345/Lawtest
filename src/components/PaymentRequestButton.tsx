@@ -1,11 +1,14 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import TermsModal from "@/components/TermsModal";
 
 export default function PaymentRequestButton({ authed, initialPending }: { authed: boolean; initialPending: boolean }) {
   const [pending, setPending] = useState(initialPending);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [accepted, setAccepted] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
 
   const send = async () => {
     setBusy(true);
@@ -30,13 +33,13 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
     return (
       <div>
         <Link
-          href="/login"
-          className="flex w-full items-center justify-center rounded-full bg-indigo-600 py-3 text-[14px] sm:text-base font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px]"
+          href="/login?next=/plan"
+          className="flex w-full items-center justify-center rounded-full bg-indigo-600 px-4 py-3 text-center leading-snug text-[14px] sm:text-base font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px]"
         >
-          Нэвтэрч ороод хүсэлт илгээх →
+          <span className="text-center leading-snug">Нэвтэрч ороод хүсэлт илгээх<span className="whitespace-nowrap"> →</span></span>
         </Link>
         <p className="mt-2 text-center text-[11px] sm:text-xs text-zinc-500">
-          Төлбөр төлсний дараа нэвтэрч орж «Төлбөр төлсөн» товчийг дарна уу.
+          Эхлээд нэвтэрнэ үү — нэвтэрсний дараа энэ хуудас руу буцаж ирж, төлбөр төлсөн бол «Төлбөр төлсөн — эрх нээх хүсэлт илгээх» товчийг дарна уу.
         </p>
       </div>
     );
@@ -55,12 +58,33 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
     <div>
       <button
         onClick={send}
-        disabled={busy}
-        className="w-full rounded-full bg-indigo-600 py-3 text-[14px] sm:text-base font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px]"
+        disabled={busy || !accepted}
+        className="w-full rounded-full bg-indigo-600 px-4 py-3 text-center leading-snug text-[14px] sm:text-base font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px]"
       >
         {busy ? "Илгээж байна…" : "Төлбөр төлсөн — эрх нээх хүсэлт илгээх"}
       </button>
+      <div className="mt-3 flex items-start gap-2.5">
+        <input
+          id="plan-accept-terms"
+          type="checkbox"
+          checked={accepted}
+          onChange={(e) => setAccepted(e.target.checked)}
+          className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-zinc-300 accent-indigo-600 dark:border-white/20"
+        />
+        <span className="text-[12px] sm:text-sm leading-snug text-zinc-600 dark:text-zinc-400">
+          <label htmlFor="plan-accept-terms" className="cursor-pointer select-none">Би </label>
+          <button
+            type="button"
+            onClick={() => setTermsOpen(true)}
+            className="cursor-pointer font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200"
+          >
+            «Үйлчилгээний нөхцөл»
+          </button>
+          <label htmlFor="plan-accept-terms" className="cursor-pointer select-none">-ийг уншиж танилцсан бөгөөд зөвшөөрч байна.</label>
+        </span>
+      </div>
       {err && <p className="mt-2 text-center text-[12px] sm:text-sm text-rose-600 dark:text-rose-400">{err}</p>}
+      <TermsModal open={termsOpen} onClose={() => setTermsOpen(false)} />
     </div>
   );
 }
