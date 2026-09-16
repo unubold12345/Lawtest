@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     prisma.attempt.findMany({
       where: { userId, createdAt: { gte: from, lte: to } },
       orderBy: { createdAt: "desc" },
-      select: { id: true, category: true, mode: true, score: true, total: true, createdAt: true },
+      select: { id: true, category: true, mode: true, score: true, total: true, createdAt: true, questionIds: true },
     }),
     prisma.questionNote.findMany({
       where: { userId, createdAt: { gte: from, lte: to } },
@@ -36,8 +36,25 @@ export async function GET(req: Request) {
       select: { questionId: true, content: true, createdAt: true },
     }),
   ]);
+  const parseIds = (raw: string | null): string[] => {
+    if (!raw) return [];
+    try {
+      const v = JSON.parse(raw);
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  };
   return NextResponse.json({
-    attempts: attempts.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })),
+    attempts: attempts.map((a) => ({
+      id: a.id,
+      category: a.category,
+      mode: a.mode,
+      score: a.score,
+      total: a.total,
+      createdAt: a.createdAt.toISOString(),
+      questionIds: parseIds(a.questionIds),
+    })),
     notes: notes.map((n) => ({ questionId: n.questionId, content: n.content.slice(0, 200), createdAt: n.createdAt.toISOString() })),
     comments: comments.map((c) => ({ questionId: c.questionId, content: c.content.slice(0, 200), createdAt: c.createdAt.toISOString() })),
     saved: saved.map((s) => ({ questionId: s.questionId, createdAt: s.createdAt.toISOString() })),

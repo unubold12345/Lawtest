@@ -8,7 +8,7 @@ type Comment = {
   questionId: string;
   content: string;
   createdAt: string;
-  user: { id: string; name: string | null; email: string };
+  user: { id: string; name: string | null };
 };
 
 export default function QuestionDiscussion({ questionId }: { questionId: string }) {
@@ -100,7 +100,7 @@ export default function QuestionDiscussion({ questionId }: { questionId: string 
               {comments.map((c) => (
                 <div key={c.id} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-white/10 dark:bg-white/[0.04]">
                   <div className="flex justify-between gap-2">
-                    <span className="text-[11px] sm:text-xs font-medium">{c.user.name || c.user.email}</span>
+                    <span className="text-[11px] sm:text-xs font-medium">{c.user.name || "Хэрэглэгч"}</span>
                     <span className="text-[10px] sm:text-[11px] text-zinc-400">{new Date(c.createdAt).toLocaleString()}</span>
                   </div>
                   <p className="mt-1 text-[13px] sm:text-sm whitespace-pre-wrap break-words">{c.content}</p>

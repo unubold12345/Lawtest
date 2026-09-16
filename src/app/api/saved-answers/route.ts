@@ -39,14 +39,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ my });
     }
     const idsParam = searchParams.get("ids") || searchParams.get("questionId") || "";
-    const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean);
+    const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 2000);
     if (ids.length === 0) return NextResponse.json({ counts: {}, my: {} });
 
     // if authed but no row, also try to ensure my empty handled; counts still valid
     return NextResponse.json(await tally(ids, await currentUserId()));
   } catch (e: unknown) {
     console.error("saved-answers GET", e);
-    return NextResponse.json({ error: e instanceof Error ? e.message.slice(0,400) : String(e).slice(0,400), counts: {}, my: {} }, { status: 500 });
+    return NextResponse.json({ error: "Серверийн алдаа", counts: {}, my: {} }, { status: 500 });
   }
 }
 

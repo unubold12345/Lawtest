@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
+import { indexMainName, indexSubName, type IndexData, type IndexRow } from "@/lib/questionIndex";
+import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
 import { fileHasAnswer } from "@/lib/answerOverrides";
+import { daysUntilExam } from "@/lib/exam";
 import { FREE_CATEGORY } from "@/lib/access";
 import QuestionDiscussion from "@/components/QuestionDiscussion";
 import QuestionNote from "@/components/QuestionNote";
@@ -17,9 +20,24 @@ const LETTERS = ["A", "B", "C", "D", "E"];
 type Status = "all" | "answered" | "unanswered" | "mine" | "noted";
 type View = "list" | "card" | "grid";
 
-export default function BrowseClient({ questions }: { questions: Question[] }) {
+// placeholder while the full question for a visible row is being fetched by id
+function SkeletonRow() {
+  return (
+    <div className="animate-pulse rounded-xl border border-zinc-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="flex items-start gap-2">
+        <span className="h-3 w-7 shrink-0 rounded bg-zinc-200/80 dark:bg-white/10" />
+        <span className="min-w-0 flex-1 space-y-1.5">
+          <span className="block h-3 w-11/12 rounded bg-zinc-200/80 dark:bg-white/10" />
+          <span className="block h-2.5 w-1/3 rounded bg-zinc-200/60 dark:bg-white/[0.07]" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export default function BrowseClient({ index, initialItems }: { index: IndexData; initialItems?: Question[] }) {
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const isAuthed = !!session?.user;
   const fullAccess =
     (session?.user as unknown as { hasPaid?: boolean; role?: string } | undefined)?.hasPaid === true ||
@@ -49,17 +67,45 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const [controlsOpen, setControlsOpen] = useState(false);
   const [isPhone, setIsPhone] = useState(false);
   const [focusView, setFocusView] = useState(false);
+  // full question objects are fetched lazily by id (index only carries ids + refs)
+  const [items, setItems] = useState<Record<string, Question>>(() => {
+    const m: Record<string, Question> = {};
+    for (const q of initialItems ?? []) m[q.id] = q;
+    return m;
+  });
+  const itemsRef = useRef<Record<string, Question>>(
+    Object.fromEntries((initialItems ?? []).map((q) => [q.id, q]))
+  );
+  const [searchIds, setSearchIds] = useState<Set<string> | null>(null);
+  const searchSeq = useRef(0);
   // paid categories are listed but their content is locked
   const lockedMain = mainCategory !== "all" && mainCategory !== FREE_CATEGORY && !fullAccess;
-  const lockedCount = fullAccess ? 0 : questions.filter((x) => x.category !== FREE_CATEGORY).length;
+  const freeTotal = index.mains.find((m) => m.name === FREE_CATEGORY)?.count ?? 0;
+  const lockedCount = fullAccess ? 0 : index.total - freeTotal;
 
-  const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }), []);
-  const mainCategories = useMemo(() => ([...new Set(questions.map((x) => x.category).filter(Boolean))] as string[]).sort((a, b) => collator.compare(a, b)), [questions, collator]);
+  const mergeItems = (list: Question[]) => {
+    setItems((prev) => {
+      const next = { ...prev };
+      list.forEach((it) => {
+        next[it.id] = it;
+      });
+      itemsRef.current = next;
+      return next;
+    });
+  };
+
+  const mainCategories = useMemo(() => index.mains.map((m) => m.name), [index]);
   const subCategories = useMemo(() => {
-    let pool: typeof questions = questions;
-    if (mainCategory !== "all") pool = pool.filter((x) => x.category === mainCategory);
-    return ([...new Set(pool.map((x) => x.subCategory).filter(Boolean))] as string[]).sort((a, b) => collator.compare(a, b));
-  }, [questions, mainCategory, collator]);
+    if (mainCategory !== "all") {
+      const m = index.mains.find((x) => x.name === mainCategory);
+      return m ? m.subs.map((s) => s.name) : [];
+    }
+    return index.allSubs.map((s) => s.name);
+  }, [index, mainCategory]);
+  const subCountFor = (name: string): number =>
+    mainCategory === "all"
+      ? (index.allSubs.find((s) => s.name === name)?.count ?? 0)
+      : (index.mains.find((m) => m.name === mainCategory)?.subs.find((s) => s.name === name)?.count ?? 0);
 
   // guard against invalid ?cat= / ?sub= from links
   useEffect(() => {
@@ -113,42 +159,40 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
   const statusOf = (item: Question): "answered" | "unanswered" | "mine" =>
     mineOf(item) ? "mine" : effOf(item) === null ? "unanswered" : "answered";
 
+  // row-level helpers (index rows): [id, mainIdx, subIdx, hasAnswer]
+  const statusOfRow = (r: IndexRow): "answered" | "unanswered" | "mine" =>
+    r[3] === 1 ? "answered" : isAuthed && typeof myDb[r[0]] === "number" ? "mine" : "unanswered";
+  const notedOfRow = (r: IndexRow): boolean => isAuthed && notedIds.has(r[0]);
+
   const filteredBase = useMemo(() => {
-    let out = questions;
-    if (mainCategory !== "all") out = out.filter((x) => x.category === mainCategory);
-    if (subCategory !== "all") out = out.filter((x) => x.subCategory === subCategory);
-    if (!fullAccess) out = out.filter((x) => x.category === FREE_CATEGORY);
-    if (q.trim()) {
-      const s = q.trim().toLowerCase();
-      out = out.filter(
-        (x) =>
-          x.question.toLowerCase().includes(s) ||
-          x.options.some((o) => o.toLowerCase().includes(s)) ||
-          x.category?.toLowerCase().includes(s) ||
-          x.subCategory?.toLowerCase().includes(s)
-      );
+    let out = index.rows;
+    if (mainCategory !== "all") {
+      const mi = index.mains.findIndex((m) => m.name === mainCategory);
+      out = out.filter((r) => r[1] === mi);
     }
+    if (subCategory !== "all") out = out.filter((r) => indexSubName(index, r) === subCategory);
+    if (!fullAccess) out = out.filter((r) => indexMainName(index, r) === FREE_CATEGORY);
+    if (searchIds) out = out.filter((r) => searchIds.has(r[0]));
     return out;
-  }, [questions, q, mainCategory, subCategory, fullAccess]);
+  }, [index, mainCategory, subCategory, fullAccess, searchIds]);
 
   const statusCounts = useMemo(() => {
     let answered = 0, unanswered = 0, mine = 0, noted = 0;
-    filteredBase.forEach((x) => {
-      const s = statusOf(x);
+    filteredBase.forEach((r) => {
+      const s = statusOfRow(r);
       if (s === "mine") mine++;
       else if (s === "answered") answered++;
       else unanswered++;
-      if (notedOf(x)) noted++;
+      if (notedOfRow(r)) noted++;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     return { answered, unanswered, mine, noted, total: filteredBase.length };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredBase, myDb, notedIds, isAuthed]);
 
   const filtered = useMemo(() => {
     if (status === "all") return filteredBase;
-    if (status === "noted") return filteredBase.filter((x) => notedOf(x));
-    return filteredBase.filter((x) => statusOf(x) === status);
+    if (status === "noted") return filteredBase.filter((r) => notedOfRow(r));
+    return filteredBase.filter((r) => statusOfRow(r) === status);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredBase, status, myDb, notedIds, isAuthed]);
 
@@ -156,11 +200,13 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pagedRows = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pagedIds = pagedRows.map((r) => r[0]);
 
   // card view: single question with prev/next across the whole filtered list
   const safeCardIdx = filtered.length === 0 ? 0 : Math.min(Math.max(0, cardIdx), filtered.length - 1);
-  const cardItem: Question | undefined = filtered[safeCardIdx];
+  const cardRow = filtered.length === 0 ? undefined : filtered[safeCardIdx];
+  const cardItem: Question | undefined = cardRow ? items[cardRow[0]] : undefined;
   const goCard = (dir: number) => {
     if (filtered.length === 0) return;
     setCardIdx((i) => (i + dir + filtered.length) % filtered.length);
@@ -187,10 +233,10 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
     return () => { cancelled = true; };
   }, [isAuthed]);
 
-  // fetch vote counts for saveable visible items (public, my vote if authed)
+  // fetch vote counts for saveable visible rows (public, my vote if authed)
   useEffect(() => {
-    const visible = view === "card" ? (cardItem ? [cardItem] : []) : paged;
-    const ids = visible.filter((x) => !fileHasAnswer(x)).map((x) => x.id);
+    const visible = view === "card" ? (cardRow ? [cardRow] : []) : pagedRows;
+    const ids = visible.filter((r) => r[3] === 0).map((r) => r[0]);
     if (ids.length === 0) return;
     fetch(`/api/saved-answers?ids=${encodeURIComponent(ids.join(","))}`)
       .then((r) => r.json())
@@ -200,7 +246,39 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paged.map((x) => x.id).join(","), view, cardItem?.id]);
+  }, [pagedIds.join(","), view, cardRow?.[0]]);
+
+  // fetch full questions for the visible page (and the card item) by id
+  const needIdsKey = [...new Set([...pagedIds, ...(view === "card" && cardRow ? [cardRow[0]] : [])])].join(",");
+  useEffect(() => {
+    const missing = needIdsKey ? needIdsKey.split(",").filter((id) => id && !itemsRef.current[id]) : [];
+    if (missing.length === 0) return;
+    let cancelled = false;
+    fetchQuestionsByIds(missing)
+      .then((list) => {
+        if (!cancelled && list.length) mergeItems(list);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needIdsKey]);
+
+  // text search runs server-side against the light index (question/options/category/subcategory)
+  useEffect(() => {
+    const s = q.trim();
+    if (!s) { setSearchIds(null); return; }
+    const seq = ++searchSeq.current;
+    const t = window.setTimeout(() => {
+      fetch(`/api/questions?filter=1&q=${encodeURIComponent(s)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (seq !== searchSeq.current) return;
+          if (Array.isArray(d?.ids)) setSearchIds(new Set(d.ids as string[]));
+        })
+        .catch(() => {});
+    }, 200);
+    return () => window.clearTimeout(t);
+  }, [q]);
 
   // fetch all my noted question ids once (for the Тэмдэглэлтэй filter + badges)
   useEffect(() => {
@@ -289,30 +367,30 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
         }
         return;
       }
-      if (paged.length === 0) return;
+      if (pagedRows.length === 0) return;
       if (e.key === "j" || e.key === "J" || e.key === "ArrowDown") {
         e.preventDefault();
-        const at = paged.findIndex((x) => x.id === activeId);
-        const nxt = paged[(at + 1 + paged.length) % paged.length];
-        setExpanded((p) => (gridAccordion ? { [nxt.id]: true } : { ...p, [nxt.id]: true }));
-        setActiveId(nxt.id);
-        requestAnimationFrame(() => document.getElementById(`qrow-${nxt.id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+        const at = pagedRows.findIndex((r) => r[0] === activeId);
+        const nxtId = pagedRows[(at + 1 + pagedRows.length) % pagedRows.length][0];
+        setExpanded((p) => (gridAccordion ? { [nxtId]: true } : { ...p, [nxtId]: true }));
+        setActiveId(nxtId);
+        requestAnimationFrame(() => document.getElementById(`qrow-${nxtId}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
         return;
       }
       if (e.key === "k" || e.key === "K" || e.key === "ArrowUp") {
         e.preventDefault();
-        const at = paged.findIndex((x) => x.id === activeId);
-        const prv = paged[(at - 1 + paged.length) % paged.length];
-        setExpanded((p) => (gridAccordion ? { [prv.id]: true } : { ...p, [prv.id]: true }));
-        setActiveId(prv.id);
-        requestAnimationFrame(() => document.getElementById(`qrow-${prv.id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+        const at = pagedRows.findIndex((r) => r[0] === activeId);
+        const prvId = pagedRows[(at - 1 + pagedRows.length) % pagedRows.length][0];
+        setExpanded((p) => (gridAccordion ? { [prvId]: true } : { ...p, [prvId]: true }));
+        setActiveId(prvId);
+        requestAnimationFrame(() => document.getElementById(`qrow-${prvId}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
         return;
       }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId, paged, myDb, isAuthed, pending, pendingClear, view, filtered, gridCols, isPhone]);
+  }, [activeId, pagedRows, myDb, isAuthed, pending, pendingClear, view, filtered, gridCols, isPhone]);
 
   // entering accordion mode (grid ≥2 cols): keep at most one card open
   useEffect(() => {
@@ -525,8 +603,8 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
             ariaLabel="Үндсэн ангилал"
             buttonClassName="rounded-lg sm:rounded-full border border-zinc-200 px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[44px]"
             options={[
-              { value: "all", label: `Бүх үндсэн (${questions.length})` },
-              ...mainCategories.map((c) => ({ value: c, label: `${c} (${questions.filter((x) => x.category === c).length})` })),
+              { value: "all", label: `Бүх үндсэн (${index.total})` },
+              ...index.mains.map((m) => ({ value: m.name, label: `${m.name} (${m.count})` })),
             ]}
           />
           <DropSelect
@@ -537,7 +615,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
             disabled={mainCategory === "all" && subCategories.length === 0}
             options={[
               { value: "all", label: `Бүх дэд (${filteredBase.length})` },
-              ...subCategories.map((c) => ({ value: c, label: `${c} (${questions.filter((x) => (mainCategory === "all" || x.category === mainCategory) && x.subCategory === c).length})` })),
+              ...subCategories.map((c) => ({ value: c, label: `${c} (${subCountFor(c)})` })),
             ]}
           />
         </div>
@@ -603,15 +681,28 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
         )}
       </div>
 
-      {/* locked-category banner (all view) */}
-      {!lockedMain && lockedCount > 0 && (
-        <div className="rounded-xl sm:rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-400/30 dark:bg-amber-400/10 flex flex-col sm:flex-row sm:items-center gap-2">
-          <p className="flex-1 text-[12px] sm:text-sm text-amber-700 dark:text-amber-300">
-            🔒 {lockedCount} сорилго түгжээтэй — бусад бүх ангилал төлбөртэй.
-          </p>
-          <Link href="/plan" className="shrink-0 inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
-            Эрх авах →
-          </Link>
+      {/* top banner slot — height reserved across session states so hydration causes no shift */}
+      {!lockedMain && (
+        <div className="min-h-[104px] sm:min-h-[76px]">
+          {sessionStatus === "loading" ? null : lockedCount > 0 ? (
+            <div className="rounded-xl sm:rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-400/30 dark:bg-amber-400/10 flex flex-col sm:flex-row sm:items-center gap-2">
+              <p className="flex-1 text-[12px] sm:text-sm text-amber-700 dark:text-amber-300 line-clamp-2">
+                🔒 {lockedCount} сорилго түгжээтэй — бусад бүх ангилал төлбөртэй.
+              </p>
+              <Link href="/plan" className="shrink-0 inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
+                Эрх авах →
+              </Link>
+            </div>
+          ) : (
+            <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] flex flex-col sm:flex-row sm:items-center gap-2">
+              <p className="flex-1 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-300 line-clamp-2">
+                📅 Шалгалт эхлэхэд {daysUntilExam()} хоног үлдлээ — төлөвлөгөөгөө шалгаарай.
+              </p>
+              <Link href="/calendar" className="shrink-0 inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
+                Календарь →
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -648,7 +739,11 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
       {/* views: list / card / grid */}
       {!lockedMain && view === "list" && (
       <div className="grid gap-1.5 sm:gap-2">
-        {paged.map((item, idx) => renderItem(item, (safePage - 1) * PAGE_SIZE + idx + 1))}
+        {pagedRows.map((row, idx) => {
+          const item = items[row[0]];
+          const n = (safePage - 1) * PAGE_SIZE + idx + 1;
+          return item ? renderItem(item, n) : <SkeletonRow key={row[0]} />;
+        })}
       </div>
       )}
 
@@ -659,33 +754,38 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
           <span className="text-[11px] sm:text-xs text-zinc-500">{filtered.length === 0 ? "0 / 0" : `${safeCardIdx + 1} / ${filtered.length}`}</span>
           <button onClick={() => goCard(1)} disabled={filtered.length <= 1} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">Дараах →</button>
         </div>
-        {cardItem ? renderItem(cardItem, safeCardIdx + 1) : <p className="text-center py-12 text-zinc-500 text-sm">Илэрц олдсонгүй.</p>}
+        {cardItem ? renderItem(cardItem, safeCardIdx + 1) : filtered.length > 0 ? <SkeletonRow /> : <p className="text-center py-12 text-zinc-500 text-sm">Илэрц олдсонгүй.</p>}
       </div>
       )}
 
       {!lockedMain && view === "grid" && (
       <div ref={viewsRef} className={`grid gap-1.5 sm:gap-2 ${phoneTiles ? tileColsClass : `${gridColsClass} ${gridDenseClass}`}`}>
         {phoneTiles
-          ? paged.map((item, idx) => {
+          ? pagedRows.map((row, idx) => {
               const n = (safePage - 1) * PAGE_SIZE + idx + 1;
-              const dot = mineOf(item) ? "bg-emerald-500" : notedOf(item) ? "bg-violet-500" : "";
+              const item = items[row[0]];
+              const dot = row[3] === 0 && isAuthed && typeof myDb[row[0]] === "number" ? "bg-emerald-500" : notedOfRow(row) ? "bg-violet-500" : "";
               const clamp = gridCols === 2 ? "line-clamp-2" : gridCols === 3 ? "line-clamp-1" : "";
               const narrow = gridCols === 4;
               return (
                 <button
-                  key={item.id}
+                  key={row[0]}
                   type="button"
                   onClick={() => { setView("card"); setCardIdx(n - 1); setFocusView(true); }}
                   aria-label={`Асуулт ${n} — карт харах`}
                   className={`relative flex flex-col gap-1 rounded-xl border border-zinc-200 bg-white p-2 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/10 ${narrow ? "h-14 items-center justify-center" : "min-h-[64px] items-stretch text-left"}`}
                 >
                   <span className={`font-semibold leading-none text-zinc-800 dark:text-zinc-200 ${narrow ? "text-[15px]" : "text-[13px]"}`}>{n}</span>
-                  {clamp && <span className={`break-words text-[10px] leading-tight text-zinc-500 dark:text-zinc-400 ${clamp}`}>{item.question}</span>}
+                  {clamp && item && <span className={`break-words text-[10px] leading-tight text-zinc-500 dark:text-zinc-400 ${clamp}`}>{item.question}</span>}
                   {dot && <span className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full ${dot}`} />}
                 </button>
               );
             })
-          : paged.map((item, idx) => renderItem(item, (safePage - 1) * PAGE_SIZE + idx + 1))}
+          : pagedRows.map((row, idx) => {
+              const item = items[row[0]];
+              const n = (safePage - 1) * PAGE_SIZE + idx + 1;
+              return item ? renderItem(item, n) : <SkeletonRow key={row[0]} />;
+            })}
       </div>
       )}
 
@@ -706,7 +806,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
 
       {/* confirm save (normal mode) */}
       {pending && (() => {
-        const pq = questions.find((x) => x.id === pending.id);
+        const pq = items[pending.id];
         if (!pq) return null;
         const curEff = effOf(pq);
         const isChange = curEff !== null && curEff !== pending.index;
@@ -743,7 +843,7 @@ export default function BrowseClient({ questions }: { questions: Question[] }) {
 
       {/* confirm clear */}
       {pendingClear && (() => {
-        const pq = questions.find((x) => x.id === pendingClear);
+        const pq = items[pendingClear];
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button aria-label="close" onClick={() => setPendingClear(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60" />

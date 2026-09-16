@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    if (!rateLimit(`register:${clientIp(req)}`, 5, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: "Хэт олон оролдлого — түр хүлээнэ үү" }, { status: 429 });
+    }
     const { name, email, password } = await req.json();
     if (!email || !password) {
       return NextResponse.json({ error: "Имэйл болон нууц үг шаардлагатай" }, { status: 400 });

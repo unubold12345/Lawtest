@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { normalizePhone, verifyCode } from "@/lib/otp";
+import { normalizePhone, verifyCode, OTP_MAX_ATTEMPTS } from "@/lib/otp";
 import { verifyFirebaseToken } from "@/lib/firebaseAdmin";
 import { nextUserName } from "@/lib/usernames";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   let step = "body";
   try {
+    if (!rateLimit(`register-phone:${clientIp(req)}`, 10, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: "Хэт олон оролдлого — түр хүлээнэ үү" }, { status: 429 });
+    }
     const { password, phone: rawPhone, code, firebaseToken } = await req.json();
     if (!rawPhone || !password) return NextResponse.json({ error: "Утас, нууц үг шаардлагатай" }, { status: 400 });
     const phone = normalizePhone(String(rawPhone));
@@ -33,6 +37,9 @@ export async function POST(req: Request) {
       if (!verified) {
         const pending = await prisma.otp.findFirst({ where: { phone, purpose: "register", verified: false, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } });
         if (pending) {
+          if (pending.attempts >= OTP_MAX_ATTEMPTS) {
+            return NextResponse.json({ error: "Хэт олон оролдлого — кодоо дахин авна уу" }, { status: 429 });
+          }
           const ok = await verifyCode(String(code), pending.codeHash);
           if (ok) {
             await prisma.otp.update({ where: { id: pending.id }, data: { verified: true } });

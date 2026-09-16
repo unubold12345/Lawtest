@@ -3,8 +3,9 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
-import { normalizePhone, verifyCode } from "./otp";
+import { normalizePhone, OTP_MAX_ATTEMPTS, verifyCode } from "./otp";
 import { nextUserName } from "./usernames";
+import { rateLimit } from "./rateLimit";
 
 if (process.env.AUTH_URL && !process.env.AUTH_URL.startsWith("http")) {
   process.env.AUTH_URL = `https://${process.env.AUTH_URL}`;
@@ -27,8 +28,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password as string;
         const phone = rawPhone ? normalizePhone(String(rawPhone)) : null;
         if (!phone || !password) return null;
+        if (!rateLimit(`login:${phone}`, 15, 15 * 60 * 1000)) return null;
         const user = await prisma.user.findFirst({ where: { phone } });
-        if (!user || !user.password) return null;
+        if (!user || !user.password) {
+          await bcrypt.compare(String(password), "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy");
+          return null;
+        }
         const ok = await bcrypt.compare(password, user.password);
         if (!ok) return null;
         return { id: user.id, name: user.name, email: user.email, role: (user as unknown as { role: string }).role };
@@ -51,7 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           orderBy: { createdAt: "desc" },
         });
         if (!otp) return null;
-        if (otp.attempts >= 5) return null;
+        if (otp.attempts >= OTP_MAX_ATTEMPTS) return null;
         const ok = await verifyCode(String(code), otp.codeHash);
         if (!ok) {
           await prisma.otp.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
@@ -80,12 +85,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = (user as { id: string }).id;
         token.role = (user as unknown as { role?: string }).role;
+        (token as unknown as { authTime: number }).authTime = Date.now();
       }
       // refresh role + display name + paid status from DB (handles promotion/rename/plan grant without relogin after next refresh)
       if (token.id) {
         try {
-          const db = await prisma.user.findUnique({ where: { id: token.id as string }, select: { role: true, name: true, paidAt: true } });
+          const db = await prisma.user.findUnique({ where: { id: token.id as string }, select: { role: true, name: true, paidAt: true, passwordChangedAt: true } });
           if (db) {
+            // session invalidation: tokens issued before the last password reset are dead
+            const authTime = (token as unknown as { authTime?: number }).authTime;
+            if (db.passwordChangedAt && authTime && db.passwordChangedAt.getTime() > authTime) return null;
             token.role = db.role;
             if (db.name) token.name = db.name;
             (token as unknown as { hasPaid: boolean }).hasPaid = db.role === "ADMIN" || !!db.paidAt;

@@ -58,12 +58,12 @@ export default function Header() {
             </span>
           </Link>
           <nav className="hidden sm:flex items-center gap-1">
-            <Link href="/browse" className={linkCls("/browse")}>Бүх сорилго</Link>
-            <Link href="/quiz" className={linkCls("/quiz")}>Шалгалт</Link>
-            <Link href="/history" className={linkCls("/history")}>Түүх</Link>
-            <Link href="/calendar" className={linkCls("/calendar")}>Календар</Link>
-            {user?.hasPaid !== true && <Link href="/plan" className={linkCls("/plan")}>Эрх авах</Link>}
-            {isAdmin && <Link href="/admin" className={linkCls("/admin")}>Админ</Link>}
+            <Link href="/browse" prefetch={false} className={linkCls("/browse")}>Бүх сорилго</Link>
+            <Link href="/quiz" prefetch={false} className={linkCls("/quiz")}>Шалгалт</Link>
+            <Link href="/history" prefetch={false} className={linkCls("/history")}>Түүх</Link>
+            <Link href="/calendar" prefetch={false} className={linkCls("/calendar")}>Календар</Link>
+            {user?.hasPaid !== true && <Link href="/plan" prefetch={false} className={linkCls("/plan")}>Эрх авах</Link>}
+            {isAdmin && <Link href="/admin" prefetch={false} className={linkCls("/admin")}>Админ</Link>}
           </nav>
         </div>
         <Link href="/" className="sm:hidden absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5" aria-label="Lexlab нүүр">

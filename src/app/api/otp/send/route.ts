@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { generateCode, hashCode, normalizePhone, OTP_RATE_LIMIT_SECONDS, OTP_TTL_SECONDS, sendSms } from "@/lib/otp";
+import { generateCode, hashCode, normalizePhone, OTP_RATE_LIMIT_SECONDS, OTP_TTL_SECONDS, sendSms, smsConfigured } from "@/lib/otp";
+import { clientIp, rateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
@@ -10,6 +11,14 @@ export async function POST(req: Request) {
     if (!phone) return NextResponse.json({ error: "Утас буруу формат (+976 8xxx xxxx)" }, { status: 400 });
     const purpose = rawPurpose === "recover" ? "recover" : rawPurpose === "register" ? "register" : null;
     if (!purpose) return NextResponse.json({ error: "Зориулалт буруу: register эсвэл recover" }, { status: 400 });
+
+    // no SMS provider in production → never create a code (and never log one)
+    if (!smsConfigured() && process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "SMS үйлчилгээ тохируулаагүй байна" }, { status: 500 });
+    }
+    if (!rateLimit(`otpsend:${clientIp(req)}`, 20, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: "Хэт олон хүсэлт — дараа оролдоно уу" }, { status: 429 });
+    }
     if (purpose === "recover") {
       const exists = await prisma.user.findFirst({ where: { phone } });
       if (!exists) return NextResponse.json({ error: "Энэ утсаар бүртгэл олдсонгүй" }, { status: 404 });

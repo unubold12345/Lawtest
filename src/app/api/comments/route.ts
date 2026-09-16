@@ -9,10 +9,10 @@ export async function GET(req: Request) {
   const rows = await prisma.comment.findMany({
     where: { questionId },
     orderBy: { createdAt: "asc" },
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: { user: { select: { id: true, name: true } } },
     take: 100,
   });
-  const comments = rows.map((r: { id: string; questionId: string; content: string; createdAt: Date; user: { id: string; name: string | null; email: string } }) => ({
+  const comments = rows.map((r: { id: string; questionId: string; content: string; createdAt: Date; user: { id: string; name: string | null } }) => ({
     id: r.id,
     questionId: r.questionId,
     content: r.content,
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     if (String(content).length > 2000) return NextResponse.json({ error: "Хэт урт (≤2000)" }, { status: 400 });
     const row = await prisma.comment.create({
       data: { questionId: String(questionId), userId, content: String(content).trim() },
-      include: { user: { select: { id: true, name: true, email: true } } },
+      include: { user: { select: { id: true, name: true } } },
     });
     return NextResponse.json({
       comment: {

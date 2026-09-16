@@ -9,6 +9,8 @@ import { fileAnswer, judgeQuestion } from "@/lib/voteJudge";
 import { readLocalSavedExams, writeLocalSavedExam, removeLocalSavedExam, type SavedExam } from "@/lib/savedExams";
 import { FREE_CATEGORY } from "@/lib/access";
 import DropSelect from "@/components/DropSelect";
+import { indexMainName, indexSubName, type IndexData, type IndexRow } from "@/lib/questionIndex";
+import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
 
 type Mode = "exam" | "study";
 type QuizState = "setup" | "running" | "result";
@@ -56,7 +58,7 @@ async function saveAttempt(payload: { category: string; mode: string; score: num
   }
 }
 
-export default function QuizClient({ questions }: { questions: Question[] }) {
+export default function QuizClient({ index }: { index: IndexData }) {
   const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
   const isAuthed = !!session?.user;
@@ -65,29 +67,59 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     (session?.user as unknown as { hasPaid?: boolean; role?: string } | undefined)?.hasPaid === true ||
     (session?.user as unknown as { role?: string } | undefined)?.role === "ADMIN";
   // unpaid users only get the free category in exam pools (lists stay visible)
-  const poolBase = useMemo(
-    () => (fullAccess ? questions : questions.filter((x) => x.category === FREE_CATEGORY)),
-    [questions, fullAccess]
-  );
   const [paywallNote, setPaywallNote] = useState(false);
   const accessRef = useRef(true);
   accessRef.current = fullAccess;
   const userRef = useRef<string | null>(null);
   userRef.current = userId;
   const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }), []);
-  const mainCategories = useMemo(() => ([...new Set(questions.map((x) => x.category).filter(Boolean))] as string[]).sort((a, b) => collator.compare(a, b)), [questions, collator]);
+
+  // question index rows replace the old full-bank prop; full question data is fetched by id on demand
+  const [items, setItems] = useState<Record<string, Question>>({});
+  const itemsRef = useRef<Record<string, Question>>({});
+  const mergeItems = useCallback((list: Question[]) => {
+    if (list.length === 0) return;
+    const next = { ...itemsRef.current };
+    for (const q of list) next[q.id] = q;
+    itemsRef.current = next;
+    setItems(next);
+  }, []);
+  const fetchItems = useCallback(
+    async (ids: string[]): Promise<Question[]> => {
+      const uniq = [...new Set(ids)].filter(Boolean);
+      const need = uniq.filter((id) => !itemsRef.current[id]);
+      if (need.length > 0) {
+        mergeItems(await fetchQuestionsByIds(need));
+      }
+      return uniq.map((id) => itemsRef.current[id]).filter((q): q is Question => !!q);
+    },
+    [mergeItems]
+  );
+  const rowById = useMemo(() => new Set(index.rows.map((r) => r[0])), [index]);
+  const freeIdx = useMemo(() => index.mains.findIndex((m) => m.name === FREE_CATEGORY), [index]);
+  const baseRows = useMemo(
+    () => (fullAccess || freeIdx < 0 ? index.rows : index.rows.filter((r) => r[1] === freeIdx)),
+    [index, fullAccess, freeIdx]
+  );
+  const rowsByMain = useMemo(() => {
+    const map: IndexRow[][] = index.mains.map(() => []);
+    for (const r of index.rows) if (r[1] >= 0) map[r[1]].push(r);
+    return map;
+  }, [index]);
+  const mainCategories = useMemo(() => index.mains.map((m) => m.name), [index]);
   // pre-filter from /browse practice link: ?main=&sub=&q=
   const [mainCategory, setMainCategory] = useState<string>(() => {
     const m = searchParams.get("main");
-    return m && questions.some((x) => x.category === m) ? m : "all";
+    return m && index.mains.some((x) => x.name === m) ? m : "all";
   });
   const [subCategory, setSubCategory] = useState<string>(() => searchParams.get("sub") || "all");
   const [query, setQuery] = useState<string>(() => searchParams.get("q") || "");
+  const [queryIds, setQueryIds] = useState<Set<string> | null>(null);
   const subCategories = useMemo(() => {
-    let pool: typeof questions = questions;
-    if (mainCategory !== "all") pool = pool.filter((x) => x.category === mainCategory);
-    return ([...new Set(pool.map((x) => x.subCategory).filter(Boolean))] as string[]).sort((a, b) => collator.compare(a, b));
-  }, [questions, mainCategory, collator]);
+    if (mainCategory === "all") return index.allSubs.map((s) => s.name);
+    const i = index.mains.findIndex((m) => m.name === mainCategory);
+    return i >= 0 ? index.mains[i].subs.map((s) => s.name) : [];
+  }, [index, mainCategory]);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   useEffect(() => {
     setOverrides(getAllOverrides());
@@ -124,9 +156,14 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [isAuthed]);
-  const hasUsableAnswer = (q: Question) => fileHasAnswer(q) || overrides[q.id] !== undefined || voteMy[q.id] !== undefined;
+  // index-row variant of "has a usable answer": file answer, my override, or my saved vote
+  const usableRow = useCallback(
+    (r: IndexRow) => r[3] === 1 || overrides[r[0]] !== undefined || voteMy[r[0]] !== undefined,
+    [overrides, voteMy]
+  );
 
   const [state, setState] = useState<QuizState>("setup");
+  const [preparing, setPreparing] = useState(false);
   const [count, setCount] = useState(20);
   const [customCount, setCustomCount] = useState("");
   const [lastExam, setLastExam] = useState<Attempt | null>(null);
@@ -211,9 +248,14 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
 
   const mistakeList = useMemo(() => Object.entries(mistakes)
     .filter(([, v]) => v.wrongCount >= 2 || v.manual)
-    .map(([id, v]) => ({ id, q: questions.find((x) => x.id === id) ?? null, wrongCount: v.wrongCount, manual: v.manual }))
-    .filter((e): e is { id: string; q: Question; wrongCount: number; manual: boolean } => !!e.q),
-  [mistakes, questions]);
+    .filter(([id]) => rowById.has(id))
+    .map(([id, v]) => ({ id, wrongCount: v.wrongCount, manual: v.manual })),
+  [mistakes, rowById]);
+  // keep the texts of the mistake questions cached for the setup card + modal
+  const mistakeIdsKey = mistakeList.map((m) => m.id).join(",");
+  useEffect(() => {
+    if (mistakeIdsKey) void fetchItems(mistakeIdsKey.split(","));
+  }, [mistakeIdsKey, fetchItems]);
 
   const recordMistakes = (ids: string[]) => {
     if (!isAuthed || ids.length === 0) return;
@@ -243,12 +285,26 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     if (isAuthed) fetch(`/api/mistakes?questionId=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
   };
 
-  // text pre-filter from /browse (?q=): narrows pool to matching questions
-  const applyQuery = (pool: Question[]) => {
-    const s = query.trim().toLowerCase();
-    if (!s) return pool;
-    return pool.filter((x) => x.question.toLowerCase().includes(s) || x.options.some((o) => o.toLowerCase().includes(s)));
-  };
+  // text pre-filter from /browse (?q=): rows carry no text, so resolve matching ids on the server
+  const filterIds = useCallback(async (text: string): Promise<Set<string>> => {
+    const s = text.trim();
+    if (!s) return new Set();
+    try {
+      const r = await fetch(`/api/questions?filter=1&by=qo&q=${encodeURIComponent(s)}`);
+      if (!r.ok) return new Set();
+      const d = await r.json();
+      return new Set<string>(d?.ids || []);
+    } catch { return new Set(); }
+  }, []);
+  useEffect(() => {
+    const s = query.trim();
+    if (!s) { setQueryIds(null); return; }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      filterIds(s).then((ids) => { if (!cancelled) setQueryIds(ids); });
+    }, 200);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [query, filterIds]);
 
   // drop invalid ?sub= once real subcategory list is known
   useEffect(() => {
@@ -297,34 +353,40 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   };
 
   const resume = (rec: SavedExam) => {
-    const qs = rec.ids.map((id) => questions.find((x) => x.id === id)).filter((x): x is Question => !!x);
-    if (qs.length === 0) return;
-    if (!fullAccess && qs.some((q) => q.category !== FREE_CATEGORY)) {
-      setPaywallNote(true);
-      return;
-    }
-    setMode(rec.mode);
-    setExamTag(rec.tag);
-    setRunLabel(rec.key);
-    setMinutes(rec.minutes);
-    setQuizQs(qs);
-    setAnswers(rec.answers || {});
-    loadVotes(qs.map((q) => q.id));
-    setOptionOrder(rec.optionOrder || {});
-    setIdx(Math.min(rec.idx || 0, qs.length - 1));
-    setTimeLeft(rec.timeLeft || 0);
-    setElapsed(rec.elapsed || 0);
-    setShowStudyFeedback(false);
-    setConfirmExit(false);
-    setPaused(false);
-    setReviewFilter("review");
-    setExpanded({});
-    setState("running");
-    window.scrollTo({ top: 0 });
+    const known = rec.ids.filter((id) => rowById.has(id));
+    if (known.length === 0) return;
+    setPreparing(true);
+    fetchItems(known)
+      .then((qs) => {
+        if (qs.length === 0) return;
+        if (!fullAccess && qs.some((q) => q.category !== FREE_CATEGORY)) {
+          setPaywallNote(true);
+          return;
+        }
+        setMode(rec.mode);
+        setExamTag(rec.tag);
+        setRunLabel(rec.key);
+        setMinutes(rec.minutes);
+        setQuizQs(qs);
+        setAnswers(rec.answers || {});
+        loadVotes(qs.map((q) => q.id));
+        setOptionOrder(rec.optionOrder || {});
+        setIdx(Math.min(rec.idx || 0, qs.length - 1));
+        setTimeLeft(rec.timeLeft || 0);
+        setElapsed(rec.elapsed || 0);
+        setShowStudyFeedback(false);
+        setConfirmExit(false);
+        setPaused(false);
+        setReviewFilter("review");
+        setExpanded({});
+        setState("running");
+        window.scrollTo({ top: 0 });
+      })
+      .finally(() => setPreparing(false));
   };
 
-  const start = (o: { main?: string; sub?: string; n?: number; mins?: number; m?: Mode; tag?: string; ids?: string[] } = {}) => {
-    if (!isAuthed) return;
+  const start = async (o: { main?: string; sub?: string; n?: number; mins?: number; m?: Mode; tag?: string; ids?: string[] } = {}) => {
+    if (!isAuthed || preparing) return;
     const mc = o.main ?? mainCategory;
     const sc = o.sub ?? subCategory;
     // paid categories are locked for unpaid users
@@ -342,24 +404,41 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
     setExamTag(o.tag ?? null);
     const label = o.tag ?? (mc === "all" ? "all" : sc !== "all" ? `${mc} / ${sc}` : mc);
     setRunLabel(label);
-    let pool = poolBase;
+    let rows: IndexRow[];
     if (o.ids) {
       // explicit question set (Их алддаг exam) — unpaid users keep free-category only
       const set = new Set(o.ids);
-      pool = questions.filter((q) => set.has(q.id));
-      if (!fullAccess) pool = pool.filter((q) => q.category === FREE_CATEGORY);
-      if (pool.length === 0) {
+      rows = index.rows.filter((r) => set.has(r[0]));
+      if (!fullAccess) rows = rows.filter((r) => r[1] === freeIdx);
+      if (rows.length === 0) {
         if (!fullAccess) setPaywallNote(true);
         return;
       }
     } else {
-      if (mc !== "all") pool = pool.filter((q) => q.category === mc);
-      if (sc !== "all") pool = pool.filter((q) => q.subCategory === sc);
-      else pool = pool.filter(hasUsableAnswer);
-      pool = applyQuery(pool);
+      rows = baseRows;
+      if (mc !== "all") {
+        const mi = index.mains.findIndex((m) => m.name === mc);
+        rows = mi >= 0 ? rows.filter((r) => r[1] === mi) : [];
+      }
+      if (sc !== "all") rows = rows.filter((r) => indexSubName(index, r) === sc);
+      else rows = rows.filter(usableRow);
+      const s = query.trim();
+      if (s) {
+        const ids = await filterIds(s);
+        rows = rows.filter((r) => ids.has(r[0]));
+      }
     }
     deleteSaved(label);
-    const picked = shuffle(pool).slice(0, Math.min(nn, pool.length));
+    const pickedRows = shuffle(rows).slice(0, Math.min(nn, rows.length));
+    if (pickedRows.length === 0) return;
+    setPreparing(true);
+    let picked: Question[] = [];
+    try {
+      picked = await fetchItems(pickedRows.map((r) => r[0]));
+    } finally {
+      setPreparing(false);
+    }
+    if (picked.length === 0) return;
     // 1 minute per question in exam mode; study mode is untimed
     const dur = (o.m ?? mode) === "study" ? 0 : o.mins ?? Math.max(picked.length, 1);
     const order: Record<string, number[]> = {};
@@ -403,30 +482,28 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   }, [state, isAuthed]);
 
   const subPairs = useMemo(() => {
-    const map = new Map<string, { main: string; sub: string; count: number; label: string }>();
-    questions.forEach((q) => {
-      if (!q.category || !q.subCategory) return;
-      const k = `${q.category} / ${q.subCategory}`;
-      const e = map.get(k);
-      if (e) e.count++;
-      else map.set(k, { main: q.category as string, sub: q.subCategory as string, count: 1, label: k });
-    });
-    return [...map.values()].sort((a, b) => collator.compare(a.main, b.main) || collator.compare(a.sub, b.sub));
-  }, [questions, collator]);
+    const out: Array<{ main: string; sub: string; count: number; label: string }> = [];
+    for (const m of index.mains) {
+      for (const s of m.subs) out.push({ main: m.name, sub: s.name, count: s.count, label: `${m.name} / ${s.name}` });
+    }
+    return out.sort((a, b) => collator.compare(a.main, b.main) || collator.compare(a.sub, b.sub));
+  }, [index, collator]);
 
   const subPair = subPick === "" ? null : (subPairs[Number(subPick)] ?? null);
 
   // no-answer questions in the picked subcategory (file-level) — for friendly judging text
   const subUnknowns = useMemo(() => {
-    if (!subPair) return [];
-    return questions.filter((q) => q.category === subPair.main && q.subCategory === subPair.sub && !fileHasAnswer(q));
-  }, [questions, subPair]);
+    if (!subPair) return [] as IndexRow[];
+    return index.rows.filter(
+      (r) => indexMainName(index, r) === subPair.main && indexSubName(index, r) === subPair.sub && r[3] === 0
+    );
+  }, [index, subPair]);
   useEffect(() => {
     if (subUnknowns.length === 0) return;
-    loadVotes(subUnknowns.map((q) => q.id));
+    loadVotes(subUnknowns.map((r) => r[0]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subPair]);
-  const subUnsaved = subUnknowns.filter((q) => voteMy[q.id] === undefined && overrides[q.id] === undefined).length;
+  const subUnsaved = subUnknowns.filter((r) => voteMy[r[0]] === undefined && overrides[r[0]] === undefined).length;
 
   const subStats = useMemo(() => {
     if (!subPair) return null;
@@ -581,12 +658,12 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   if (state === "setup" && sessionStatus === "loading") {
-    return <div className="py-24 text-center text-[13px] text-zinc-400">Ачааллаж байна…</div>;
+    return <div className="py-24 text-center text-[13px] text-zinc-400 min-h-[100vh]">Ачааллаж байна…</div>;
   }
 
   if (state === "setup" && !isAuthed) {
     return (
-      <div className="mx-auto max-w-md w-full px-3 sm:px-0">
+      <div className="mx-auto max-w-md w-full px-3 sm:px-0 min-h-[100vh]">
         <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-6 sm:p-8 text-center dark:border-white/10 dark:bg-white/[0.04]">
           <h1 className="text-[16px] sm:text-lg font-semibold">Шалгалт өгөхийн тулд нэвтэрнэ үү</h1>
           <p className="mt-1.5 text-[12px] sm:text-sm text-zinc-500">Шалгалт өгөх, дүн харах, үргэлжлүүлэх нь бүртгэлтэй хэрэглэгчид л боломжтой.</p>
@@ -599,18 +676,24 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
   }
 
   if (state === "setup") {
-    const pool = (() => {
-      let out = poolBase;
-      if (mainCategory !== "all") out = out.filter((x) => x.category === mainCategory);
-      if (subCategory !== "all") out = out.filter((x) => x.subCategory === subCategory);
-      else out = out.filter(hasUsableAnswer);
-      return applyQuery(out);
+    const poolRows = (() => {
+      let out = baseRows;
+      if (mainCategory !== "all") {
+        const mi = index.mains.findIndex((m) => m.name === mainCategory);
+        out = mi >= 0 ? out.filter((r) => r[1] === mi) : [];
+      }
+      if (subCategory !== "all") out = out.filter((r) => indexSubName(index, r) === subCategory);
+      else out = out.filter(usableRow);
+      if (queryIds) out = out.filter((r) => queryIds.has(r[0]));
+      return out;
     })();
-    const poolSize = pool.length;
-    const examCount = (arr: Question[]) => (subCategory === "all" ? arr.filter(hasUsableAnswer).length : arr.length);
+    const poolSize = poolRows.length;
+    const examCountRows = (rows: IndexRow[]) => (subCategory === "all" ? rows.filter(usableRow).length : rows.length);
+    const labelMainIdx = mainCategory === "all" ? -1 : index.mains.findIndex((m) => m.name === mainCategory);
+    const labelMainRows = labelMainIdx < 0 ? index.rows : rowsByMain[labelMainIdx] ?? [];
     const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
     return (
-      <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0">
+      <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0 min-h-[100vh]">
       <button onClick={() => (fullAccess ? setSettingsOpen(true) : setPaywallNote(true))} className="w-full rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-white/10 dark:bg-white/[0.04] overflow-hidden text-left hover:border-indigo-400 dark:hover:border-indigo-400/50 transition-colors min-w-0">
         <div className="flex items-center justify-between gap-2 min-w-0">
           <span className="font-semibold text-[14px] sm:text-base truncate">{fullAccess ? "⚙" : "🔒"} Шалгалт тохиргоо</span>
@@ -761,9 +844,9 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
               <p className="mt-3 text-[12px] sm:text-sm text-zinc-500">Бүх алддаг сорилго устгагдлаа.</p>
             ) : (
               <div className="mt-2 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
-                {mistakeList.map(({ id, q, wrongCount, manual }) => (
+                {mistakeList.map(({ id, wrongCount, manual }) => (
                   <div key={id} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 dark:border-white/10 dark:bg-white/5 min-w-0">
-                    <p className="flex-1 min-w-0 text-[12px] sm:text-sm leading-snug break-words line-clamp-2">{q.question}</p>
+                    <p className="flex-1 min-w-0 text-[12px] sm:text-sm leading-snug break-words line-clamp-2">{items[id]?.question ?? "…"}</p>
                     <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-rose-700 dark:bg-rose-400/15 dark:text-rose-300">
                       {wrongCount > 0 ? `✗ ${wrongCount}` : "гараар"}
                     </span>
@@ -796,8 +879,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
               ariaLabel="Үндсэн ангилал"
               buttonClassName="rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]"
               options={[
-                { value: "all", label: `Бүх үндсэн (${examCount(poolBase)})` },
-                ...mainCategories.map((c) => ({ value: c, label: `${!fullAccess && c !== FREE_CATEGORY ? "🔒 " : ""}${c} (${examCount(questions.filter((q) => q.category === c))})` })),
+                { value: "all", label: `Бүх үндсэн (${examCountRows(baseRows)})` },
+                ...mainCategories.map((c, i) => ({ value: c, label: `${!fullAccess && c !== FREE_CATEGORY ? "🔒 " : ""}${c} (${examCountRows(rowsByMain[i])})` })),
               ]}
             />
           </div>
@@ -814,8 +897,8 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
               ariaLabel="Дэд ангилал"
               buttonClassName="rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]"
               options={[
-                { value: "all", label: `Бүх дэд (${examCount(mainCategory === "all" ? questions : questions.filter((q) => q.category === mainCategory))})` },
-                ...subCategories.map((c) => ({ value: c, label: `${c} (${examCount(questions.filter((x) => (mainCategory === "all" || x.category === mainCategory) && x.subCategory === c))})` })),
+                { value: "all", label: `Бүх дэд (${examCountRows(labelMainRows)})` },
+                ...subCategories.map((c) => ({ value: c, label: `${c} (${examCountRows(labelMainRows.filter((r) => indexSubName(index, r) === c))})` })),
               ]}
             />
           </div>
@@ -989,10 +1072,10 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
         ) : (
           <button
             onClick={() => { setMainCategory("all"); setSubCategory("all"); setCount(200); setCustomCount(""); setMinutes(200); start({ main: "all", sub: "all", n: 200, mins: 200, m: "exam", tag: "Үндсэн шалгалт" }); }}
-            disabled={questions.length === 0}
+            disabled={index.total === 0 || preparing}
             className="mt-3 sm:mt-4 w-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 py-2.5 sm:py-3 font-semibold text-[13px] sm:text-base text-white shadow-lg shadow-indigo-950/40 hover:from-indigo-400 hover:to-violet-400 disabled:opacity-40 min-h-[40px] sm:min-h-[48px]"
           >
-            Үндсэн шалгалт эхлэх
+            {preparing ? "Бэлдэж байна…" : "Үндсэн шалгалт эхлэх"}
           </button>
         )}
       </div>
@@ -1011,9 +1094,9 @@ export default function QuizClient({ questions }: { questions: Question[] }) {
                 Эдгээрээр шалгалт өгөх →
               </button>
               <div className="mt-2 grid gap-1.5">
-                {mistakeList.slice(0, 4).map(({ id, q, wrongCount, manual }) => (
+                {mistakeList.slice(0, 4).map(({ id, wrongCount, manual }) => (
                   <div key={id} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 dark:border-white/10 dark:bg-white/5 min-w-0">
-                    <p className="flex-1 min-w-0 text-[12px] sm:text-sm leading-snug break-words line-clamp-2">{q.question}</p>
+                    <p className="flex-1 min-w-0 text-[12px] sm:text-sm leading-snug break-words line-clamp-2">{items[id]?.question ?? "…"}</p>
                     <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-rose-700 dark:bg-rose-400/15 dark:text-rose-300">
                       {wrongCount > 0 ? `✗ ${wrongCount}` : "гараар"}
                     </span>

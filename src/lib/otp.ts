@@ -51,9 +51,8 @@ export async function sendSms(phone: string, code: string): Promise<{ mocked: bo
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
   const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
-  // mock if no credentials — useful for dev / Vercel without SMS setup
+  // mock if no credentials — useful for dev; otp/send refuses to issue codes in production without SMS
   if (!accessKeyId || !secretAccessKey) {
-    console.log(`[OTP mock] ${phone} -> ${code}`);
     return { mocked: true };
   }
 
@@ -74,3 +73,9 @@ export async function sendSms(phone: string, code: string): Promise<{ mocked: bo
 export const OTP_TTL_SECONDS = 5 * 60; // 5 minutes
 export const OTP_RATE_LIMIT_SECONDS = 60; // 1 req / minute per phone
 export const OTP_MAX_ATTEMPTS = 5;
+
+export function smsConfigured(): boolean {
+  const twilio = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM);
+  const aws = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+  return twilio || aws;
+}

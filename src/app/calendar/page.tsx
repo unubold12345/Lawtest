@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import type { Question } from "@/types/question";
 import { EXAM, daysUntilExam, examPhase } from "@/lib/exam";
+import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
 
-type AttemptItem = { id: string; category: string; mode: string; score: number; total: number; createdAt: string };
+type AttemptItem = { id: string; category: string; mode: string; score: number; total: number; createdAt: string; questionIds?: string[] };
 type NoteItem = { questionId: string; content: string; createdAt: string };
 type SavedItem = { questionId: string; createdAt: string };
 type CommentItem = { questionId: string; content: string; createdAt: string };
@@ -69,19 +69,32 @@ export default function CalendarPage() {
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    // lazy-load question texts for the detail modal
-    if (!questionsById) {
-      fetch("/api/questions?full=1")
-        .then((r) => r.json())
-        .then((d) => {
-          const map: Record<string, string> = {};
-          (d.questions as Question[]).forEach((q) => (map[q.id] = q.question));
-          setQuestionsById(map);
-        })
-        .catch(() => setQuestionsById({}));
-    }
     return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [selected]);
+
+  // lazy-load question texts for the selected day only (light ids payload)
+  const loadedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!selected) return;
+    const ids = [
+      ...new Set([
+        ...attempts.filter((a) => dayKey(a.createdAt) === selected).flatMap((a) => a.questionIds || []),
+        ...notes.filter((n) => dayKey(n.createdAt) === selected).map((n) => n.questionId),
+        ...comments.filter((c) => dayKey(c.createdAt) === selected).map((c) => c.questionId),
+        ...saved.filter((s) => dayKey(s.createdAt) === selected).map((s) => s.questionId),
+      ]),
+    ];
+    const missing = ids.filter((id) => !loadedRef.current.has(id));
+    if (missing.length === 0) return;
+    missing.forEach((id) => loadedRef.current.add(id));
+    fetchQuestionsByIds(missing, { texts: true })
+      .then((list) => {
+        const add: Record<string, string> = {};
+        list.forEach((q) => (add[q.id] = q.question));
+        setQuestionsById((p) => ({ ...(p || {}), ...add }));
+      })
+      .catch(() => {});
+  }, [selected, attempts, notes, comments, saved]);
 
   const byDay = useMemo(() => {
     const map: Record<string, { attempts: AttemptItem[]; notes: NoteItem[]; comments: CommentItem[]; saved: SavedItem[] }> = {};
@@ -101,7 +114,29 @@ export default function CalendarPage() {
     return t ? (t.length > 80 ? t.slice(0, 80) + "…" : t) : qid;
   };
 
-  if (status === "loading") return <main className="mx-auto max-w-6xl px-3 sm:px-6 py-8 text-sm">Ачааллаж байна…</main>;
+  if (status === "loading") {
+    // Same shell as the loaded page (stable height) so content arrival causes no layout shift.
+    return (
+      <main className="mx-auto max-w-md sm:max-w-xl px-3 sm:px-6 py-4 sm:py-8">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="h-9 w-9 rounded-full border border-zinc-200 dark:border-white/15" />
+          <h1 className="text-base sm:text-xl font-bold">{cur.y} оны {cur.m + 1}-р сар</h1>
+          <div className="h-9 w-9 rounded-full border border-zinc-200 dark:border-white/15" />
+        </div>
+        {examPhase() !== "done" && (
+          <div className="mb-4 h-11 w-full rounded-2xl border border-zinc-200 dark:border-white/10 dark:bg-white/[0.04]" />
+        )}
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+          {WEEKDAYS.map((w) => (
+            <div key={w} className="pb-1 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">{w}</div>
+          ))}
+          {monthCells(cur.y, cur.m).map((d, i) => (
+            <div key={i} className={`aspect-square rounded-xl border border-zinc-200 dark:border-white/10 ${d === null ? "border-transparent dark:border-transparent" : ""}`} />
+          ))}
+        </div>
+      </main>
+    );
+  }
   if (!isAuthed) {
     return (
       <main className="mx-auto max-w-6xl px-3 sm:px-6 py-8">

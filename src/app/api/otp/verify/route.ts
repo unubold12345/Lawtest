@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { normalizePhone, verifyCode } from "@/lib/otp";
+import { normalizePhone, OTP_MAX_ATTEMPTS, verifyCode } from "@/lib/otp";
 
 export async function POST(req: Request) {
   try {
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       orderBy: { createdAt: "desc" },
     });
     if (!otp) return NextResponse.json({ error: "Код олдоогүй / хугацаа дууссан, дахин илгээнэ үү" }, { status: 400 });
-    if (otp.attempts >= 5) return NextResponse.json({ error: "Хэт олон оролдлого, дахин илгээнэ үү" }, { status: 429 });
+    if (otp.attempts >= OTP_MAX_ATTEMPTS) return NextResponse.json({ error: "Хэт олон оролдлого, дахин илгээнэ үү" }, { status: 429 });
 
     const ok = await verifyCode(String(code), otp.codeHash);
     if (!ok) {

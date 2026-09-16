@@ -64,7 +64,32 @@ function categoriesFromRel(rel: string, qEmbedded?: string): { category: string;
   return { category: main, subCategory: fileName };
 }
 
+// Cheap change-detection for data/: file list + size + mtime (no JSON parsing).
+function dataStamp(): string {
+  if (!fs.existsSync(DATA_DIR)) return "missing";
+  const parts: string[] = [];
+  for (const { full, rel } of walkDataFiles(DATA_DIR)) {
+    try {
+      const st = fs.statSync(full);
+      parts.push(`${rel}:${st.size}:${st.mtimeMs}`);
+    } catch {
+      parts.push(`${rel}:err`);
+    }
+  }
+  return parts.join("|");
+}
+
+let cache: { stamp: string; result: QuestionsLoadResult } | null = null;
+
 export function loadQuestions(): QuestionsLoadResult {
+  const stamp = dataStamp();
+  if (cache && cache.stamp === stamp) return cache.result;
+  const result = loadQuestionsUncached();
+  cache = { stamp, result };
+  return result;
+}
+
+function loadQuestionsUncached(): QuestionsLoadResult {
   const result: QuestionsLoadResult = { questions: [], sources: [], errors: [] };
   if (!fs.existsSync(DATA_DIR)) {
     result.errors.push({ file: "data/", message: "data folder not found" });

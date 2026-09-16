@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { normalizePhone, verifyCode } from "@/lib/otp";
+import { normalizePhone, OTP_MAX_ATTEMPTS, verifyCode } from "@/lib/otp";
 import { verifyFirebaseToken } from "@/lib/firebaseAdmin";
 
 export async function POST(req: Request) {
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         orderBy: { createdAt: "desc" },
       });
       if (!otp) return NextResponse.json({ error: "Код олдоогүй / дууссан" }, { status: 400 });
-      if (otp.attempts >= 5) return NextResponse.json({ error: "Хэт олон оролдлого" }, { status: 429 });
+      if (otp.attempts >= OTP_MAX_ATTEMPTS) return NextResponse.json({ error: "Хэт олон оролдлого" }, { status: 429 });
       const ok = await verifyCode(String(code), otp.codeHash);
       if (!ok) {
         await prisma.otp.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     if (!user) return NextResponse.json({ error: "Хэрэглэгч олдсонгүй" }, { status: 404 });
 
     const hashed = await bcrypt.hash(String(newPassword), 10);
-    await prisma.user.update({ where: { id: user.id }, data: { password: hashed, phoneVerified: new Date() } });
+    await prisma.user.update({ where: { id: user.id }, data: { password: hashed, phoneVerified: new Date(), passwordChangedAt: new Date() } });
 
     return NextResponse.json({ ok: true });
   } catch (e) {

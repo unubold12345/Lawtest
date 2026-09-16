@@ -23,20 +23,33 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   const check = await requireAdmin();
   if (!check.ok) return NextResponse.json({ error: check.error }, { status: check.status });
-  const { id, role, paid } = await req.json();
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  // manual plan grant / revoke (төлбөрийг гараар баталгаажуулах)
-  if (typeof paid === "boolean") {
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { paidAt: paid ? new Date() : null },
-      select: { id: true, paidAt: true },
-    });
+  try {
+    const { id, role, paid } = await req.json();
+    if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+    // manual plan grant / revoke (төлбөрийг гараар баталгаажуулах)
+    if (typeof paid === "boolean") {
+      const updated = await prisma.user.update({
+        where: { id },
+        data: { paidAt: paid ? new Date() : null },
+        select: { id: true, paidAt: true },
+      });
+      return NextResponse.json({ user: updated });
+    }
+    if (!["USER", "ADMIN"].includes(role)) return NextResponse.json({ error: "role USER|ADMIN required" }, { status: 400 });
+    if (role === "USER") {
+      const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+      if (!target) return NextResponse.json({ error: "Хэрэглэгч олдсонгүй" }, { status: 404 });
+      if (target.role === "ADMIN") {
+        const admins = await prisma.user.count({ where: { role: "ADMIN" } });
+        if (admins <= 1) return NextResponse.json({ error: "Сүүлийн админыг хасах боломжгүй" }, { status: 400 });
+      }
+    }
+    const updated = await prisma.user.update({ where: { id }, data: { role }, select: { id: true, role: true } });
     return NextResponse.json({ user: updated });
+  } catch (e) {
+    console.error("admin/users PATCH", e);
+    return NextResponse.json({ error: "Хэрэглэгч олдсонгүй" }, { status: 404 });
   }
-  if (!["USER", "ADMIN"].includes(role)) return NextResponse.json({ error: "role USER|ADMIN required" }, { status: 400 });
-  const updated = await prisma.user.update({ where: { id }, data: { role }, select: { id: true, role: true } });
-  return NextResponse.json({ user: updated });
 }
 
 export async function DELETE(req: Request) {
@@ -49,6 +62,17 @@ export async function DELETE(req: Request) {
   const session = check.session;
   const selfId = (session.user as unknown as { id: string }).id;
   if (id === selfId) return NextResponse.json({ error: "Өөрийгөө устгах боломжгүй" }, { status: 400 });
-  await prisma.user.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
+  try {
+    const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+    if (!target) return NextResponse.json({ error: "Хэрэглэгч олдсонгүй" }, { status: 404 });
+    if (target.role === "ADMIN") {
+      const admins = await prisma.user.count({ where: { role: "ADMIN" } });
+      if (admins <= 1) return NextResponse.json({ error: "Сүүлийн админыг устгах боломжгүй" }, { status: 400 });
+    }
+    await prisma.user.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("admin/users DELETE", e);
+    return NextResponse.json({ error: "Устгах боломжгүй" }, { status: 400 });
+  }
 }

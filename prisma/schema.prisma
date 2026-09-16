@@ -25,6 +25,7 @@ model User {
   phoneVerified DateTime?
   role          Role      @default(USER)
   paidAt        DateTime?
+  passwordChangedAt DateTime?
   accounts      Account[]
   sessions      Session[]
   attempts      Attempt[]

@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
+import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
 
 type Attempt = {
   id: string;
@@ -51,17 +52,26 @@ export default function HistoryPage() {
     "bg-amber-400 text-white";
   const dotSym = (st: string) => (st === "correct" ? "✓" : st === "wrong" ? "✗" : st === "unanswered" ? "○" : "?");
 
+  const fetchedIdsRef = useRef<Set<string>>(new Set());
+
+  // fetch only the questions referenced by the shown attempts (chunked), never the whole bank
   useEffect(() => {
-    // fetch full questions for detail rendering
-    fetch("/api/questions?full=1")
-      .then((r) => r.json())
-      .then((d) => {
-        const map: Record<string, Question> = {};
-        (d.questions as Question[]).forEach((q) => (map[q.id] = q));
-        setQuestionsById(map);
-      })
-      .catch(() => {});
-  }, []);
+    const ids = [...new Set(attempts.flatMap((a) => a.questionIds || []))].filter(
+      (id) => !fetchedIdsRef.current.has(id)
+    );
+    if (ids.length === 0) return;
+    ids.forEach((id) => fetchedIdsRef.current.add(id));
+    let cancel = false;
+    fetchQuestionsByIds(ids).then((list) => {
+      if (cancel || list.length === 0) return;
+      const add: Record<string, Question> = {};
+      list.forEach((q) => (add[q.id] = q));
+      setQuestionsById((p) => ({ ...p, ...add }));
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [attempts]);
 
   useEffect(() => {
     if (status === "loading") return;
