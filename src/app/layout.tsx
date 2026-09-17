@@ -47,7 +47,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SessionProvider>
           <Header />
           <main className="flex-1 w-full min-w-0 overflow-x-clip">{children}</main>
-          <footer className="border-t border-zinc-200/80 px-2 py-4 sm:py-6 text-center dark:border-white/10">
+          <footer className="border-t border-zinc-200/80 px-2 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pt-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-center dark:border-white/10">
             <p className="text-xs text-zinc-500 dark:text-zinc-500">
               © {new Date().getFullYear()} Lexlab
             </p>
