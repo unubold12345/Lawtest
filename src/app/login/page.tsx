@@ -29,7 +29,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
   const [loading, setLoading] = useState(false);
@@ -52,7 +51,6 @@ export default function LoginPage() {
     setPhone("");
     setPassword("");
     setCode("");
-    setNewPassword("");
     setOtpSent(false);
     setDevCode(null);
     setFbConfirm(null);
@@ -141,39 +139,23 @@ export default function LoginPage() {
     } catch { setErr("Серверийн алдаа"); } finally { setLoading(false); }
   };
 
-  const submitRegister = async (e: React.FormEvent) => {
+  // OTP confirmed → continue on the set-password page (password + repeat there)
+  const gotoSetPassword = async (e: React.FormEvent, purpose: "register" | "recover") => {
     e.preventDefault(); setErr(""); setOk(""); setLoading(true);
     try {
-      const body: Record<string, string> = { phone, code, password };
+      const stash: Record<string, string> = { purpose, phone, next: nextPath() };
       if (fbConfirm) {
         const token = await confirmFirebase();
-        if (!token) { setLoading(false); return; }
-        body.firebaseToken = token;
+        if (!token) return;
+        stash.firebaseToken = token;
+      } else {
+        const r = await fetch("/api/otp/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, code, purpose }) });
+        const d = await r.json().catch(() => null);
+        if (!r.ok) { setErr(d?.error || "Код баталгаажуулж чадсангүй"); return; }
+        stash.code = code;
       }
-      const r = await fetch("/api/auth/register-phone", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const d = await r.json();
-      if (!r.ok) { setErr(d.error || "Бүртгэл амжилтгүй"); return; }
-      setOk("Бүртгүүллээ — нэвтэрч байна...");
-      const res = await signIn("credentials", { phone, password, redirect: false });
-      if (res?.error) { setErr("Бүртгүүлсэн боловч нэвтрэхэд алдаа"); return; }
-      router.push(nextPath()); router.refresh();
-    } catch { setErr("Серверийн алдаа"); } finally { setLoading(false); }
-  };
-
-  const submitRecover = async (e: React.FormEvent) => {
-    e.preventDefault(); setErr(""); setOk(""); setLoading(true);
-    try {
-      const body: Record<string, string> = { phone, code, newPassword };
-      if (fbConfirm) {
-        const token = await confirmFirebase();
-        if (!token) { setLoading(false); return; }
-        body.firebaseToken = token;
-      }
-      const r = await fetch("/api/auth/recover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const d = await r.json();
-      if (!r.ok) { setErr(d.error || "Сэргээж чадсангүй"); return; }
-      setOk("Нууц үг шинэчлэгдлээ — нэвтэрнэ үү");
-      setView("login"); setOtpSent(false); setCode(""); setNewPassword("");
+      sessionStorage.setItem("lawtest:pw-setup", JSON.stringify(stash));
+      router.push("/set-password");
     } catch { setErr("Серверийн алдаа"); } finally { setLoading(false); }
   };
 
@@ -207,15 +189,14 @@ export default function LoginPage() {
 
       {view === "register" && (
         <>
-          <form onSubmit={submitRegister} className="mt-6 sm:mt-8 grid gap-4 sm:gap-5">
+          <form onSubmit={(e) => gotoSetPassword(e, "register")} className="mt-6 sm:mt-8 grid gap-4 sm:gap-5">
             <div className="flex gap-2">
               <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Утас" inputMode="tel" className="flex-1 rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
               <button type="button" onClick={() => sendOtp("register")} disabled={loading || cooldown > 0} className="rounded-full border px-4 py-3 text-xs sm:text-sm font-medium disabled:opacity-40 dark:border-white/15 min-h-[48px] sm:min-h-[52px] shrink-0">{cooldown > 0 ? `${cooldown}с` : "Код авах"}</button>
             </div>
             {otpSent && <input required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Баталгаажуулах код" inputMode="numeric" className="rounded-xl border px-4 py-3.5 sm:py-4 text-center tracking-[0.3em] text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />}
             {devCode && <p className="rounded-xl border border-dashed px-3 py-2 text-[13px] sm:text-sm text-zinc-500 break-all dark:border-white/15">Код: <b className="tracking-widest text-zinc-900 dark:text-white">{devCode}</b></p>}
-            <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Нууц үг" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
-            <button disabled={loading || !otpSent || code.length !== 6} type="submit" className="mt-1 rounded-full bg-indigo-600 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : "Бүртгүүлэх"}</button>
+            <button disabled={loading || !otpSent || code.length !== 6} type="submit" className="mt-1 rounded-full bg-indigo-600 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : "Үргэлжлүүлэх"}</button>
           </form>
           <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-zinc-500">Бүртгэлтэй юу? <button onClick={() => switchView("login")} className="underline font-medium text-zinc-700 dark:text-zinc-300">Нэвтрэх</button></p>
         </>
@@ -223,15 +204,14 @@ export default function LoginPage() {
 
       {view === "recover" && (
         <>
-          <form onSubmit={submitRecover} className="mt-6 sm:mt-8 grid gap-4 sm:gap-5">
+          <form onSubmit={(e) => gotoSetPassword(e, "recover")} className="mt-6 sm:mt-8 grid gap-4 sm:gap-5">
             <div className="flex gap-2">
               <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Утас" inputMode="tel" className="flex-1 rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
               <button type="button" onClick={() => sendOtp("recover")} disabled={loading || cooldown > 0} className="rounded-full border px-4 py-3 text-xs sm:text-sm font-medium disabled:opacity-40 dark:border-white/15 min-h-[48px] sm:min-h-[52px] shrink-0">{cooldown > 0 ? `${cooldown}с` : "Код авах"}</button>
             </div>
             {devCode && <p className="rounded-xl border border-dashed px-3 py-2 text-[13px] sm:text-sm text-zinc-500 break-all dark:border-white/15">Код: <b className="tracking-widest text-zinc-900 dark:text-white">{devCode}</b></p>}
             {otpSent && <input required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Баталгаажуулах код" inputMode="numeric" className="rounded-xl border px-4 py-3.5 sm:py-4 text-center tracking-[0.3em] text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />}
-            <input required type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Шинэ нууц үг" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
-            <button disabled={loading || code.length !== 6} type="submit" className="mt-1 rounded-full bg-indigo-600 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : "Сэргээх"}</button>
+            <button disabled={loading || code.length !== 6} type="submit" className="mt-1 rounded-full bg-indigo-600 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : "Үргэлжлүүлэх"}</button>
           </form>
           <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-zinc-500"><button onClick={() => switchView("login")} className="underline font-medium text-zinc-700 dark:text-zinc-300">← Нэвтрэх рүү буцах</button></p>
         </>

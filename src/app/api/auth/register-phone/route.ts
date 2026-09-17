@@ -5,6 +5,7 @@ import { normalizePhone, verifyCode, OTP_MAX_ATTEMPTS } from "@/lib/otp";
 import { verifyFirebaseToken } from "@/lib/firebaseAdmin";
 import { nextUserName } from "@/lib/usernames";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { passwordProblem } from "@/lib/password";
 
 export async function POST(req: Request) {
   let step = "body";
@@ -16,7 +17,8 @@ export async function POST(req: Request) {
     if (!rawPhone || !password) return NextResponse.json({ error: "Утас, нууц үг шаардлагатай" }, { status: 400 });
     const phone = normalizePhone(String(rawPhone));
     if (!phone) return NextResponse.json({ error: "Утас буруу" }, { status: 400 });
-    if (String(password).length < 6) return NextResponse.json({ error: "Нууц үг ≥6" }, { status: 400 });
+    const pwProblem = passwordProblem(String(password));
+    if (pwProblem) return NextResponse.json({ error: pwProblem }, { status: 400 });
 
     // Firebase SMS path: verified ID token replaces our OTP code
     step = "firebase";

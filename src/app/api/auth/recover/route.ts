@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone, OTP_MAX_ATTEMPTS, verifyCode } from "@/lib/otp";
 import { verifyFirebaseToken } from "@/lib/firebaseAdmin";
+import { passwordProblem } from "@/lib/password";
 
 export async function POST(req: Request) {
   try {
@@ -10,7 +11,8 @@ export async function POST(req: Request) {
     if (!rawPhone || !newPassword) return NextResponse.json({ error: "Утас, шинэ нууц үг шаардлагатай" }, { status: 400 });
     const phone = normalizePhone(String(rawPhone));
     if (!phone) return NextResponse.json({ error: "Утас буруу" }, { status: 400 });
-    if (String(newPassword).length < 6) return NextResponse.json({ error: "Нууц үг ≥6" }, { status: 400 });
+    const pwProblem = passwordProblem(String(newPassword));
+    if (pwProblem) return NextResponse.json({ error: pwProblem }, { status: 400 });
 
     // Firebase SMS path: verified ID token replaces our OTP code
     if (firebaseToken) {
@@ -20,18 +22,28 @@ export async function POST(req: Request) {
       }
     } else {
       if (!code) return NextResponse.json({ error: "Код шаардлагатай" }, { status: 400 });
-      const otp = await prisma.otp.findFirst({
-        where: { phone, purpose: "recover", verified: false, expiresAt: { gt: new Date() } },
+      // may already be verified by /api/otp/verify before the set-password step —
+      // accept a recently verified OTP (same window as the register endpoint)
+      const preVerified = await prisma.otp.findFirst({
+        where: { phone, purpose: "recover", verified: true, expiresAt: { gt: new Date(Date.now() - 10 * 60 * 1000) } },
         orderBy: { createdAt: "desc" },
       });
-      if (!otp) return NextResponse.json({ error: "Код олдоогүй / дууссан" }, { status: 400 });
-      if (otp.attempts >= OTP_MAX_ATTEMPTS) return NextResponse.json({ error: "Хэт олон оролдлого" }, { status: 429 });
-      const ok = await verifyCode(String(code), otp.codeHash);
-      if (!ok) {
-        await prisma.otp.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
-        return NextResponse.json({ error: "Код буруу" }, { status: 400 });
+      let verified = !!preVerified;
+      if (!verified) {
+        const otp = await prisma.otp.findFirst({
+          where: { phone, purpose: "recover", verified: false, expiresAt: { gt: new Date() } },
+          orderBy: { createdAt: "desc" },
+        });
+        if (!otp) return NextResponse.json({ error: "Код олдоогүй / дууссан" }, { status: 400 });
+        if (otp.attempts >= OTP_MAX_ATTEMPTS) return NextResponse.json({ error: "Хэт олон оролдлого" }, { status: 429 });
+        const ok = await verifyCode(String(code), otp.codeHash);
+        if (!ok) {
+          await prisma.otp.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
+          return NextResponse.json({ error: "Код буруу" }, { status: 400 });
+        }
+        await prisma.otp.update({ where: { id: otp.id }, data: { verified: true } });
+        verified = true;
       }
-      await prisma.otp.update({ where: { id: otp.id }, data: { verified: true } });
     }
 
     const user = await prisma.user.findFirst({ where: { phone } });
