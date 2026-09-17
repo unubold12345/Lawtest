@@ -1040,7 +1040,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
               <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 text-[12px] sm:text-sm text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
                 <p className="font-medium text-amber-900 dark:text-amber-100">Та энэ дэд ангиллын {subUnknowns.length} хариултгүй сорилгоос {subUnsaved}-г нь хадгалаагүй байна.</p>
                 <p className="mt-1">Хадгалаагүй сорилгыг хамгийн олон санал авсан сонголтоор дүгнэнэ. Хэн ч хадгалаагүй эсвэл санал тэнцсэн бол автоматаар зөв гэж үзнэ.</p>
-                <p className="mt-1">Өөрийн хариултаа <Link href="/browse" className="font-medium text-indigo-700 underline dark:text-indigo-300">Бүх сорилго</Link> дээр хадгалж болно.</p>
+                <p className="mt-1">Өөрийн хариултаа <Link href="/browse/unanswered" className="font-medium text-indigo-700 underline dark:text-indigo-300">Хариултгүй сорилго</Link> дээр хадгалж болно.</p>
               </div>
             )}
             <button

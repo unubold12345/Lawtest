@@ -35,8 +35,11 @@ export default function Header() {
     document.body.style.overflow = "hidden";
     return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [open ]);
-  const linkCls = (href: string) =>
-    `px-3 py-1.5 sm:py-2 rounded-full text-[13px] sm:text-sm font-medium transition-colors min-h-[32px] sm:min-h-0 flex items-center justify-center ${pathname === href ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 dark:bg-indigo-500/15 dark:text-indigo-200 dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100"}`;
+  const linkCls = (href: string, active?: boolean) =>
+    `px-3 py-1.5 sm:py-2 rounded-full text-[13px] sm:text-sm font-medium transition-colors min-h-[32px] sm:min-h-0 flex items-center justify-center ${(active ?? pathname === href) ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 dark:bg-indigo-500/15 dark:text-indigo-200 dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100"}`;
+  const browseActive = pathname === "/browse" || pathname === "/browse/unanswered";
+  const menuCls = (href: string) =>
+    `flex items-center px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${pathname === href ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200" : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-zinc-100"}`;
 
   return (
     <>
@@ -58,7 +61,18 @@ export default function Header() {
             </span>
           </Link>
           <nav className="hidden sm:flex items-center gap-1">
-            <Link href="/browse" prefetch={false} className={linkCls("/browse")}>Бүх сорилго</Link>
+            <div className="relative group">
+              <Link href="/browse" prefetch={false} className={`${linkCls("/browse", browseActive)} gap-1`}>
+                Сорилго
+                <span className="text-[9px] opacity-70" aria-hidden>▼</span>
+              </Link>
+              <div className="invisible absolute left-0 top-full z-40 pt-2 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+                <div className="w-52 rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-white/10 dark:bg-[#0b0b12]">
+                  <Link href="/browse" prefetch={false} className={menuCls("/browse")}>Хариулттай сорилго</Link>
+                  <Link href="/browse/unanswered" prefetch={false} className={menuCls("/browse/unanswered")}>Хариултгүй сорилго</Link>
+                </div>
+              </div>
+            </div>
             <Link href="/quiz" prefetch={false} className={linkCls("/quiz")}>Шалгалт</Link>
             <Link href="/history" prefetch={false} className={linkCls("/history")}>Түүх</Link>
             <Link href="/calendar" prefetch={false} className={linkCls("/calendar")}>Календар</Link>
@@ -115,7 +129,8 @@ export default function Header() {
         <nav className="p-3 space-y-1 overflow-y-auto">
           {[
             { href: "/", label: "Нүүр" },
-            { href: "/browse", label: "Бүх сорилго" },
+            { href: "/browse", label: "Хариулттай сорилго" },
+            { href: "/browse/unanswered", label: "Хариултгүй сорилго" },
             { href: "/quiz", label: "Шалгалт" },
             { href: "/history", label: "Түүх" },
             { href: "/calendar", label: "Календар" },

@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
-import { indexMainName, indexSubName, type IndexData, type IndexRow } from "@/lib/questionIndex";
+import { indexMainName, indexSubName, type IndexData, type IndexRow, type QuestionPool } from "@/lib/questionIndex";
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
 import { fileHasAnswer } from "@/lib/answerOverrides";
-import { daysUntilExam } from "@/lib/exam";
 import { FREE_CATEGORY } from "@/lib/access";
 import QuestionDiscussion from "@/components/QuestionDiscussion";
 import QuestionNote from "@/components/QuestionNote";
@@ -36,9 +35,9 @@ function SkeletonRow() {
   );
 }
 
-export default function BrowseClient({ index, initialItems }: { index: IndexData; initialItems?: Question[] }) {
+export default function BrowseClient({ index, initialItems, pool }: { index: IndexData; initialItems?: Question[]; pool: QuestionPool }) {
   const searchParams = useSearchParams();
-  const { data: session, status: sessionStatus } = useSession();
+  const { data: session } = useSession();
   const isAuthed = !!session?.user;
   const fullAccess =
     (session?.user as unknown as { hasPaid?: boolean; role?: string } | undefined)?.hasPaid === true ||
@@ -85,8 +84,30 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
   const searchSeq = useRef(0);
   // paid categories are listed but their content is locked
   const lockedMain = mainCategory !== "all" && mainCategory !== FREE_CATEGORY && !fullAccess;
-  const freeTotal = index.mains.find((m) => m.name === FREE_CATEGORY)?.count ?? 0;
-  const lockedCount = fullAccess ? 0 : index.total - freeTotal;
+  // this page's pool: the hasAnswer bit in the index row decides answered vs unanswered
+  const poolRows = useMemo(() => {
+    const want = pool === "answered" ? 1 : 0;
+    return index.rows.filter((r) => r[3] === want);
+  }, [index, pool]);
+  // category counts restricted to this pool, so dropdown labels stay honest
+  const poolMainCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of poolRows) {
+      const n = indexMainName(index, r);
+      if (n) m.set(n, (m.get(n) || 0) + 1);
+    }
+    return m;
+  }, [index, poolRows]);
+  const poolSubCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of poolRows) {
+      const n = indexSubName(index, r);
+      if (n) m.set(n, (m.get(n) || 0) + 1);
+    }
+    return m;
+  }, [index, poolRows]);
+  const poolFreeTotal = useMemo(() => poolRows.filter((r) => indexMainName(index, r) === FREE_CATEGORY).length, [index, poolRows]);
+  const lockedCount = fullAccess ? 0 : poolRows.length - poolFreeTotal;
 
   const mergeItems = (list: Question[]) => {
     setItems((prev) => {
@@ -99,18 +120,20 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
     });
   };
 
-  const mainCategories = useMemo(() => index.mains.map((m) => m.name), [index]);
+  // only categories that actually have questions in this pool (r[3] bit), so the
+  // answered page never offers unanswered-only categories and vice versa
+  const mainCategories = useMemo(
+    () => index.mains.filter((m) => (poolMainCounts.get(m.name) ?? 0) > 0).map((m) => m.name),
+    [index, poolMainCounts]
+  );
   const subCategories = useMemo(() => {
     if (mainCategory !== "all") {
       const m = index.mains.find((x) => x.name === mainCategory);
-      return m ? m.subs.map((s) => s.name) : [];
+      return m ? m.subs.filter((s) => (poolSubCounts.get(s.name) ?? 0) > 0).map((s) => s.name) : [];
     }
-    return index.allSubs.map((s) => s.name);
-  }, [index, mainCategory]);
-  const subCountFor = (name: string): number =>
-    mainCategory === "all"
-      ? (index.allSubs.find((s) => s.name === name)?.count ?? 0)
-      : (index.mains.find((m) => m.name === mainCategory)?.subs.find((s) => s.name === name)?.count ?? 0);
+    return index.allSubs.filter((s) => (poolSubCounts.get(s.name) ?? 0) > 0).map((s) => s.name);
+  }, [index, mainCategory, poolSubCounts]);
+  const subCountFor = (name: string): number => poolSubCounts.get(name) ?? 0;
 
   // guard against invalid ?cat= / ?sub= from links
   useEffect(() => {
@@ -170,7 +193,7 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
   const notedOfRow = (r: IndexRow): boolean => isAuthed && notedIds.has(r[0]);
 
   const filteredNoType = useMemo(() => {
-    let out = index.rows;
+    let out = poolRows;
     if (mainCategory !== "all") {
       const mi = index.mains.findIndex((m) => m.name === mainCategory);
       out = out.filter((r) => r[1] === mi);
@@ -179,7 +202,7 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
     if (!fullAccess) out = out.filter((r) => indexMainName(index, r) === FREE_CATEGORY);
     if (searchIds) out = out.filter((r) => searchIds.has(r[0]));
     return out;
-  }, [index, mainCategory, subCategory, fullAccess, searchIds]);
+  }, [poolRows, index, mainCategory, subCategory, fullAccess, searchIds]);
 
   const typeCounts = useMemo(() => {
     let c = 0;
@@ -436,11 +459,10 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
     return [...win].filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
   }, [safePage, totalPages]);
 
+  // answered/unanswered are separate pages now — only the remaining status pills live here
   const statusPills: { id: Status; label: string; n: number }[] = [
     { id: "all", label: "Бүгд", n: statusCounts.total },
-    { id: "answered", label: "● Хариулттай", n: statusCounts.answered + statusCounts.mine },
-    { id: "unanswered", label: "○ Хариултгүй", n: statusCounts.unanswered },
-    { id: "mine", label: "✓ Минийх", n: statusCounts.mine },
+    ...(pool === "unanswered" ? [{ id: "mine" as Status, label: "✓ Минийх", n: statusCounts.mine }] : []),
     ...(isAuthed ? [{ id: "noted" as Status, label: "✎ Тэмдэглэлтэй", n: statusCounts.noted }] : []),
   ];
 
@@ -621,8 +643,8 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
             ariaLabel="Үндсэн ангилал"
             buttonClassName="rounded-lg sm:rounded-full border border-zinc-200 px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[44px]"
             options={[
-              { value: "all", label: `Бүх үндсэн (${index.total})` },
-              ...index.mains.map((m) => ({ value: m.name, label: `${m.name} (${m.count})` })),
+              { value: "all", label: `Бүх үндсэн (${poolRows.length})` },
+              ...mainCategories.map((c) => ({ value: c, label: `${c} (${poolMainCounts.get(c) ?? 0})` })),
             ]}
           />
           <DropSelect
@@ -669,28 +691,14 @@ export default function BrowseClient({ index, initialItems }: { index: IndexData
         )}
       </div>
 
-      {/* top banner slot — height reserved across session states so hydration causes no shift */}
-      {!lockedMain && (
-        <div className="min-h-[104px] sm:min-h-[76px]">
-          {sessionStatus === "loading" ? null : lockedCount > 0 ? (
-            <div className="rounded-xl sm:rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-400/30 dark:bg-amber-400/10 flex flex-col sm:flex-row sm:items-center gap-2">
-              <p className="flex-1 text-[12px] sm:text-sm text-amber-700 dark:text-amber-300 line-clamp-2">
-                🔒 {lockedCount} сорилго түгжээтэй — бусад бүх ангилал төлбөртэй.
-              </p>
-              <Link href="/plan" className="shrink-0 inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
-                Эрх авах →
-              </Link>
-            </div>
-          ) : (
-            <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] flex flex-col sm:flex-row sm:items-center gap-2">
-              <p className="flex-1 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-300 line-clamp-2">
-                📅 Шалгалт эхлэхэд {daysUntilExam()} хоног үлдлээ — төлөвлөгөөгөө шалгаарай.
-              </p>
-              <Link href="/calendar" className="shrink-0 inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
-                Календарь →
-              </Link>
-            </div>
-          )}
+      {!lockedMain && lockedCount > 0 && (
+        <div className="rounded-xl sm:rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-400/30 dark:bg-amber-400/10 flex flex-col sm:flex-row sm:items-center gap-2">
+          <p className="flex-1 text-[12px] sm:text-sm text-amber-700 dark:text-amber-300 line-clamp-2">
+            🔒 {lockedCount} сорилго түгжээтэй — бусад бүх ангилал төлбөртэй.
+          </p>
+          <Link href="/plan" className="shrink-0 inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
+            Эрх авах →
+          </Link>
         </div>
       )}
 

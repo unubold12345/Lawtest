@@ -6,6 +6,8 @@ export type IndexMain = { name: string; count: number; subs: IndexSub[] };
 // tuple form keeps the payload small: [id, mainIdx, subIdx, hasAnswer, isCase]
 export type IndexRow = [string, number, number, number, number];
 export type IndexData = { total: number; mains: IndexMain[]; allSubs: IndexSub[]; rows: IndexRow[] };
+// answered = has an official answer in the data files; unanswered = still open
+export type QuestionPool = "answered" | "unanswered";
 
 export function indexMainName(index: IndexData, row: IndexRow): string {
   return row[1] >= 0 ? index.mains[row[1]].name : "";
