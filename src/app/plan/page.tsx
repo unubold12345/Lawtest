@@ -113,11 +113,11 @@ export default async function PlanPage() {
                   <dl className="mt-3 grid gap-2 text-[12px] sm:text-sm">
                     <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
                       <dt className="text-zinc-500">IBAN</dt>
-                      <dd className="font-mono font-semibold tracking-wider">06001500</dd>
+                      <dd className="font-mono font-semibold tracking-wider">86001500</dd>
                     </div>
                     <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
                       <dt className="text-zinc-500">Данс</dt>
-                      <dd className="font-mono font-semibold tracking-[0.2em]">2405 1622 19</dd>
+                      <dd className="font-mono font-semibold tracking-[0.2em]">1105 7894 22</dd>
                     </div>
                     <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
                       <dt className="text-zinc-500">Хүлээн авагч</dt>
