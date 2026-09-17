@@ -95,7 +95,7 @@ export default async function PlanPage() {
                 <p className="font-semibold text-[14px] sm:text-base">1. QR-аар {priceFmt}₮ төлөх</p>
                 <div className="mt-3 flex justify-center">
                   {qrExists ? (
-                    <Image src="/payment-qr.png" alt="Төлбөрийн QR" width={256} height={256} className="w-40 h-40 sm:w-48 sm:h-48 rounded-2xl border border-zinc-200 object-contain bg-white dark:border-white/10" />
+                    <Image src="/payment-qr.png" alt="Төлбөрийн QR" width={800} height={800} className="h-56 w-56 sm:h-60 sm:w-60 rounded-2xl object-contain bg-white" />
                   ) : (
                     <div className="flex w-40 h-40 sm:w-48 sm:h-48 items-center justify-center rounded-2xl border border-dashed border-zinc-200 text-center text-[12px] text-zinc-400 px-4 dark:border-white/15">
                       Төлбөрийн QR удахгүй байршина
@@ -121,7 +121,7 @@ export default async function PlanPage() {
                     </div>
                     <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
                       <dt className="text-zinc-500">Хүлээн авагч</dt>
-                      <dd className="font-semibold text-right">Лхамсүрэн Өнөболд</dd>
+                      <dd className="font-semibold text-right">П. ГАНБАЯР</dd>
                     </div>
                     <div className="flex justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-400/10">
                       <dt className="text-zinc-500">Гүйлгээний утга</dt>
