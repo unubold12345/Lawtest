@@ -118,6 +118,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const t = searchParams.get("type");
     return t === "case" || t === "knowledge" ? t : "all";
   });
+  const [pool, setPool] = useState<"all" | "answered" | "unanswered">("all");
   const [queryIds, setQueryIds] = useState<Set<string> | null>(null);
   const subCategories = useMemo(() => {
     if (mainCategory === "all") return index.allSubs.map((s) => s.name);
@@ -164,6 +165,10 @@ export default function QuizClient({ index }: { index: IndexData }) {
   const usableRow = useCallback(
     (r: IndexRow) => r[3] === 1 || overrides[r[0]] !== undefined || voteMy[r[0]] !== undefined,
     [overrides, voteMy]
+  );
+  const poolMatch = useCallback(
+    (r: IndexRow) => pool === "all" || (r[3] === 1) === (pool === "answered"),
+    [pool]
   );
 
   const [state, setState] = useState<QuizState>("setup");
@@ -316,6 +321,22 @@ export default function QuizClient({ index }: { index: IndexData }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subCategories]);
 
+  // the Хариулт pool filter hides categories with no questions there (like browse) — keep selections valid
+  useEffect(() => {
+    if (pool === "all" || state !== "setup") return;
+    const match = (r: IndexRow) => (r[3] === 1) === (pool === "answered");
+    if (mainCategory !== "all") {
+      const mi = index.mains.findIndex((m) => m.name === mainCategory);
+      if (mi < 0 || !rowsByMain[mi].some(match)) { setMainCategory("all"); setSubCategory("all"); return; }
+    }
+    if (subCategory !== "all") {
+      const mi = index.mains.findIndex((m) => m.name === mainCategory);
+      const rows = mi >= 0 ? rowsByMain[mi] : index.rows;
+      if (!rows.some((r) => indexSubName(index, r) === subCategory && match(r))) setSubCategory("all");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pool, mainCategory, subCategory, index, rowsByMain, state]);
+
   // saved-exam helpers — one paused exam per category key
   const buildRecord = (): SavedExam | null => {
     if (state !== "running" || quizQs.length === 0) return null;
@@ -425,7 +446,8 @@ export default function QuizClient({ index }: { index: IndexData }) {
         rows = mi >= 0 ? rows.filter((r) => r[1] === mi) : [];
       }
       if (sc !== "all") rows = rows.filter((r) => indexSubName(index, r) === sc);
-      else rows = rows.filter(usableRow);
+      else if (pool === "all") rows = rows.filter(usableRow);
+      if (pool !== "all") rows = rows.filter(poolMatch);
       if (qtype !== "all") rows = rows.filter((r) => (r[4] === 1) === (qtype === "case"));
       const s = query.trim();
       if (s) {
@@ -688,16 +710,18 @@ export default function QuizClient({ index }: { index: IndexData }) {
         out = mi >= 0 ? out.filter((r) => r[1] === mi) : [];
       }
       if (subCategory !== "all") out = out.filter((r) => indexSubName(index, r) === subCategory);
-      else out = out.filter(usableRow);
+      else if (pool === "all") out = out.filter(usableRow);
+      if (pool !== "all") out = out.filter(poolMatch);
       if (qtype !== "all") out = out.filter((r) => (r[4] === 1) === (qtype === "case"));
       if (queryIds) out = out.filter((r) => queryIds.has(r[0]));
       return out;
     })();
     const poolSize = poolRows.length;
-    const examCountRows = (rows: IndexRow[]) => (subCategory === "all" ? rows.filter(usableRow).length : rows.length);
+    const examCountRows = (rows: IndexRow[]) =>
+      (subCategory === "all" && pool === "all" ? rows.filter(usableRow) : rows.filter(poolMatch)).length;
     const labelMainIdx = mainCategory === "all" ? -1 : index.mains.findIndex((m) => m.name === mainCategory);
     const labelMainRows = labelMainIdx < 0 ? index.rows : rowsByMain[labelMainIdx] ?? [];
-    const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${qtype === "all" ? "" : qtype === "case" ? "Кейс · " : "Онол · "}${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
+    const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${qtype === "all" ? "" : qtype === "case" ? "Кейс · " : "Онол · "}${pool === "all" ? "" : pool === "answered" ? "Хариулттай · " : "Хариултгүй · "}${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
     return (
       <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0 min-h-[100vh]">
       <button onClick={() => (fullAccess ? setSettingsOpen(true) : setPaywallNote(true))} className="w-full rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-white/10 dark:bg-white/[0.04] overflow-hidden text-left hover:border-indigo-400 dark:hover:border-indigo-400/50 transition-colors min-w-0">
@@ -886,7 +910,10 @@ export default function QuizClient({ index }: { index: IndexData }) {
               buttonClassName="rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]"
               options={[
                 { value: "all", label: `Бүх үндсэн (${examCountRows(baseRows)})` },
-                ...mainCategories.map((c, i) => ({ value: c, label: `${!fullAccess && c !== FREE_CATEGORY ? "🔒 " : ""}${c} (${examCountRows(rowsByMain[i])})` })),
+                ...mainCategories
+                  .map((c, i) => ({ value: c, label: `${!fullAccess && c !== FREE_CATEGORY ? "🔒 " : ""}${c} (${examCountRows(rowsByMain[i])})`, n: examCountRows(rowsByMain[i]) }))
+                  .filter((o) => pool === "all" || o.n > 0)
+                  .map(({ value, label }) => ({ value, label })),
               ]}
             />
           </div>
@@ -904,7 +931,10 @@ export default function QuizClient({ index }: { index: IndexData }) {
               buttonClassName="rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]"
               options={[
                 { value: "all", label: `Бүх дэд (${examCountRows(labelMainRows)})` },
-                ...subCategories.map((c) => ({ value: c, label: `${c} (${examCountRows(labelMainRows.filter((r) => indexSubName(index, r) === c))})` })),
+                ...subCategories
+                  .map((c) => { const n = examCountRows(labelMainRows.filter((r) => indexSubName(index, r) === c)); return { value: c, label: `${c} (${n})`, n }; })
+                  .filter((o) => pool === "all" || o.n > 0)
+                  .map(({ value, label }) => ({ value, label })),
               ]}
             />
           </div>
@@ -914,6 +944,15 @@ export default function QuizClient({ index }: { index: IndexData }) {
             <div className="flex gap-1.5 sm:gap-2 min-w-0">
               {([{ v: "all", label: "Бүгд" }, { v: "case", label: "Кейс" }, { v: "knowledge", label: "Онол" }] as { v: "all" | "case" | "knowledge"; label: string }[]).map((o) => (
                 <button key={o.v} onClick={() => setQtype(o.v)} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${qtype === o.v ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"}`}>{o.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-1.5 sm:gap-2 min-w-0">
+            <span className="text-[12px] sm:text-sm font-medium">Хариулт</span>
+            <div className="flex gap-1.5 sm:gap-2 min-w-0">
+              {([{ v: "all", label: "Бүгд" }, { v: "answered", label: "Хариулттай" }, { v: "unanswered", label: "Хариултгүй" }] as { v: "all" | "answered" | "unanswered"; label: string }[]).map((o) => (
+                <button key={o.v} onClick={() => setPool(o.v)} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${pool === o.v ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"}`}>{o.label}</button>
               ))}
             </div>
           </div>
@@ -956,6 +995,9 @@ export default function QuizClient({ index }: { index: IndexData }) {
                 <button onClick={() => setMode("exam")} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${mode === "exam" ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"}`}>Шалгалт</button>
                 <button onClick={() => { setMode("study"); setMinutes(0); }} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${mode === "study" ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"}`}>Сургалт</button>
               </div>
+              {mode === "study" && (
+                <p className="text-[11px] sm:text-xs text-zinc-500">Сорилго бүрдээ хариултаа шалгах боломжтой</p>
+              )}
             </label>
             <div className={`grid gap-1.5 sm:gap-2 min-w-0 ${mode === "study" ? "opacity-50" : ""}`}>
               <span className="text-[12px] sm:text-sm font-medium">Хугацаа</span>
