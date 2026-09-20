@@ -7,7 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import BrandMark from "@/components/BrandMark";
 
 export default function Header() {
-  const { data: session, update } = useSession();
+  const { data: session, status, update } = useSession();
   const user = session?.user as unknown as { name?: string | null; email?: string | null; role?: string; hasPaid?: boolean } | undefined;
   // show auto display name (user01, ...) — never a phone number (legacy names stay hidden)
   const displayName = user?.name && !/^[+\d]/.test(user.name.trim()) ? user.name : null;
@@ -24,6 +24,8 @@ export default function Header() {
     }
   }, [user?.email]);
   const isAdmin = user?.role === "ADMIN" || adminOverride;
+  // session not resolved yet — show invisible placeholders instead of flashing guest UI
+  const authPending = !user && status === "loading";
   const pathname = usePathname();
   const browseActive = pathname === "/browse" || pathname === "/browse/unanswered";
   const [open, setOpen] = useState(false);
@@ -94,8 +96,8 @@ export default function Header() {
             <Link href="/quiz" prefetch={false} className={linkCls("/quiz")}>Шалгалт</Link>
             <Link href="/history" prefetch={false} className={linkCls("/history")}>Түүх</Link>
             <Link href="/calendar" prefetch={false} className={linkCls("/calendar")}>Календар</Link>
-            {user?.hasPaid !== true && <Link href="/plan" prefetch={false} className={linkCls("/plan")}>Эрх авах</Link>}
-            {isAdmin && <Link href="/admin" prefetch={false} className={linkCls("/admin")}>Админ</Link>}
+            {!authPending && user?.hasPaid !== true && <Link href="/plan" prefetch={false} className={linkCls("/plan")}>Эрх авах</Link>}
+            {user && isAdmin && <Link href="/admin" prefetch={false} className={linkCls("/admin")}>Админ</Link>}
           </nav>
         </div>
         <Link href="/" className="sm:hidden absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5" aria-label="Lexlab нүүр">
@@ -106,7 +108,11 @@ export default function Header() {
         </Link>
         <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle />
-          {user ? (
+          {authPending ? (
+            <span aria-hidden className="hidden sm:inline-flex items-center rounded-full px-5 py-2.5 sm:py-2 text-sm font-medium min-h-[40px] invisible">
+              Нэвтрэх
+            </span>
+          ) : user ? (
             <>
               {displayName && <span className="hidden lg:inline text-sm text-zinc-600 dark:text-zinc-400 max-w-[140px] truncate">{displayName}</span>}
               <button onClick={() => signOut({ callbackUrl: "/" })} className="hidden sm:inline-flex rounded-full border border-zinc-200 px-4 py-2.5 sm:py-2 text-sm hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px] items-center">
@@ -174,8 +180,8 @@ export default function Header() {
             { href: "/quiz", label: "Шалгалт" },
             { href: "/history", label: "Түүх" },
             { href: "/calendar", label: "Календар" },
-            ...(user?.hasPaid === true ? [] : [{ href: "/plan", label: "Эрх авах" }]),
-            ...(isAdmin ? [{ href: "/admin", label: "Админ" }] : []),
+            ...(!authPending && user?.hasPaid !== true ? [{ href: "/plan", label: "Эрх авах" }] : []),
+            ...(user && isAdmin ? [{ href: "/admin", label: "Админ" }] : []),
           ].map((l) => (
             <Link
               key={l.href}
@@ -188,7 +194,11 @@ export default function Header() {
           ))}
         </nav>
         <div className="mt-auto p-4 border-t border-zinc-200/80 dark:border-white/10">
-          {user ? (
+          {authPending ? (
+            <span aria-hidden className="flex w-full justify-center rounded-full py-3 text-sm font-medium min-h-[44px] items-center invisible">
+              Нэвтрэх
+            </span>
+          ) : user ? (
             <div className="space-y-2">
               {displayName && <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">{displayName}</p>}
               <button onClick={() => signOut({ callbackUrl: "/" })} className="flex w-full justify-center rounded-full border border-zinc-200 px-4 py-2.5 text-sm dark:border-white/15 dark:hover:bg-white/5 min-h-[44px] items-center">

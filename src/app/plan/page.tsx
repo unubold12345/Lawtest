@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
@@ -38,11 +36,6 @@ export default async function PlanPage() {
       }
     } catch {}
   }
-  let qrExists = false;
-  try {
-    qrExists = fs.existsSync(path.join(process.cwd(), "public", "payment-qr.png"));
-  } catch {}
-
   return (
     <div className="mx-auto max-w-5xl px-3 sm:px-6 py-6 sm:py-10 space-y-4 sm:space-y-6">
       <div className="text-center">
@@ -90,50 +83,34 @@ export default async function PlanPage() {
 
           {/* payment */}
           <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-white/10 dark:bg-white/[0.04]">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div>
-                <p className="font-semibold text-[14px] sm:text-base">1. QR-аар {priceFmt}₮ төлөх</p>
-                <div className="mt-3 flex justify-center">
-                  {qrExists ? (
-                    <Image src="/payment-qr.png" alt="Төлбөрийн QR" width={800} height={800} className="h-56 w-56 sm:h-60 sm:w-60 rounded-2xl object-contain bg-white" />
-                  ) : (
-                    <div className="flex w-40 h-40 sm:w-48 sm:h-48 items-center justify-center rounded-2xl border border-dashed border-zinc-200 text-center text-[12px] text-zinc-400 px-4 dark:border-white/15">
-                      Төлбөрийн QR удахгүй байршина
-                    </div>
-                  )}
-                </div>
+            <p className="font-semibold text-[14px] sm:text-base">1. Дансаар төлөх</p>
+            <div className="mt-3 rounded-2xl border border-zinc-200 p-4 dark:border-white/15">
+              <div className="flex items-center gap-3">
+                <Image src="/golomt-logo.png" alt="Голомт банк" width={651} height={318} className="h-10 sm:h-12 w-auto object-contain bg-white rounded-lg px-2 py-1 border border-zinc-100 dark:border-white/15" />
+                <p className="font-semibold text-[13px] sm:text-sm">Голомт банк</p>
               </div>
-              <div>
-                <p className="font-semibold text-[14px] sm:text-base">2. Дансаар төлөх</p>
-                <div className="mt-3 rounded-2xl border border-zinc-200 p-4 dark:border-white/15">
-                  <div className="flex items-center gap-3">
-                    <Image src="/golomt-logo.png" alt="Голомт банк" width={651} height={318} className="h-10 sm:h-12 w-auto object-contain bg-white rounded-lg px-2 py-1 border border-zinc-100 dark:border-white/15" />
-                    <p className="font-semibold text-[13px] sm:text-sm">Голомт банк</p>
-                  </div>
-                  <dl className="mt-3 grid gap-2 text-[12px] sm:text-sm">
-                    <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
-                      <dt className="text-zinc-500">IBAN</dt>
-                      <dd className="font-mono font-semibold tracking-wider">86001500</dd>
-                    </div>
-                    <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
-                      <dt className="text-zinc-500">Данс</dt>
-                      <dd className="font-mono font-semibold tracking-[0.2em]">1105 7894 22</dd>
-                    </div>
-                    <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
-                      <dt className="text-zinc-500">Хүлээн авагч</dt>
-                      <dd className="font-semibold text-right">П. ГАНБАЯР</dd>
-                    </div>
-                    <div className="flex justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-400/10">
-                      <dt className="text-zinc-500">Гүйлгээний утга</dt>
-                      <dd className="font-semibold text-right text-amber-700 dark:text-amber-300">Бүртгэлтэй утасны дугаар</dd>
-                    </div>
-                  </dl>
+              <dl className="mt-3 grid gap-2 text-[12px] sm:text-sm">
+                <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
+                  <dt className="font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">IBAN</dt>
+                  <dd className="font-mono font-bold tracking-wider text-violet-600 dark:text-violet-300">86001500</dd>
                 </div>
-              </div>
+                <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
+                  <dt className="font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">Данс</dt>
+                  <dd className="font-mono font-bold tracking-[0.2em] text-violet-600 dark:text-violet-300">1105 7894 22</dd>
+                </div>
+                <div className="flex justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
+                  <dt className="font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">Хүлээн авагч</dt>
+                  <dd className="font-bold text-right text-violet-600 dark:text-violet-300">П. ГАНБАЯР</dd>
+                </div>
+                <div className="flex justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-400/10">
+                  <dt className="font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">Гүйлгээний утга</dt>
+                  <dd className="font-bold text-right text-amber-700 dark:text-amber-300">Бүртгэлтэй утасны дугаар</dd>
+                </div>
+              </dl>
             </div>
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <div>
-                <p className="font-semibold text-[14px] sm:text-base">3. Төлбөр төлснөө мэдэгдэх</p>
+                <p className="font-semibold text-[14px] sm:text-base">2. Төлбөр төлснөө мэдэгдэх</p>
                 <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">
                   Төлбөрөө төлсний дараа доорх товчийг дарна уу — админ шалгаад эрхийг нээнэ.
                 </p>
@@ -142,7 +119,7 @@ export default async function PlanPage() {
                 </div>
               </div>
               <div>
-                <p className="font-semibold text-[14px] sm:text-base">4. Эрх нээгдэнэ</p>
+                <p className="font-semibold text-[14px] sm:text-base">3. Эрх нээгдэнэ</p>
                 <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">
                   Баталгаажсаны дараа дахин нэвтрэх шаардлагагүй — бүх ангилал автоматаар нээгдэнэ.
                 </p>

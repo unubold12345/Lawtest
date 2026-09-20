@@ -37,7 +37,7 @@ function SkeletonRow() {
 
 export default function BrowseClient({ index, initialItems, pool }: { index: IndexData; initialItems?: Question[]; pool: QuestionPool }) {
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const isAuthed = !!session?.user;
   const fullAccess =
     (session?.user as unknown as { hasPaid?: boolean; role?: string } | undefined)?.hasPaid === true ||
@@ -62,6 +62,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const [notedIds, setNotedIds] = useState<Set<string>>(new Set());
   const [counts, setCounts] = useState<Record<string, number[]>>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [picked, setPicked] = useState<Record<string, number>>({});
   const [flash, setFlash] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<{ id: string; index: number } | null>(null);
   const [pendingClear, setPendingClear] = useState<string | null>(null);
@@ -83,7 +84,11 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const [searchIds, setSearchIds] = useState<Set<string> | null>(null);
   const searchSeq = useRef(0);
   // paid categories are listed but their content is locked
-  const lockedMain = mainCategory !== "all" && mainCategory !== FREE_CATEGORY && !fullAccess;
+  const paidCategorySelected = mainCategory !== "all" && mainCategory !== FREE_CATEGORY;
+  const lockedMain = paidCategorySelected && !fullAccess;
+  // session data is unknown until /api/auth/session resolves — don't flash
+  // "locked" UI at paid users during that window
+  const sessionPending = !session && sessionStatus === "loading";
   // this page's pool: the hasAnswer bit in the index row decides answered vs unanswered
   const poolRows = useMemo(() => {
     const want = pool === "answered" ? 1 : 0;
@@ -477,6 +482,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     const isOpen = !!expanded[item.id];
     const isActive = activeId === item.id;
     const isRevealed = !!revealed[item.id];
+    const pick = picked[item.id];
     const voteCounts: number[] = counts[item.id] || [];
     const totalVotes = voteCounts.reduce((a, b) => a + b, 0);
     const mark = st === "mine" ? "✓" : st === "answered" ? "●" : "○";
@@ -512,31 +518,72 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
             </div>
 
             {locked && eff !== null && (
-              <button
-                onClick={() => setRevealed((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
-                className="mt-2 rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] sm:text-xs font-medium hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"
-              >
-                {isRevealed ? "Нуух" : "Зөв хариулт харах"}
-              </button>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setRevealed((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
+                  className="rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] sm:text-xs font-medium hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"
+                >
+                  {isRevealed ? "Нуух" : "Зөв хариулт харах"}
+                </button>
+                {pick === undefined && !isRevealed && (
+                  <span className="text-[11px] sm:text-xs text-zinc-400">Сонголт дээр дарж шалгах боломжтой</span>
+                )}
+              </div>
             )}
 
             <div className="mt-2.5 sm:mt-3 grid gap-1.5 sm:gap-2">
               {item.options.map((opt, i) => {
                 const isCorrect = eff !== null && i === eff;
-                const showCorrect = isRevealed && isCorrect;
-                return (
-                  <div
-                    key={i}
-                    className={`rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-2.5 text-[13px] sm:text-sm flex gap-2 ${showCorrect ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-100" : "border-zinc-200 dark:border-white/10"}`}
-                  >
-                    <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${showCorrect ? "bg-emerald-600 text-white dark:bg-emerald-500/30 dark:text-emerald-100" : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{LETTERS[i]}</span>
+                const answered = locked && eff !== null && pick !== undefined;
+                const showCorrect = (isRevealed || answered) && isCorrect;
+                const showWrong = answered && pick === i && !isCorrect;
+                const tone = showCorrect
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-100"
+                  : showWrong
+                    ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-100"
+                    : "border-zinc-200 dark:border-white/10";
+                const pillTone = showCorrect
+                  ? "bg-emerald-600 text-white dark:bg-emerald-500/30 dark:text-emerald-100"
+                  : showWrong
+                    ? "bg-rose-600 text-white dark:bg-rose-500/30 dark:text-rose-100"
+                    : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300";
+                const rowCls = `rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-2.5 text-[13px] sm:text-sm flex gap-2 ${tone}`;
+                const rowBody = (
+                  <>
+                    <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${pillTone}`}>{LETTERS[i]}</span>
                     <span className="leading-snug">{opt}</span>
                     {showCorrect && <span className="ml-auto font-medium text-xs shrink-0">✓ Зөв</span>}
+                    {showWrong && <span className="ml-auto font-medium text-xs shrink-0">✗ Буруу</span>}
+                  </>
+                );
+                if (locked && eff !== null) {
+                  return (
+                    <button
+                      type="button"
+                      key={i}
+                      aria-pressed={pick === i}
+                      onClick={() =>
+                        setPicked((prev) => {
+                          const next = { ...prev };
+                          if (next[item.id] === i) delete next[item.id];
+                          else next[item.id] = i;
+                          return next;
+                        })
+                      }
+                      className={`${rowCls} w-full text-left hover:border-indigo-300 hover:bg-indigo-50/40 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/5`}
+                    >
+                      {rowBody}
+                    </button>
+                  );
+                }
+                return (
+                  <div key={i} className={rowCls}>
+                    {rowBody}
                   </div>
                 );
               })}
             </div>
-            {isRevealed && item.explanation && <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Тайлбар: {item.explanation}</p>}
+            {(isRevealed || pick !== undefined) && item.explanation && <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Тайлбар: {item.explanation}</p>}
 
             {!locked && !isAuthed && (
               <div className="mt-3 rounded-lg border border-dashed border-indigo-200 bg-indigo-50/60 p-2.5 sm:p-3 text-[11px] sm:text-xs text-indigo-700 dark:border-indigo-400/30 dark:bg-indigo-500/10 dark:text-indigo-200">
@@ -693,7 +740,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         )}
       </div>
 
-      {!lockedMain && lockedCount > 0 && (
+      {!lockedMain && !sessionPending && lockedCount > 0 && (
         <div className="rounded-xl sm:rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-400/30 dark:bg-amber-400/10 flex flex-col sm:flex-row sm:items-center gap-2">
           <p className="flex-1 text-[12px] sm:text-sm text-amber-700 dark:text-amber-300 line-clamp-2">
             🔒 {lockedCount} сорилго түгжээтэй — бусад бүх ангилал төлбөртэй.
@@ -706,6 +753,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
 
       {/* readiness + practice */}
       {lockedMain ? (
+        sessionPending ? null : (
         <div className="rounded-xl sm:rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8 text-center dark:border-amber-400/30 dark:bg-amber-400/10">
           <p className="text-3xl">🔒</p>
           <h2 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй ангилал</h2>
@@ -716,6 +764,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
             Эрх авах — 39,900₮ →
           </Link>
         </div>
+        )
       ) : (
       <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="flex items-center justify-between gap-2">

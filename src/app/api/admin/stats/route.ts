@@ -31,7 +31,7 @@ export async function GET() {
       const a = Array.isArray(q.answer) ? q.answer[0] : q.answer;
       const n = q.options.length;
       const reasons: string[] = [];
-      // null answer is legit: no-answer pools (II.*, MockMain) are decided by community vote
+      // null answer is legit: no-answer pools (II.*) are decided by community vote
       if (a !== null && a !== undefined) {
         if (!Number.isInteger(a) || (a as number) < 0 || (a as number) >= n) {
           reasons.push(
