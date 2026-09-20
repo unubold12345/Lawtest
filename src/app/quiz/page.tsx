@@ -1,8 +1,12 @@
 import { Suspense } from "react";
 import { buildIndex } from "@/lib/questionIndexServer";
+import { refreshOverrides } from "@/lib/questionOverrides";
 import QuizClient from "@/components/QuizClient";
 
-export default function QuizPage() {
+export const revalidate = 5;
+
+export default async function QuizPage() {
+  await refreshOverrides();
   const index = buildIndex();
   if (index.total === 0) {
     return (

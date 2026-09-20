@@ -1,12 +1,14 @@
 import { Suspense } from "react";
 import { buildIndex } from "@/lib/questionIndexServer";
 import { loadQuestions } from "@/lib/questions";
+import { refreshOverrides } from "@/lib/questionOverrides";
 import type { Question } from "@/types/question";
 import type { QuestionPool } from "@/lib/questionIndex";
 import BrowseClient from "@/components/BrowseClient";
 
 // Shared server view for /browse (answered) and /browse/unanswered.
-export default function BrowsePage({ pool }: { pool: QuestionPool }) {
+export default async function BrowsePage({ pool }: { pool: QuestionPool }) {
+  await refreshOverrides();
   const index = buildIndex();
   if (index.total === 0) {
     return (

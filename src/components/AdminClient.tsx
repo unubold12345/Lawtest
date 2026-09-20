@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import Link from "next/link";
+import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
 
 type ErrorRow = { id: string; file: string; category: string; subCategory: string; question: string; optionsCount: number; answer: number | null; reason: string };
 type RecentUser = { id: string; phone: string | null; email: string; role: string; createdAt: string };
@@ -114,11 +115,295 @@ function AlertCard({ tone, title, desc, cta, onClick }: { tone: "amber" | "indig
   );
 }
 
+const PAGE_SIZE = 20;
+const SRC_PAGE_SIZE = 10;
+
+function Pager({ page, pageSize, total, onChange }: { page: number; pageSize: number; total: number; onChange: (p: number) => void }) {
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  if (pages <= 1) return null;
+  const cur = Math.min(Math.max(1, page), pages);
+  const from = (cur - 1) * pageSize + 1;
+  const to = Math.min(total, cur * pageSize);
+  const nums: (number | "…")[] = [];
+  for (let p = 1; p <= pages; p++) {
+    if (p === 1 || p === pages || Math.abs(p - cur) <= 1) nums.push(p);
+    else if (nums[nums.length - 1] !== "…") nums.push("…");
+  }
+  const btn = "flex h-9 min-w-9 items-center justify-center rounded-lg border px-2 text-xs font-medium transition";
+  const idle = "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-white/15 dark:bg-white/[0.04] dark:hover:bg-white/10";
+  const active = "border-transparent bg-indigo-600 text-white dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25";
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <p className="text-[11px] text-zinc-500 sm:text-xs">{from}–{to} / {total}</p>
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={() => onChange(cur - 1)} disabled={cur === 1} aria-label="Өмнөх хуудас" className={`${btn} ${idle} disabled:opacity-40`}>‹</button>
+        {nums.map((n, i) =>
+          n === "…" ? (
+            <span key={`e${i}`} className="px-1 text-xs text-zinc-400">…</span>
+          ) : (
+            <button key={n} type="button" onClick={() => onChange(n)} aria-current={n === cur ? "page" : undefined} className={`${btn} ${n === cur ? active : idle}`}>{n}</button>
+          )
+        )}
+        <button type="button" onClick={() => onChange(cur + 1)} disabled={cur === pages} aria-label="Дараах хуудас" className={`${btn} ${idle} disabled:opacity-40`}>›</button>
+      </div>
+    </div>
+  );
+}
+
+type EditableQuestion = {
+  id: string;
+  question: string;
+  options: string[];
+  answer?: number | number[] | null;
+  explanation?: string;
+  lawRef?: string;
+  source?: string;
+};
+
+const optionLetter = (i: number) => String.fromCharCode(65 + i);
+
+const editorInput = "w-full rounded-xl border border-zinc-200 px-3 py-2 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 disabled:opacity-50";
+const editorPick = "border-transparent bg-indigo-600 text-white dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25";
+const editorIdle = "border-zinc-200 dark:border-white/15";
+const editorPrimary =
+  "rounded-full bg-indigo-600 px-5 py-2.5 text-xs font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-40 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]";
+const editorGhost = "rounded-full border border-zinc-200 px-5 py-2.5 text-xs font-medium hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px]";
+
+function AutoGrowTextarea({ value, onChange, disabled, className }: { value: string; onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void; disabled?: boolean; className?: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    const parent = el?.parentElement;
+    if (!el || !parent) return;
+    const fit = () => {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
+    };
+    let lastW = parent.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (parent.clientWidth === lastW) return;
+      lastW = parent.clientWidth;
+      fit();
+    });
+    ro.observe(parent);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
+  }, [value]);
+  return <textarea ref={ref} rows={1} value={value} onChange={onChange} disabled={disabled} className={`block resize-none overflow-hidden ${className || ""}`} />;
+}
+
+function QuestionEditor({ report, onClose, onSaved }: { report: ReportRow; onClose: () => void; onSaved: (questionId: string, newText: string, resolved: boolean) => void }) {
+  const [q, setQ] = useState<EditableQuestion | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState("");
+  const [question, setQuestion] = useState("");
+  const [options, setOptions] = useState<string[]>([]);
+  const [answer, setAnswer] = useState<number | null>(null);
+  const [explanation, setExplanation] = useState("");
+  const [lawRef, setLawRef] = useState("");
+  const [resolve, setResolve] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState(false);
+  const [resolvedOk, setResolvedOk] = useState(false);
+  const [persisted, setPersisted] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const found = await fetchQuestionsByIds([report.questionId]);
+        if (!alive) return;
+        const one = found[0] as EditableQuestion | undefined;
+        if (!one) {
+          setLoadErr("Сорилго олдсонгүй — id хуучирсан эсвэл файл устсан байна.");
+          return;
+        }
+        setQ(one);
+        setQuestion(one.question);
+        setOptions(one.options);
+        setAnswer(typeof one.answer === "number" ? one.answer : null);
+        setExplanation(one.explanation || "");
+        setLawRef(one.lawRef || "");
+      } catch {
+        if (alive) setLoadErr("Ачаалж чадсангүй");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [report.questionId]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  const multi = Array.isArray(q?.answer);
+  const isJson = !!q?.source?.toLowerCase().endsWith(".json");
+
+  const save = async () => {
+    if (!q || saving || !isJson || multi) return;
+    const opts = options.map((o) => o.trim());
+    if (!question.trim()) { setErr("Асуултын текст хоосон байна"); return; }
+    if (opts.length < 2 || opts.length > 6 || opts.some((o) => !o)) { setErr("2–6 бөглөсөн сонголт байх ёстой"); return; }
+    setSaving(true);
+    setErr("");
+    try {
+      const r = await fetch("/api/admin/questions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: q.id, question: question.trim(), options: opts, answer, explanation: explanation.trim(), lawRef: lawRef.trim() }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { setErr(d.error || "Хадгалж чадсангүй"); setSaving(false); return; }
+      setPersisted(typeof d.persisted === "string" ? d.persisted : "");
+      let resolved = false;
+      if (resolve && report.status === "OPEN") {
+        try {
+          const rr = await fetch(`/api/admin/reports/${report.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "RESOLVED" }) });
+          resolved = rr.ok;
+        } catch { /* the edit is saved; report stays open */ }
+      }
+      setResolvedOk(resolved);
+      setDone(true);
+      onSaved(q.id, question.trim(), resolved);
+    } catch {
+      setErr("Сүлжээний алдаа");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Сорилго засах">
+      <div className="absolute inset-0 bg-black/60 dark:bg-black/70" onClick={onClose} />
+      <div className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3 dark:border-white/10">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold sm:text-base">✎ Сорилго засах</p>
+            <p className="truncate font-mono text-[10px] text-zinc-500">{report.questionId}</p>
+          </div>
+          <button onClick={onClose} aria-label="Хаах" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[13px] hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {loading && <p className="py-8 text-center text-sm text-zinc-500">Ачаалж байна…</p>}
+          {!loading && loadErr && <p className="py-6 text-center text-sm text-rose-600 dark:text-rose-400">{loadErr}</p>}
+
+          {!loading && q && done && (
+            <div className="py-6 text-center">
+              <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">✓ Хадгалагдлаа</p>
+              {!!q.source && <p className="mt-1 break-all font-mono text-[10px] text-zinc-500">{q.source}</p>}
+              <p className="mt-1 text-xs text-zinc-500">
+                {persisted === "db"
+                  ? "Сервер дээр хадгалагдлаа — бүх хэрэглэгчид шууд харагдана. (Энэ орчинд файлд бичих боломжгүй.)"
+                  : "Сервер болон файлд хадгалагдлаа — бүх хэрэглэгчид шууд харагдана."}
+              </p>
+              {resolve && report.status === "OPEN" && (
+                <p className="mt-1 text-xs text-zinc-500">{resolvedOk ? "Мэдээлэл «Шийдэгдсэн» боллоо." : "Мэдээллийн төлөвийг солиход алдаа гарлаа."}</p>
+              )}
+            </div>
+          )}
+
+          {!loading && q && !done && (
+            <div className="grid gap-3">
+              {!isJson && (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
+                  Энэ сорилго JSON файлаас ачаалагдаагүй тул засах боломжгүй.
+                </p>
+              )}
+              {multi && (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
+                  Олон зөв хариулттай сорилгыг энэ хэлбэрээр засах боломжгүй.
+                </p>
+              )}
+              <div>
+                <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Асуулт</label>
+                <textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} disabled={!isJson || multi} className={`mt-1 ${editorInput}`} />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Сонголтууд · зөв хариултыг тэмдэглэнэ үү</label>
+                <div className="mt-1 grid gap-1.5">
+                  {options.map((o, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <label className={`mt-0.5 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border text-xs font-semibold ${answer === i ? editorPick : editorIdle}`}>
+                        <input type="radio" name="q-answer" className="sr-only" checked={answer === i} onChange={() => setAnswer(i)} disabled={!isJson || multi} />
+                        {optionLetter(i)}
+                      </label>
+                      <AutoGrowTextarea value={o} onChange={(e) => setOptions((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))} disabled={!isJson || multi} className={editorInput} />
+                      {options.length > 2 && (
+                        <button type="button" onClick={() => setOptions((prev) => prev.filter((_, j) => j !== i))} aria-label="Сонголт устгах" disabled={!isJson || multi} className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rose-200 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-40 dark:border-rose-400/30 dark:text-rose-400 dark:hover:bg-rose-400/10">✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {options.length < 6 && (
+                    <button type="button" onClick={() => setOptions((p) => [...p, ""])} disabled={!isJson || multi} className="rounded-full border border-zinc-200 px-3.5 py-1.5 text-[11px] hover:bg-zinc-50 disabled:opacity-40 dark:border-white/15 dark:hover:bg-white/5">+ Сонголт нэмэх</button>
+                  )}
+                  {answer !== null && (
+                    <button type="button" onClick={() => setAnswer(null)} disabled={!isJson || multi} className="rounded-full border border-zinc-200 px-3.5 py-1.5 text-[11px] hover:bg-zinc-50 disabled:opacity-40 dark:border-white/15 dark:hover:bg-white/5">Зөв хариултыг арилгах</button>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Тайлбар (заавал биш)</label>
+                <textarea value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={2} disabled={!isJson || multi} className={`mt-1 ${editorInput}`} />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Хуулийн холбоос / лавлагаа (заавал биш)</label>
+                <input value={lawRef} onChange={(e) => setLawRef(e.target.value)} disabled={!isJson || multi} className={`mt-1 ${editorInput}`} />
+              </div>
+              <label className="flex min-h-[36px] cursor-pointer items-center gap-2 text-xs">
+                <input type="checkbox" checked={resolve} onChange={(e) => setResolve(e.target.checked)} className="h-4 w-4" />
+                Хадгалсны дараа мэдээллийг «Шийдэгдсэн» болгох
+              </label>
+              {err && <p className="text-xs text-rose-600 dark:text-rose-400">{err}</p>}
+              {!!q.source && <p className="break-all font-mono text-[10px] text-zinc-400 dark:text-zinc-500">📄 {q.source}</p>}
+            </div>
+          )}
+        </div>
+
+        {!loading && q && (
+          <div className="flex items-center justify-end gap-2 border-t border-zinc-200 px-4 py-3 dark:border-white/10">
+            {done ? (
+              <button onClick={onClose} className={editorPrimary}>Хаах</button>
+            ) : (
+              <>
+                <button onClick={onClose} className={editorGhost}>Болих</button>
+                <button onClick={save} disabled={saving || !isJson || multi} className={editorPrimary}>
+                  {saving ? "Хадгалж байна…" : "Хадгалах"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminClient() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [attempts, setAttempts] = useState<any[]>([]);
+  const [attemptsTotal, setAttemptsTotal] = useState(0);
+  const [attemptsPage, setAttemptsPage] = useState(1);
   const [reports, setReports] = useState<ReportRow[]>([]);
+  const [reportsTotal, setReportsTotal] = useState(0);
+  const [reportsPage, setReportsPage] = useState(1);
+  const [srcPage, setSrcPage] = useState(1);
   const [openReports, setOpenReports] = useState(0);
   const [reportFilter, setReportFilter] = useState<"OPEN" | "RESOLVED" | "all">("OPEN");
   const [tab, setTab] = useState<TabId>("overview");
@@ -129,6 +414,8 @@ export default function AdminClient() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [navOpen, setNavOpen] = useState(false);
+  const [reportQ, setReportQ] = useState<Record<string, string>>({});
+  const [editReport, setEditReport] = useState<ReportRow | null>(null);
 
   const fetchStats = async () => {
     const r = await fetch("/api/admin/stats");
@@ -141,17 +428,21 @@ export default function AdminClient() {
     const d = await r.json();
     setUsers(d.users);
   };
-  const fetchAttempts = async () => {
-    const r = await fetch("/api/admin/attempts");
+  const fetchAttempts = async (p = attemptsPage) => {
+    const r = await fetch(`/api/admin/attempts?page=${p}&pageSize=${PAGE_SIZE}`);
     if (!r.ok) throw new Error("attempts failed");
     const d = await r.json();
     setAttempts(d.attempts);
+    setAttemptsTotal(d.total);
+    setAttemptsPage(d.page);
   };
-  const fetchReports = async (f = reportFilter) => {
-    const r = await fetch(`/api/admin/reports?status=${f === "all" ? "" : f}`);
+  const fetchReports = async (f = reportFilter, p = reportsPage) => {
+    const r = await fetch(`/api/admin/reports?status=${f === "all" ? "" : f}&page=${p}&pageSize=${PAGE_SIZE}`);
     if (!r.ok) throw new Error("reports failed");
     const d = await r.json();
     setReports(d.reports);
+    setReportsTotal(d.total);
+    setReportsPage(d.page);
     setOpenReports(d.open);
   };
   const fetchPayments = async (f = paymentFilter) => {
@@ -175,6 +466,22 @@ export default function AdminClient() {
     })();
   }, []);
 
+  useEffect(() => {
+    const ids = [...new Set(reports.map((r) => r.questionId).filter(Boolean))];
+    if (ids.length === 0) { setReportQ({}); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const qs = await fetchQuestionsByIds(ids, { texts: true });
+        if (!alive) return;
+        const m: Record<string, string> = {};
+        for (const x of qs) m[x.id] = x.question;
+        setReportQ(m);
+      } catch { /* keep placeholders */ }
+    })();
+    return () => { alive = false; };
+  }, [reports]);
+
   const select = (id: TabId) => {
     setTab(id);
     setNavOpen(false);
@@ -185,22 +492,14 @@ export default function AdminClient() {
   const setReportStatus = async (id: string, status: "OPEN" | "RESOLVED") => {
     const r = await fetch(`/api/admin/reports/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     if (!r.ok) { alert("Амжилтгүй"); return; }
-    if (reportFilter === "all") {
-      setReports((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
-    } else {
-      setReports((prev) => prev.filter((x) => x.id !== id));
-    }
-    setOpenReports((n) => n + (status === "RESOLVED" ? -1 : 1));
+    const leaves = !(reportFilter === "all" || reportFilter === status);
+    await fetchReports(reportFilter, leaves && reports.length === 1 && reportsPage > 1 ? reportsPage - 1 : reportsPage);
   };
   const delReport = async (id: string) => {
     if (!confirm("Мэдээллийг устгах уу?")) return;
     const r = await fetch(`/api/admin/reports/${id}`, { method: "DELETE" });
     if (!r.ok) { alert("Амжилтгүй"); return; }
-    setReports((prev) => {
-      const gone = prev.find((x) => x.id === id);
-      if (gone?.status === "OPEN") setOpenReports((n) => Math.max(0, n - 1));
-      return prev.filter((x) => x.id !== id);
-    });
+    await fetchReports(reportFilter, reports.length === 1 && reportsPage > 1 ? reportsPage - 1 : reportsPage);
   };
 
   const toggleRole = async (u: UserRow) => {
@@ -239,6 +538,10 @@ export default function AdminClient() {
   const current = SECTIONS.find((s) => s.id === tab) || SECTIONS[0];
   const errCount = stats?.questions.errors?.length || 0;
   const maxMain = stats ? Math.max(1, ...Object.values(stats.questions.byMain)) : 1;
+  const sourcesSorted = stats ? [...stats.questions.sources].sort((a, b) => collator.compare(a.file, b.file)) : [];
+  const srcPages = Math.max(1, Math.ceil(sourcesSorted.length / SRC_PAGE_SIZE));
+  const srcSafe = Math.min(Math.max(1, srcPage), srcPages);
+  const srcRows = sourcesSorted.slice((srcSafe - 1) * SRC_PAGE_SIZE, srcSafe * SRC_PAGE_SIZE);
   const navMeta: Record<TabId, { badge: number; tone: "amber" | "rose" }> = {
     overview: { badge: 0, tone: "rose" },
     users: { badge: 0, tone: "rose" },
@@ -479,10 +782,11 @@ export default function AdminClient() {
             <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">Нийт {stats.questions.total} сорилго. Жагсаалтыг дэлгэрэнгүй харах бол <Link href="/browse" className="underline">Бүх сорилго</Link> руу орно уу. Доор файл тус бүрээр харуулав.</p>
               <div className="mt-3 space-y-2">
-                {stats.questions.sources.sort((a,b)=>collator.compare(a.file,b.file)).map(s=>(
+                {srcRows.map(s=>(
                   <div key={s.file} className="flex justify-between gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-white/10"><span className="break-all">{s.file}</span><b className="shrink-0">{s.count}</b></div>
                 ))}
               </div>
+              <Pager page={srcSafe} pageSize={SRC_PAGE_SIZE} total={sourcesSorted.length} onChange={setSrcPage} />
             </div>
             </div>
           )}
@@ -495,7 +799,7 @@ export default function AdminClient() {
                   {(["OPEN", "RESOLVED", "all"] as const).map((f) => (
                     <button
                       key={f}
-                      onClick={() => { setReportFilter(f); fetchReports(f); }}
+                      onClick={() => { setReportFilter(f); fetchReports(f, 1); }}
                       className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs min-h-[32px] ${reportFilter === f ? "bg-indigo-600 text-white dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 dark:border-white/15"}`}
                     >
                       {f === "OPEN" ? "Нээлттэй" : f === "RESOLVED" ? "Шийдэгдсэн" : "Бүгд"}
@@ -516,8 +820,13 @@ export default function AdminClient() {
                       <span className="font-mono text-[10px] text-zinc-500 break-all">{r.questionId}</span>
                     </div>
                     <p className="mt-1.5 text-[13px] leading-snug break-words whitespace-pre-wrap">{r.message}</p>
+                    <div className="mt-2 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">Сорилго</p>
+                      <p className="mt-0.5 text-[12px] leading-snug break-words">{reportQ[r.questionId] || "…"}</p>
+                    </div>
                     <p className="mt-1 text-[11px] text-zinc-500">{r.user?.phone || r.user?.name || r.user?.email} · {new Date(r.createdAt).toLocaleString("mn-MN")}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
+                      <button onClick={() => setEditReport(r)} className="rounded-full border border-zinc-200 px-4 py-1.5 text-[11px] sm:text-xs min-h-[32px] hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">✎ Сорилго засах</button>
                       {r.status === "OPEN" ? (
                         <button onClick={() => setReportStatus(r.id, "RESOLVED")} className="rounded-full bg-indigo-600 px-4 py-1.5 text-[11px] sm:text-xs text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[32px]">Шийдэгдсэн болгох</button>
                       ) : (
@@ -529,6 +838,7 @@ export default function AdminClient() {
                 ))}
                 {reports.length === 0 && <p className="text-sm text-zinc-500 text-center py-6">Мэдээлэл алга</p>}
               </div>
+              <Pager page={reportsPage} pageSize={PAGE_SIZE} total={reportsTotal} onChange={(p) => fetchReports(reportFilter, p)} />
             </div>
           )}
 
@@ -559,6 +869,7 @@ export default function AdminClient() {
                 ))}
                 {attempts.length===0 && <p className="text-sm text-zinc-500 text-center py-6">Оролдлого алга</p>}
               </div>
+              <Pager page={attemptsPage} pageSize={PAGE_SIZE} total={attemptsTotal} onChange={(p) => fetchAttempts(p)} />
             </div>
           )}
 
@@ -607,6 +918,16 @@ export default function AdminClient() {
           )}
         </main>
       </div>
+      {editReport && (
+        <QuestionEditor
+          report={editReport}
+          onClose={() => setEditReport(null)}
+          onSaved={(questionId, newText, resolved) => {
+            setReportQ((prev) => ({ ...prev, [questionId]: newText }));
+            if (resolved) fetchReports(reportFilter, reports.length === 1 && reportsPage > 1 ? reportsPage - 1 : reportsPage);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Question, QuestionsLoadResult } from "@/types/question";
+import { applyOverrides, overridesStamp } from "@/lib/questionOverrides";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 
@@ -82,11 +83,17 @@ function dataStamp(): string {
 let cache: { stamp: string; result: QuestionsLoadResult } | null = null;
 
 export function loadQuestions(): QuestionsLoadResult {
-  const stamp = dataStamp();
+  const stamp = `${dataStamp()}@@${overridesStamp()}`;
   if (cache && cache.stamp === stamp) return cache.result;
   const result = loadQuestionsUncached();
+  result.questions = applyOverrides(result.questions);
   cache = { stamp, result };
   return result;
+}
+
+// Called after a data file is edited so the next load re-reads from disk.
+export function clearQuestionsCache() {
+  cache = null;
 }
 
 function loadQuestionsUncached(): QuestionsLoadResult {
@@ -113,7 +120,10 @@ function loadQuestionsUncached(): QuestionsLoadResult {
         }
         const parsed = JSON.parse(raw);
         const arr = Array.isArray(parsed) ? parsed : [parsed];
-        const filtered = arr.filter((q) => q?.id !== "example_001");
+        const indexed = arr
+          .map((q, rawIdx) => ({ q, rawIdx }))
+          .filter(({ q }) => (q as { id?: string } | null)?.id !== "example_001");
+        const filtered = indexed.map(({ q }) => q);
         if (!isQuestionArray(filtered) && filtered.length > 0) {
           result.errors.push({ file: rel, message: "Invalid JSON shape — expected Question[] (see data/README.md)" });
           continue;
@@ -131,6 +141,7 @@ function loadQuestionsUncached(): QuestionsLoadResult {
             category: isLegacy ? q.category || fileCat : fileCat,
             subCategory: isLegacy ? q.subCategory : fileSub ?? q.subCategory,
             source: rel,
+            sourceIndex: indexed[idx].rawIdx,
           };
         });
         result.questions.push(...normalized);
@@ -138,11 +149,11 @@ function loadQuestionsUncached(): QuestionsLoadResult {
       } else if (full.toLowerCase().endsWith(".txt")) {
         const raw = fs.readFileSync(full, "utf-8").replace(/^\uFEFF/, "");
         const { category: fileCat, subCategory: fileSub } = categoriesFromRel(rel);
-        const parsed = parseTxtBlocks(raw, file).map((q) => {
+        const parsed = parseTxtBlocks(raw, file).map((q, idx) => {
           let id = q.id;
           if (seenIds.has(id)) id = `${fileSub ? `${fileCat}_${fileSub}` : fileCat}_${id}`;
           seenIds.add(id);
-          return { ...q, id, category: fileCat, subCategory: fileSub, source: rel };
+          return { ...q, id, category: fileCat, subCategory: fileSub, source: rel, sourceIndex: idx };
         });
         result.questions.push(...parsed);
         result.sources.push({ file: rel, count: parsed.length });

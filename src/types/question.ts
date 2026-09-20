@@ -16,6 +16,8 @@ export type Question = {
   tags?: string[];
   // data file rel path (set by loader, e.g. "2. Хувийн эрх зүй/2.2 ....json") — for admin/debugging
   source?: string;
+  // 0-based position of this question inside its source file (JSON array index / txt block) — for admin editing
+  sourceIndex?: number;
 };
 
 export type QuestionsLoadResult = {

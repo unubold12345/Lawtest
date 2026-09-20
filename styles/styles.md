@@ -124,5 +124,5 @@ Direction: strictly monochrome, mobile-first, no green/amber/red anywhere
    then multi-page mirrors; built to compare directions. Removed entirely in the v2
    session (routes + `src/components/designs/` + `src/lib/designs.ts` + `src/lib/design-preview.ts`).
 3. **v2 Modern Dark (indigo → violet)** — current. Main site restyled, dark default,
-   semantic colors re-allowed. See token recipes above; mirrors `opencode/RULES.md`
-   design rules and `opencode/START.md` current state.
+   semantic colors re-allowed. See token recipes above; mirrors `lawopen/RULES.md`
+   design rules and `lawopen/START.md` current state.

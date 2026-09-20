@@ -260,6 +260,8 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const gridDenseClass = !phoneTiles && gridCols >= 2 ? "grid-flow-row-dense" : "";
   // grid ≥2 cols: accordion — expanding one question collapses the previous one (otherwise wide cards stack up and jump rows)
   const gridAccordion = !phoneTiles && view === "grid" && gridCols >= 2;
+  // list view too: opening a question minimizes the one that was open (the user reads one at a time)
+  const accordion = gridAccordion || view === "list";
 
   // fetch all my saved answers once — paged fetch alone deadlocks the ✓ Минийх filter (empty page → no fetch → stays empty)
   useEffect(() => {
@@ -372,7 +374,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   };
 
   const toggleExpand = (id: string) => {
-    if (gridAccordion) setExpanded((p) => (p[id] ? {} : { [id]: true }));
+    if (accordion) setExpanded((p) => (p[id] ? {} : { [id]: true }));
     else setExpanded((p) => ({ ...p, [id]: !p[id] }));
     setActiveId(id);
   };
@@ -412,7 +414,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         e.preventDefault();
         const at = pagedRows.findIndex((r) => r[0] === activeId);
         const nxtId = pagedRows[(at + 1 + pagedRows.length) % pagedRows.length][0];
-        setExpanded((p) => (gridAccordion ? { [nxtId]: true } : { ...p, [nxtId]: true }));
+        setExpanded((p) => (accordion ? { [nxtId]: true } : { ...p, [nxtId]: true }));
         setActiveId(nxtId);
         requestAnimationFrame(() => document.getElementById(`qrow-${nxtId}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
         return;
@@ -421,7 +423,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         e.preventDefault();
         const at = pagedRows.findIndex((r) => r[0] === activeId);
         const prvId = pagedRows[(at - 1 + pagedRows.length) % pagedRows.length][0];
-        setExpanded((p) => (gridAccordion ? { [prvId]: true } : { ...p, [prvId]: true }));
+        setExpanded((p) => (accordion ? { [prvId]: true } : { ...p, [prvId]: true }));
         setActiveId(prvId);
         requestAnimationFrame(() => document.getElementById(`qrow-${prvId}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
         return;
@@ -432,16 +434,16 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, pagedRows, myDb, isAuthed, pending, pendingClear, view, filtered, gridCols, isPhone]);
 
-  // entering accordion mode (grid ≥2 cols): keep at most one card open
+  // entering accordion mode (list view, grid ≥2 cols): keep at most one card open
   useEffect(() => {
-    if (!gridAccordion) return;
+    if (!accordion) return;
     setExpanded((p) => {
       const open = Object.keys(p).filter((k) => p[k]);
       if (open.length <= 1) return p;
       const keep = activeId && p[activeId] ? activeId : open[open.length - 1];
       return { [keep]: true };
     });
-  }, [gridAccordion, activeId]);
+  }, [accordion, activeId]);
 
   // quiz link preserves current view (prep flow)
   const quizHref = (() => {
@@ -490,7 +492,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         : "";
     return (
       <div key={item.id} id={`qrow-${item.id}`} className={`rounded-xl border bg-white dark:bg-white/[0.04] scroll-mt-20 ${gridSpan} ${isActive ? "border-indigo-500 dark:border-indigo-400/60" : "border-zinc-200 dark:border-white/10"}`}>
-        <button onClick={() => toggleExpand(item.id)} className="flex w-full items-start gap-2 px-3 py-2.5 sm:px-4 sm:py-3 text-left">
+        <button onClick={() => toggleExpand(item.id)} aria-expanded={isOpen} className="flex w-full items-start gap-2 px-3 py-2.5 sm:px-4 sm:py-3 text-left">
           <span className="shrink-0 text-[11px] sm:text-xs text-zinc-400 w-7 pt-0.5">{globalIdx}.</span>
           <span className={`shrink-0 pt-0.5 text-[13px] sm:text-sm ${st === "unanswered" ? "text-zinc-300 dark:text-zinc-600" : st === "mine" ? "text-emerald-600 dark:text-emerald-400" : "text-indigo-600 dark:text-indigo-300"} ${st === "mine" ? "font-bold" : ""}`}>{mark}</span>
           <span className="min-w-0 flex-1">

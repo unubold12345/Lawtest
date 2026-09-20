@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { loadQuestions } from "@/lib/questions";
 import { buildIndex } from "@/lib/questionIndexServer";
+import { refreshOverrides } from "@/lib/questionOverrides";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const sp = url.searchParams;
+  await refreshOverrides();
   const data = loadQuestions();
 
   if (sp.get("index") === "1") {

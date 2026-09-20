@@ -3,6 +3,7 @@ import path from "node:path";
 import { loadQuestions } from "@/lib/questions";
 import Link from "next/link";
 import HomeCategories from "@/components/HomeCategories";
+import HomeBanner from "@/components/HomeBanner";
 import { EXAM, examPhase } from "@/lib/exam";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -55,6 +56,7 @@ export default async function Home() {
 
   return (
     <div className="mx-auto max-w-6xl px-2 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-8">
+      <HomeBanner />
       {/* EXAM INFO (auto-hides after the exam; signup link hides after reg closes) */}
       {phase !== "done" && (
       <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-indigo-400/20 dark:bg-white/[0.03] dark:bg-gradient-to-br dark:from-indigo-500/[0.14] dark:via-white/[0.02] dark:to-violet-500/[0.10]">

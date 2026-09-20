@@ -25,7 +25,10 @@ export default function Header() {
   }, [user?.email]);
   const isAdmin = user?.role === "ADMIN" || adminOverride;
   const pathname = usePathname();
+  const browseActive = pathname === "/browse" || pathname === "/browse/unanswered";
   const [open, setOpen] = useState(false);
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [mobileBrowse, setMobileBrowse] = useState(false);
   // lock body scroll + Escape closes the mobile drawer
   useEffect(() => {
     if (!open) return;
@@ -35,11 +38,15 @@ export default function Header() {
     document.body.style.overflow = "hidden";
     return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [open ]);
+  useEffect(() => {
+    if (open) setMobileBrowse(browseActive);
+  }, [open, browseActive]);
   const linkCls = (href: string, active?: boolean) =>
     `px-3 py-1.5 sm:py-2 rounded-full text-[13px] sm:text-sm font-medium transition-colors min-h-[32px] sm:min-h-0 flex items-center justify-center ${(active ?? pathname === href) ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 dark:bg-indigo-500/15 dark:text-indigo-200 dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100"}`;
-  const browseActive = pathname === "/browse" || pathname === "/browse/unanswered";
   const menuCls = (href: string) =>
     `flex items-center px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${pathname === href ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200" : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-zinc-100"}`;
+  const mobileRowCls = (active: boolean, sub?: boolean) =>
+    `flex items-center ${sub ? "pl-6 pr-4 min-h-[40px] text-[13px]" : "px-4 min-h-[44px] text-[14px]"} rounded-xl font-medium transition-colors ${active ? "bg-indigo-600 text-white dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-zinc-100"}`;
 
   return (
     <>
@@ -61,15 +68,26 @@ export default function Header() {
             </span>
           </Link>
           <nav className="hidden sm:flex items-center gap-1">
-            <div className="relative group">
-              <Link href="/browse" prefetch={false} className={`${linkCls("/browse", browseActive)} gap-1`}>
+            <div
+              className="relative"
+              onMouseEnter={() => setBrowseOpen(true)}
+              onMouseLeave={() => setBrowseOpen(false)}
+              onFocus={() => setBrowseOpen(true)}
+              onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setBrowseOpen(false); }}
+            >
+              <button
+                type="button"
+                aria-haspopup="true"
+                aria-expanded={browseOpen}
+                className={`${linkCls("/browse", browseActive)} gap-1`}
+              >
                 Сорилго
                 <span className="text-[9px] opacity-70" aria-hidden>▼</span>
-              </Link>
-              <div className="invisible absolute left-0 top-full z-40 pt-2 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+              </button>
+              <div className={`absolute left-0 top-full z-40 pt-2 transition-opacity ${browseOpen ? "visible opacity-100" : "invisible opacity-0"}`}>
                 <div className="w-52 rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-white/10 dark:bg-[#0b0b12]">
-                  <Link href="/browse" prefetch={false} className={menuCls("/browse")}>Хариулттай сорилго</Link>
-                  <Link href="/browse/unanswered" prefetch={false} className={menuCls("/browse/unanswered")}>Хариултгүй сорилго</Link>
+                  <Link href="/browse" prefetch={false} onClick={() => setBrowseOpen(false)} className={menuCls("/browse")}>Хариулттай сорилго</Link>
+                  <Link href="/browse/unanswered" prefetch={false} onClick={() => setBrowseOpen(false)} className={menuCls("/browse/unanswered")}>Хариултгүй сорилго</Link>
                 </div>
               </div>
             </div>
@@ -127,10 +145,32 @@ export default function Header() {
           </button>
         </div>
         <nav className="p-3 space-y-1 overflow-y-auto">
+          <Link href="/" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/")}>
+            Нүүр
+          </Link>
+          <div>
+            <button
+              type="button"
+              aria-expanded={mobileBrowse}
+              aria-controls="mobile-browse-menu"
+              onClick={() => setMobileBrowse((v) => !v)}
+              className={`${mobileRowCls(browseActive)} w-full justify-between`}
+            >
+              <span>Сорилго</span>
+              <span className={`text-[10px] opacity-70 transition-transform ${mobileBrowse ? "rotate-180" : ""}`} aria-hidden>▼</span>
+            </button>
+            {mobileBrowse && (
+              <div id="mobile-browse-menu" className="mt-1 space-y-1 pl-3">
+                <Link href="/browse" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/browse", true)}>
+                  Хариулттай сорилго
+                </Link>
+                <Link href="/browse/unanswered" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/browse/unanswered", true)}>
+                  Хариултгүй сорилго
+                </Link>
+              </div>
+            )}
+          </div>
           {[
-            { href: "/", label: "Нүүр" },
-            { href: "/browse", label: "Хариулттай сорилго" },
-            { href: "/browse/unanswered", label: "Хариултгүй сорилго" },
             { href: "/quiz", label: "Шалгалт" },
             { href: "/history", label: "Түүх" },
             { href: "/calendar", label: "Календар" },
@@ -141,7 +181,7 @@ export default function Header() {
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}
-              className={`flex items-center px-4 min-h-[44px] rounded-xl text-[14px] font-medium transition-colors ${pathname === l.href ? "bg-indigo-600 text-white dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-zinc-100"}`}
+              className={mobileRowCls(pathname === l.href)}
             >
               {l.label}
             </Link>
