@@ -161,11 +161,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [isAuthed]);
-  // index-row variant of "has a usable answer": file answer, my override, or my saved vote
-  const usableRow = useCallback(
-    (r: IndexRow) => r[3] === 1 || overrides[r[0]] !== undefined || voteMy[r[0]] !== undefined,
-    [overrides, voteMy]
-  );
   const poolMatch = useCallback(
     (r: IndexRow) => pool === "all" || (r[3] === 1) === (pool === "answered"),
     [pool]
@@ -446,7 +441,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
         rows = mi >= 0 ? rows.filter((r) => r[1] === mi) : [];
       }
       if (sc !== "all") rows = rows.filter((r) => indexSubName(index, r) === sc);
-      else if (pool === "all") rows = rows.filter(usableRow);
       if (pool !== "all") rows = rows.filter(poolMatch);
       if (qtype !== "all") rows = rows.filter((r) => (r[4] === 1) === (qtype === "case"));
       const s = query.trim();
@@ -710,15 +704,13 @@ export default function QuizClient({ index }: { index: IndexData }) {
         out = mi >= 0 ? out.filter((r) => r[1] === mi) : [];
       }
       if (subCategory !== "all") out = out.filter((r) => indexSubName(index, r) === subCategory);
-      else if (pool === "all") out = out.filter(usableRow);
       if (pool !== "all") out = out.filter(poolMatch);
       if (qtype !== "all") out = out.filter((r) => (r[4] === 1) === (qtype === "case"));
       if (queryIds) out = out.filter((r) => queryIds.has(r[0]));
       return out;
     })();
     const poolSize = poolRows.length;
-    const examCountRows = (rows: IndexRow[]) =>
-      (subCategory === "all" && pool === "all" ? rows.filter(usableRow) : rows.filter(poolMatch)).length;
+    const examCountRows = (rows: IndexRow[]) => rows.filter(poolMatch).length;
     const labelMainIdx = mainCategory === "all" ? -1 : index.mains.findIndex((m) => m.name === mainCategory);
     const labelMainRows = labelMainIdx < 0 ? index.rows : rowsByMain[labelMainIdx] ?? [];
     const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${qtype === "all" ? "" : qtype === "case" ? "Кейс · " : "Онол · "}${pool === "all" ? "" : pool === "answered" ? "Хариулттай · " : "Хариултгүй · "}${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
