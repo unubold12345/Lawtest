@@ -146,6 +146,17 @@ export default function HistoryPage() {
   attempts.forEach((a) => { catCounts[catOf(a)] += 1; });
   const shownAttempts = catFilter === "all" ? attempts : attempts.filter((a) => catOf(a) === catFilter);
 
+  if (status === "loading") {
+    // session unknown yet — don't flash the "no exams" empty state at logged-in users
+    return (
+      <div className="mx-auto max-w-3xl px-2 sm:px-6 py-6 sm:py-10">
+        <p className="rounded-xl border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500 dark:bg-white/[0.04] dark:border-white/10">
+          Ачааллаж байна…
+        </p>
+      </div>
+    );
+  }
+
   if (attempts.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-2 sm:px-6 py-6 sm:py-10">

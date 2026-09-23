@@ -52,7 +52,7 @@ export default function Header() {
 
   return (
     <>
-    <header className="z-30 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl supports-[backdrop-filter]:bg-white/75 sm:sticky sm:top-0 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] dark:border-white/10 dark:bg-[#07070c]/75 dark:supports-[backdrop-filter]:bg-[#07070c]/65">
+    <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl supports-[backdrop-filter]:bg-white/75 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] dark:border-white/10 dark:bg-[#07070c]/75 dark:supports-[backdrop-filter]:bg-[#07070c]/65">
       <div className="relative mx-auto max-w-6xl px-2 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-6 min-w-0">
           <button
