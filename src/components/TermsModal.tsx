@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { lockScrollRoot } from "@/lib/scrollRoot";
 
 const INTRO =
   "Энэхүү үйлчилгээний нөхцөлөөр Lexlab сайт (цаашид “Үйлчилгээ үзүүлэгч” гэх) болон Сайтыг ашиглаж байгаа этгээд (цаашид “Хэрэглэгч” гэх) нарын үүсэх эрх зүйн харилцааг зохицуулна. Сайтад байршуулсан сорил, тест, ажиллагааны программчлал нь хувь хүний өмч болно.";
@@ -88,11 +89,10 @@ export default function TermsModal({ open, onClose }: { open: boolean; onClose: 
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScrollRoot();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
+      unlock();
     };
   }, [open, onClose]);
 

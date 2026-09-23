@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import Link from "next/link";
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
+import { lockScrollRoot } from "@/lib/scrollRoot";
 
 type ErrorRow = { id: string; file: string; category: string; subCategory: string; question: string; optionsCount: number; answer: number | null; reason: string };
 type RecentUser = { id: string; phone: string | null; email: string; role: string; createdAt: string };
@@ -242,11 +243,10 @@ function QuestionEditor({ report, onClose, onSaved }: { report: ReportRow; onClo
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScrollRoot();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
+      unlock();
     };
   }, [onClose]);
 

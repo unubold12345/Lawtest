@@ -3,6 +3,7 @@ import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
 import Header from "@/components/Header";
+import ScrollReset from "@/components/ScrollReset";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin", "cyrillic"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -35,7 +36,7 @@ export const viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="mn" className={`${inter.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="mn" className={`${inter.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -43,15 +44,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col overscroll-y-none">
+      <body className="overscroll-y-none">
         <SessionProvider>
-          <Header />
-          <main className="flex-1 w-full min-w-0 overflow-x-clip">{children}</main>
-          <footer className="border-t border-zinc-200/80 px-2 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pt-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-center dark:border-white/10">
-            <p className="text-xs text-zinc-500 dark:text-zinc-500">
-              © {new Date().getFullYear()} Lexlab
-            </p>
-          </footer>
+          <ScrollReset />
+          <div id="scroll-root">
+            <div className="flex min-h-dvh flex-col">
+              <Header />
+              <main className="flex-1 w-full min-w-0 overflow-x-clip pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">{children}</main>
+              <footer className="border-t border-zinc-200/80 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] sm:pt-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-center dark:border-white/10">
+                <p className="text-xs text-zinc-500 dark:text-zinc-500">
+                  © {new Date().getFullYear()} Lexlab
+                </p>
+              </footer>
+            </div>
+          </div>
         </SessionProvider>
       </body>
     </html>

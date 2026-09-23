@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import BrandMark from "@/components/BrandMark";
+import { lockScrollRoot } from "@/lib/scrollRoot";
 
 export default function Header() {
   const { data: session, status, update } = useSession();
@@ -36,9 +37,8 @@ export default function Header() {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+    const unlock = lockScrollRoot();
+    return () => { document.removeEventListener("keydown", onKey); unlock(); };
   }, [open ]);
   useEffect(() => {
     if (open) setMobileBrowse(browseActive);
@@ -52,7 +52,7 @@ export default function Header() {
 
   return (
     <>
-    <header className="z-30 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl supports-[backdrop-filter]:bg-white/75 sm:sticky sm:top-0 pt-[env(safe-area-inset-top)] dark:border-white/10 dark:bg-[#07070c]/75 dark:supports-[backdrop-filter]:bg-[#07070c]/65">
+    <header className="z-30 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl supports-[backdrop-filter]:bg-white/75 sm:sticky sm:top-0 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] dark:border-white/10 dark:bg-[#07070c]/75 dark:supports-[backdrop-filter]:bg-[#07070c]/65">
       <div className="relative mx-auto max-w-6xl px-2 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-6 min-w-0">
           <button
@@ -134,7 +134,7 @@ export default function Header() {
         aria-hidden={!open}
       />
       <aside
-        className={`sm:hidden fixed left-0 top-0 bottom-0 z-50 w-[270px] max-w-[80vw] bg-white dark:bg-[#0b0b12] shadow-2xl dark:shadow-black/60 dark:border-r dark:border-white/10 transition-transform duration-200 flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`sm:hidden fixed left-0 top-0 bottom-0 z-50 w-[270px] max-w-[80vw] bg-white dark:bg-[#0b0b12] shadow-2xl dark:shadow-black/60 dark:border-r dark:border-white/10 transition-transform duration-200 flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] ${open ? "translate-x-0" : "-translate-x-full"}`}
         aria-hidden={!open}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/80 dark:border-white/10">

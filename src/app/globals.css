@@ -37,6 +37,22 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+html,
+body {
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#scroll-root {
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior: none;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* modern dark canvas — deep near-black with ambient indigo / violet glows */
 .dark body {
   background:

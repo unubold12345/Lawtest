@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { EXAM, daysUntilExam, examPhase } from "@/lib/exam";
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
+import { lockScrollRoot } from "@/lib/scrollRoot";
 
 type AttemptItem = { id: string; category: string; mode: string; score: number; total: number; createdAt: string; questionIds?: string[] };
 type NoteItem = { questionId: string; content: string; createdAt: string };
@@ -67,9 +68,8 @@ export default function CalendarPage() {
     if (!selected) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelected(null); };
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+    const unlock = lockScrollRoot();
+    return () => { document.removeEventListener("keydown", onKey); unlock(); };
   }, [selected]);
 
   // lazy-load question texts for the selected day only (light ids payload)

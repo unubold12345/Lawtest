@@ -12,6 +12,7 @@ import QuestionDiscussion from "@/components/QuestionDiscussion";
 import QuestionNote from "@/components/QuestionNote";
 import QuestionReport from "@/components/QuestionReport";
 import DropSelect from "@/components/DropSelect";
+import { scrollRoot } from "@/lib/scrollRoot";
 
 const PAGE_SIZE = 20;
 const LETTERS = ["A", "B", "C", "D", "E"];
@@ -171,7 +172,8 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     const el = viewsRef.current;
     if (!el) return;
     const top = el.getBoundingClientRect().top;
-    if (top < 0) window.scrollTo({ top: window.scrollY + top, behavior: "instant" });
+    const root = scrollRoot();
+    if (root && top < 0) root.scrollTo({ top: root.scrollTop + top, behavior: "instant" });
   }, [focusView]);
 
   // ---- answer state helpers ----
