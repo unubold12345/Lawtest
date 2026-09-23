@@ -109,6 +109,11 @@ export default function LoginPage() {
     if (!phone.trim()) { setErr("Утас оруулна уу"); return; }
     setLoading(true);
     try {
+      // The code button decides register/recover eligibility up front —
+      // no SMS goes out for a phone that can't finish the flow.
+      const check = await fetch("/api/auth/check-phone", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, purpose }) });
+      const checkData = await check.json().catch(() => null);
+      if (!check.ok) { setErr(checkData?.error || "Илгээж чадсангүй"); return; }
       if (firebaseConfigured()) { await sendFirebaseSms(); return; }
       const r = await fetch("/api/otp/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, purpose }) });
       const d = await r.json();

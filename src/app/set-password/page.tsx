@@ -87,13 +87,26 @@ export default function SetPasswordPage() {
           {setup.purpose === "register" ? "Нууц үг тохируулах" : "Шинэ нууц үг тохируулах"}
         </h1>
         <p className="mt-3 text-center text-[12px] sm:text-sm text-zinc-500 dark:text-zinc-400">
-          {setup.phone} · 8–20 тэмдэгт, дор хаяж 1 тоо
+          {setup.phone}
         </p>
 
         {err && <p className="mt-3 text-[13px] sm:text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5 dark:bg-rose-400/10 dark:border-rose-400/30 dark:text-rose-400">{err}</p>}
 
         <form onSubmit={submit} className="mt-6 sm:mt-8 grid gap-4 sm:gap-5">
-          <input required type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Нууц үг" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
+          <div>
+            <input required type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Нууц үг" className="w-full rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
+            <ul className="mt-2.5 grid gap-1.5 pl-1 text-[12px] sm:text-[13px]">
+              {[
+                { ok: pw.length >= 8 && pw.length <= 20, label: "Дор хаяж 8 тэмдэгт" },
+                { ok: /[0-9]/.test(pw), label: "Дор хаяж нэг тоо" },
+              ].map((rule) => (
+                <li key={rule.label} className={`flex items-center gap-2 transition-colors duration-200 ${rule.ok ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-400 dark:text-zinc-500"}`}>
+                  <span aria-hidden className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors duration-200 ${rule.ok ? "bg-emerald-500 text-white" : "bg-zinc-200 text-zinc-400 dark:bg-white/10 dark:text-zinc-500"}`}>✓</span>
+                  {rule.label}
+                </li>
+              ))}
+            </ul>
+          </div>
           <input required type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Нууц үг давтах" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
           <button disabled={loading} type="submit" className="mt-1 rounded-full bg-indigo-600 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : setup.purpose === "register" ? "Бүртгүүлэх" : "Сэргээх"}</button>
         </form>
