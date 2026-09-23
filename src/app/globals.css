@@ -87,3 +87,8 @@ input, select, textarea {
 button, a {
   touch-action: manipulation;
 }
+
+/* Firebase phone-auth invisible reCAPTCHA badge — visually hidden */
+.grecaptcha-badge {
+  visibility: hidden !important;
+}
