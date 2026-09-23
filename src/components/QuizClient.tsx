@@ -11,7 +11,6 @@ import { FREE_CATEGORY } from "@/lib/access";
 import DropSelect from "@/components/DropSelect";
 import { indexMainName, indexSubName, type IndexData, type IndexRow } from "@/lib/questionIndex";
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
-import { scrollRootToTop } from "@/lib/scrollRoot";
 
 type Mode = "exam" | "study";
 type QuizState = "setup" | "running" | "result";
@@ -401,7 +400,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
         setReviewFilter("review");
         setExpanded({});
         setState("running");
-        scrollRootToTop();
+        window.scrollTo({ top: 0 });
       })
       .finally(() => setPreparing(false));
   };
@@ -669,23 +668,23 @@ export default function QuizClient({ index }: { index: IndexData }) {
     setShowStudyFeedback(false);
     setPaused(false);
     setState("running");
-    scrollRootToTop();
+    window.scrollTo({ top: 0 });
   };
   const backToSetup = () => {
     setState("setup");
-    scrollRootToTop();
+    window.scrollTo({ top: 0 });
   };
 
   const letters = ["A", "B", "C", "D", "E"];
   const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   if (state === "setup" && sessionStatus === "loading") {
-    return <div className="py-24 text-center text-[13px] text-zinc-400 min-h-dvh">Ачааллаж байна…</div>;
+    return <div className="py-24 text-center text-[13px] text-zinc-400 min-h-[100vh]">Ачааллаж байна…</div>;
   }
 
   if (state === "setup" && !isAuthed) {
     return (
-      <div className="mx-auto max-w-md w-full px-3 sm:px-0 min-h-dvh">
+      <div className="mx-auto max-w-md w-full px-3 sm:px-0 min-h-[100vh]">
         <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-6 sm:p-8 text-center dark:border-white/10 dark:bg-white/[0.04]">
           <h1 className="text-[16px] sm:text-lg font-semibold">Шалгалт өгөхийн тулд нэвтэрнэ үү</h1>
           <p className="mt-1.5 text-[12px] sm:text-sm text-zinc-500">Шалгалт өгөх, дүн харах, үргэлжлүүлэх нь бүртгэлтэй хэрэглэгчид л боломжтой.</p>
@@ -716,7 +715,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const labelMainRows = labelMainIdx < 0 ? index.rows : rowsByMain[labelMainIdx] ?? [];
     const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${qtype === "all" ? "" : qtype === "case" ? "Кейс · " : "Онол · "}${pool === "all" ? "" : pool === "answered" ? "Хариулттай · " : "Хариултгүй · "}${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
     return (
-      <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0 min-h-dvh">
+      <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0 min-h-[100vh]">
       <button onClick={() => (fullAccess ? setSettingsOpen(true) : setPaywallNote(true))} className="w-full rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-white/10 dark:bg-white/[0.04] overflow-hidden text-left hover:border-indigo-400 dark:hover:border-indigo-400/50 transition-colors min-w-0">
         <div className="flex items-center justify-between gap-2 min-w-0">
           <span className="font-semibold text-[14px] sm:text-base truncate">{fullAccess ? "⚙" : "🔒"} Шалгалт тохиргоо</span>

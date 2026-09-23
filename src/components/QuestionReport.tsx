@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { lockScrollRoot } from "@/lib/scrollRoot";
 
 const TYPES = [
   ["WRONG_ANSWER", "Зөв хариулт буруу"],
@@ -25,10 +24,11 @@ export default function QuestionReport({ questionId }: { questionId: string }) {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("keydown", onKey);
-    const unlock = lockScrollRoot();
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      unlock();
+      document.body.style.overflow = prev;
     };
   }, [open]);
 

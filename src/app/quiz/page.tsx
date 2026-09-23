@@ -17,7 +17,7 @@ export default async function QuizPage() {
   }
   return (
     <div className="mx-auto max-w-6xl px-1 sm:px-6 py-6 sm:py-8">
-      <Suspense fallback={<p className="py-10 text-center text-sm text-zinc-500 min-h-dvh">Ачааллаж байна…</p>}>
+      <Suspense fallback={<p className="py-10 text-center text-sm text-zinc-500 min-h-[100vh]">Ачааллаж байна…</p>}>
         <QuizClient index={index} />
       </Suspense>
     </div>
