@@ -423,15 +423,9 @@ export default function QuizClient({ index }: { index: IndexData }) {
     }
     const nn = o.n ?? count;
     const rm = o.m ?? mode;
+    const qstr = query.trim();
     setRunMode(rm);
     setExamTag(o.tag ?? null);
-    const base = o.tag ?? (mc === "all" ? "all" : sc !== "all" ? `${mc} / ${sc}` : mc);
-    const filters = [
-      qtype !== "all" ? (qtype === "case" ? "Кейс" : "Онол") : null,
-      pool !== "all" ? (pool === "answered" ? "Хариулттай" : "Хариултгүй") : null,
-    ].filter(Boolean).join(" · ");
-    const label = filters && !o.tag ? `${base} · ${filters}` : base;
-    setRunLabel(label);
     let rows: IndexRow[];
     if (o.ids) {
       // explicit question set (Их алддаг exam) — unpaid users keep free-category only
@@ -451,14 +445,24 @@ export default function QuizClient({ index }: { index: IndexData }) {
       if (sc !== "all") rows = rows.filter((r) => indexSubName(index, r) === sc);
       if (pool !== "all") rows = rows.filter(poolMatch);
       if (qtype !== "all") rows = rows.filter((r) => (r[4] === 1) === (qtype === "case"));
-      const s = query.trim();
-      if (s) {
-        const ids = await filterIds(s);
+      if (qstr) {
+        const ids = await filterIds(qstr);
         rows = rows.filter((r) => ids.has(r[0]));
       }
     }
+    const total = Math.min(nn, rows.length);
+    const base = o.tag ?? (mc === "all" ? "all" : sc !== "all" ? `${mc} / ${sc}` : mc);
+    const filters = [
+      qtype !== "all" ? (qtype === "case" ? "Кейс" : "Онол") : null,
+      pool !== "all" ? (pool === "answered" ? "Хариулттай" : "Хариултгүй") : null,
+      o.tag ? null : rm === "study" ? "Сургалт" : "Шалгалт",
+      o.tag ? null : `${total} сорилго`,
+      qstr && !o.tag ? `Шүүлтүүр: ${qstr}` : null,
+    ].filter(Boolean).join(" · ");
+    const label = filters && !o.tag ? `${base} · ${filters}` : base;
+    setRunLabel(label);
     deleteSaved(label);
-    const pickedRows = shuffle(rows).slice(0, Math.min(nn, rows.length));
+    const pickedRows = shuffle(rows).slice(0, total);
     if (pickedRows.length === 0) return;
     setPreparing(true);
     let picked: Question[] = [];
@@ -1434,9 +1438,9 @@ export default function QuizClient({ index }: { index: IndexData }) {
                 <div className="px-3 pb-3 sm:px-4 sm:pb-4">
                   <p className="text-[10px] sm:text-xs text-zinc-500 break-words">{q.category}{q.subCategory ? ` · ${q.subCategory}` : ""} {unknown ? "· хариултгүй" : auto ? "· Автоматаар зөв" : j.source === "majority" ? "· Олонхын санал" : j.source === "personal" ? "· Та хадгалсан" : ""} {st === "unanswered" ? "· хариулаагүй" : ""}</p>
                   <div className="mt-2 grid gap-1.5 sm:gap-2 min-w-0">
-                    {q.options.map((opt, oi) => (
+                    {(optionOrder[q.id] ?? q.options.map((_, oi) => oi)).map((oi, di) => (
                       <div key={oi} className={`rounded-lg sm:rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm flex gap-1.5 sm:gap-2 min-w-0 overflow-hidden ${!unknown && !auto && oi === c ? "border-emerald-500 bg-emerald-100 dark:bg-emerald-400/10" : ""} ${oi === a && !ok && !unknown && !auto ? "border-rose-500 bg-rose-100 dark:bg-rose-400/10" : "bg-white dark:bg-white/5"}`}>
-                        <span className="font-bold shrink-0">{letters[oi]}.</span><span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere] leading-snug">{opt} {!unknown && !auto && oi === c && "✓"} {!unknown && !auto && oi === c && j.source === "personal" && <span className="text-[10px]">· Та хадгалсан</span>} {oi === a && oi !== c && !unknown && !auto && "← таны сонголт"}</span>
+                        <span className="font-bold shrink-0">{letters[di]}.</span><span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere] leading-snug">{q.options[oi]} {!unknown && !auto && oi === c && "✓"} {!unknown && !auto && oi === c && j.source === "personal" && <span className="text-[10px]">· Та хадгалсан</span>} {oi === a && oi !== c && !unknown && !auto && "← таны сонголт"}</span>
                       </div>
                     ))}
                   </div>
