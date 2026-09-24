@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import AdminClient from "@/components/AdminClient";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Админ",
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminPage() {
   const session = await auth();

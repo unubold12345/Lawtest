@@ -92,3 +92,10 @@ button, a {
 .grecaptcha-badge {
   visibility: hidden !important;
 }
+
+/* paid users: hide paywall promos before the session resolves (see PaidFlag + layout head script) */
+html.lexlab-paid .home-plan-promo,
+html.lexlab-paid .cat-lock,
+html.lexlab-paid .browse-locked-banner {
+  display: none !important;
+}

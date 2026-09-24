@@ -1,13 +1,17 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { FREE_CATEGORY } from "@/lib/access";
 
 type Sub = { name: string; count: number };
 type Main = { name: string; total: number; subs: Sub[] };
 
-export default function HomeCategories({ mains, hasAccess }: { mains: Main[]; hasAccess: boolean }) {
+export default function HomeCategories({ mains }: { mains: Main[] }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const { data: session } = useSession();
+  const user = session?.user as unknown as { hasPaid?: boolean; role?: string } | undefined;
+  const paid = user?.hasPaid === true || user?.role === "ADMIN";
   const LIMIT = 6;
 
   function toggle(main: string) {
@@ -25,14 +29,14 @@ export default function HomeCategories({ mains, hasAccess }: { mains: Main[]; ha
         const isExpanded = expanded.has(main);
         const visible = isExpanded ? subs : subs.slice(0, LIMIT);
         const hidden = subs.length - visible.length;
-        const locked = !hasAccess && main !== FREE_CATEGORY;
+        const locked = !paid && main !== FREE_CATEGORY;
         return (
           <div
             key={main}
             className={`rounded-lg sm:rounded-xl border p-3 sm:p-4 transition-colors ${t === 0 ? "bg-amber-50/60 border-amber-200 dark:bg-amber-400/[0.06] dark:border-amber-400/20" : "bg-zinc-50 border-zinc-200 hover:border-zinc-300 dark:bg-white/[0.04] dark:border-white/10 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/10"}`}
           >
             <Link href={`/browse?cat=${encodeURIComponent(main)}`} className="font-semibold hover:underline text-[13px] sm:text-base">
-              {locked && <span aria-label="төлбөртэй">🔒 </span>}{main} <span className="font-normal text-zinc-500">· {t}</span>
+              {locked && <span aria-label="төлбөртэй" className="cat-lock">🔒 </span>}{main} <span className="font-normal text-zinc-500">· {t}</span>
             </Link>
             {t === 0 && (
               <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">

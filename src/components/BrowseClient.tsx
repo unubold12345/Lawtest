@@ -740,8 +740,8 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         )}
       </div>
 
-      {!lockedMain && !sessionPending && lockedCount > 0 && (
-        <div className="rounded-xl sm:rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-400/30 dark:bg-amber-400/10 flex flex-col sm:flex-row sm:items-center gap-2">
+      {!lockedMain && lockedCount > 0 && (
+        <div className="browse-locked-banner rounded-xl sm:rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-400/30 dark:bg-amber-400/10 flex flex-col sm:flex-row sm:items-center gap-2">
           <p className="flex-1 text-[12px] sm:text-sm text-amber-700 dark:text-amber-300 line-clamp-2">
             🔒 {lockedCount} сорилго түгжээтэй — бусад бүх ангилал төлбөртэй.
           </p>

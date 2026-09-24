@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { buildIndex } from "@/lib/questionIndexServer";
 import { refreshOverrides } from "@/lib/questionOverrides";
 import QuizClient from "@/components/QuizClient";
 
 export const revalidate = 5;
+
+export const metadata: Metadata = {
+  title: "Шалгалт өгөх",
+  description: "Ангилал, сэдвээр шалгалт өгөх — сорилгын тоо, хугацааг өөрөө тохируулах.",
+};
 
 export default async function QuizPage() {
   await refreshOverrides();

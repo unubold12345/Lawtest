@@ -11,6 +11,7 @@ import { FREE_CATEGORY } from "@/lib/access";
 import DropSelect from "@/components/DropSelect";
 import { indexMainName, indexSubName, type IndexData, type IndexRow } from "@/lib/questionIndex";
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
+import QuestionReport from "@/components/QuestionReport";
 
 type Mode = "exam" | "study";
 type QuizState = "setup" | "running" | "result";
@@ -188,6 +189,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
   const [subDropOpen, setSubDropOpen] = useState(false);
   const [histAttempts, setHistAttempts] = useState<Array<{ category: string; score: number; total: number }>>([]);
   const [mode, setMode] = useState<Mode>("exam");
+  const [runMode, setRunMode] = useState<Mode>("exam");
   const [minutes, setMinutes] = useState(20);
 
   const [quizQs, setQuizQs] = useState<Question[]>([]);
@@ -335,7 +337,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
   // saved-exam helpers — one paused exam per category key
   const buildRecord = (): SavedExam | null => {
     if (state !== "running" || quizQs.length === 0) return null;
-    return { key: runLabel, tag: examTag, mode, minutes, ids: quizQs.map((q) => q.id), answers, optionOrder, idx, timeLeft, elapsed, updatedAt: Date.now() };
+    return { key: runLabel, tag: examTag, mode: runMode, minutes, ids: quizQs.map((q) => q.id), answers, optionOrder, idx, timeLeft, elapsed, updatedAt: Date.now() };
   };
 
   const liveRef = useRef<SavedExam | null>(null);
@@ -383,7 +385,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
           setPaywallNote(true);
           return;
         }
-        setMode(rec.mode);
+        setRunMode(rec.mode);
         setExamTag(rec.tag);
         setRunLabel(rec.key);
         setMinutes(rec.minutes);
@@ -420,9 +422,15 @@ export default function QuizClient({ index }: { index: IndexData }) {
       return;
     }
     const nn = o.n ?? count;
-    if (o.m) setMode(o.m);
+    const rm = o.m ?? mode;
+    setRunMode(rm);
     setExamTag(o.tag ?? null);
-    const label = o.tag ?? (mc === "all" ? "all" : sc !== "all" ? `${mc} / ${sc}` : mc);
+    const base = o.tag ?? (mc === "all" ? "all" : sc !== "all" ? `${mc} / ${sc}` : mc);
+    const filters = [
+      qtype !== "all" ? (qtype === "case" ? "Кейс" : "Онол") : null,
+      pool !== "all" ? (pool === "answered" ? "Хариулттай" : "Хариултгүй") : null,
+    ].filter(Boolean).join(" · ");
+    const label = filters && !o.tag ? `${base} · ${filters}` : base;
     setRunLabel(label);
     let rows: IndexRow[];
     if (o.ids) {
@@ -461,7 +469,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     }
     if (picked.length === 0) return;
     // 1 minute per question in exam mode; study mode is untimed
-    const dur = (o.m ?? mode) === "study" ? 0 : o.mins ?? Math.max(picked.length, 1);
+    const dur = rm === "study" ? 0 : o.mins ?? Math.max(picked.length, 1);
     const order: Record<string, number[]> = {};
     picked.forEach((q) => { order[q.id] = shuffle(q.options.map((_, oi) => oi)); });
     setOptionOrder(order);
@@ -566,8 +574,8 @@ export default function QuizClient({ index }: { index: IndexData }) {
         return acc + (a === j.correct ? 1 : 0);
       }, 0);
       // study mode never saves statistics
-      if (mode === "exam") saveAttempt({ category: runLabel, mode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
-      if (mode === "exam") recordMistakes(examWrongIds());
+      if (runMode === "exam") saveAttempt({ category: runLabel, mode: runMode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
+      if (runMode === "exam") recordMistakes(examWrongIds());
       deleteSaved(runLabel);
       setReviewFilter("review");
       setExpanded({});
@@ -577,7 +585,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const id = setInterval(() => { setTimeLeft((t) => t - 1); setElapsed((e) => e + 1); }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, timeLeft, minutes, quizQs, answers, mode, isAuthed, runLabel, paused, judgeOf]);
+  }, [state, timeLeft, minutes, quizQs, answers, runMode, isAuthed, runLabel, paused, judgeOf]);
 
   // also count elapsed when no timer
   useEffect(() => {
@@ -644,8 +652,8 @@ export default function QuizClient({ index }: { index: IndexData }) {
 
   const submit = () => {
     // study mode never saves statistics
-    if (mode === "exam") saveAttempt({ category: runLabel, mode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
-    if (mode === "exam") recordMistakes(examWrongIds());
+    if (runMode === "exam") saveAttempt({ category: runLabel, mode: runMode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
+    if (runMode === "exam") recordMistakes(examWrongIds());
     deleteSaved(runLabel);
     setReviewFilter("review");
     setExpanded({});
@@ -1078,7 +1086,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
               </div>
             )}
             <button
-              onClick={() => { setMainCategory(subPair.main); setSubCategory(subPair.sub); setCount(subPair.count); setCustomCount(""); start({ main: subPair.main, sub: subPair.sub, n: subPair.count }); }}
+              onClick={() => { setMainCategory(subPair.main); setSubCategory(subPair.sub); setCount(subPair.count); setCustomCount(""); start({ main: subPair.main, sub: subPair.sub, n: subPair.count, m: "exam" }); }}
               disabled={subPair.count === 0}
               className="mt-3 sm:mt-4 w-full rounded-full bg-indigo-600 py-2.5 sm:py-3 font-medium text-[13px] sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-40 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] sm:min-h-[48px]"
             >
@@ -1218,12 +1226,12 @@ export default function QuizClient({ index }: { index: IndexData }) {
             {(optionOrder[current.id] ?? current.options.map((_, oi) => oi)).map((oi) => {
               const opt = current.options[oi];
               const selected = ans === oi;
-              const showCorrect = mode === "study" && showStudyFeedback;
+              const showCorrect = runMode === "study" && showStudyFeedback;
               const isCorrect = oi === correct;
               return (
                 <button
                   key={oi}
-                  onClick={() => { setAnswers((a) => ({ ...a, [current.id]: oi })); if (mode === "study") setShowStudyFeedback(false); }}
+                  onClick={() => { setAnswers((a) => ({ ...a, [current.id]: oi })); if (runMode === "study") setShowStudyFeedback(false); }}
                   className={`text-left rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 flex gap-2 sm:gap-3 text-[13px] sm:text-sm transition-colors min-w-0 overflow-hidden ${selected ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-100" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/10 dark:hover:bg-white/5"} ${showCorrect && isCorrect ? "!border-emerald-500 !bg-emerald-50 !text-emerald-900 dark:!bg-emerald-400/10 dark:!text-emerald-200" : ""} ${showCorrect && selected && !isCorrect ? "!border-rose-500 !bg-rose-50 !text-rose-900 dark:!bg-rose-400/10 dark:!text-rose-200" : ""}`}
                 >
                   <span className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${selected ? "bg-white text-indigo-700 dark:bg-white/15 dark:text-indigo-100" : "bg-zinc-100 dark:bg-white/5"}`}>•</span>
@@ -1233,7 +1241,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
             })}
           </div>
 
-          {mode === "study" && answered && (
+          {runMode === "study" && answered && (
             <div className="mt-3 sm:mt-4 flex gap-2 min-w-0">
               {isAuto ? (
                 <p className="text-[12px] sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 break-words">✓ Автоматаар зөв</p>
@@ -1252,6 +1260,10 @@ export default function QuizClient({ index }: { index: IndexData }) {
               )}
             </div>
           )}
+
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <QuestionReport questionId={current.id} />
+          </div>
 
           <div className="mt-4 sm:mt-6 flex justify-between gap-2 sm:gap-3 min-w-0">
             <button onClick={() => { setIdx((v) => Math.max(0, v - 1)); setShowStudyFeedback(false); }} disabled={idx === 0} className="rounded-full border border-zinc-200 px-4 py-2 sm:px-5 sm:py-2 text-[13px] sm:text-sm disabled:opacity-40 dark:border-white/15 min-h-[36px] sm:min-h-[44px] shrink-0">Өмнөх</button>
@@ -1337,7 +1349,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
         <h1 className="text-[16px] sm:text-2xl font-semibold">Дүн</h1>
         <p className="mt-1 sm:mt-2 text-3xl sm:text-5xl font-bold">{score} / {total}</p>
         <p className="mt-1 text-[12px] sm:text-base text-zinc-500">{pct}% · {fmt(elapsed)} зарцуулсан</p>
-        {mode === "study" && <p className="mt-1 text-[11px] sm:text-xs text-amber-600 dark:text-amber-400">Сургалтын горим — дүн түүхэнд хадгалагдаагүй</p>}
+        {runMode === "study" && <p className="mt-1 text-[11px] sm:text-xs text-amber-600 dark:text-amber-400">Сургалтын горим — дүн түүхэнд хадгалагдаагүй</p>}
 
         {/* stat chips */}
         <div className="mt-3 sm:mt-4 flex flex-wrap justify-center gap-1.5 sm:gap-2">

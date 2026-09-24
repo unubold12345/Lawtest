@@ -8,7 +8,7 @@ import PaymentRequestButton from "@/components/PaymentRequestButton";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Эрх авах — Lexlab",
+  title: "Эрх авах",
   description: "39,900₮ нэг удаагийн төлбөрөөр бүх сорилго, шалгалт, хадгалах цэсийг нээх",
 };
 
