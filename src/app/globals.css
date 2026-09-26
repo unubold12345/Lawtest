@@ -26,7 +26,6 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  scroll-behavior: smooth;
   /* paint the canvas (iPhone status-bar / home-indicator strips) with the theme color */
   background: var(--background);
 }
