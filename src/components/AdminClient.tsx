@@ -621,9 +621,9 @@ export default function AdminClient() {
           </div>
 
           {tab === "overview" && stats && (
-            <div className="grid gap-4 lg:mt-4">
+            <div className="grid grid-cols-1 gap-4 lg:mt-4">
               {(pendingPayments > 0 || openReports > 0 || errCount > 0) && (
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {pendingPayments > 0 && <AlertCard tone="amber" title={`${pendingPayments} төлбөр хүлээгдэж байна`} desc="Баталгаажуулбал хэрэглэгчийн эрх нээгдэнэ" cta="Төлбөр рүү →" onClick={() => select("payments")} />}
                   {openReports > 0 && <AlertCard tone="indigo" title={`${openReports} мэдээлэл нээлттэй`} desc="Хэрэглэгчдийн мэдээлсэн алдааг шалгана уу" cta="Мэдээлэл рүү →" onClick={() => select("reports")} />}
                   {errCount > 0 && <AlertCard tone="rose" title={`${errCount} алдаатай сорилго`} desc="Хариулт эсвэл сонголтын тоо буруу байна" cta="Сорилгууд руу →" onClick={() => select("questions")} />}
@@ -645,7 +645,7 @@ export default function AdminClient() {
                     <h3 className="font-semibold text-sm">Сүүлийн хэрэглэгчид</h3>
                     <button onClick={() => select("users")} className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-300">Бүгдийг →</button>
                   </div>
-                  <div className="mt-3 grid gap-2">
+                  <div className="mt-3 grid grid-cols-1 gap-2">
                     {(stats.recentUsers || []).map((u) => (
                       <div key={u.id} className="flex items-center justify-between gap-2 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
                         <div className="min-w-0">
@@ -664,7 +664,7 @@ export default function AdminClient() {
                     <h3 className="font-semibold text-sm">Сүүлийн оролдлогууд</h3>
                     <button onClick={() => select("attempts")} className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-300">Бүгдийг →</button>
                   </div>
-                  <div className="mt-3 grid gap-2">
+                  <div className="mt-3 grid grid-cols-1 gap-2">
                     {(stats.recentAttempts || []).map((a) => (
                       <div key={a.id} className="flex items-center justify-between gap-2 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5">
                         <div className="min-w-0">
@@ -681,11 +681,11 @@ export default function AdminClient() {
 
               <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
                 <h3 className="font-semibold text-sm">Ангиллаар (main)</h3>
-                <div className="mt-3 grid gap-3">
+                <div className="mt-3 grid grid-cols-1 gap-3">
                   {Object.entries(stats.questions.byMain).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
                     <div key={k}>
                       <div className="flex justify-between gap-2 text-sm">
-                        <span className="truncate">{k}</span>
+                        <span className="min-w-0 truncate">{k}</span>
                         <b className="shrink-0">{v}</b>
                       </div>
                       <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">

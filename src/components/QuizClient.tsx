@@ -1104,7 +1104,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
 
       <div className="order-2 w-full min-w-0 rounded-xl sm:rounded-2xl bg-zinc-950 border border-zinc-800 p-4 sm:p-8 text-white dark:bg-gradient-to-br dark:from-indigo-600/25 dark:to-violet-600/20 dark:border-indigo-400/25 overflow-hidden">
         <h2 className="text-[14px] sm:text-xl font-semibold break-words">Үндсэн шалгалт</h2>
-        <p className="mt-1 text-[11px] sm:text-sm leading-snug text-zinc-300">Бодит шалгалтын форматаар — бүх сангаас 200 сорилго, 200 минут, шалгалтын горим. Үсэг нуугдаж, хариултууд холигдоно.</p>
         {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Үндсэн шалгалт нь Эрх авах төлөвлөгөөнд багтдаг.</p>}
         <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-1.5 sm:gap-2 text-center">
           <div className="rounded-lg bg-white/10 p-2 sm:p-3">
@@ -1223,7 +1222,9 @@ export default function QuizClient({ index }: { index: IndexData }) {
         )}
 
           <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-6 dark:border-white/10 dark:bg-white/[0.04] min-w-0 overflow-hidden">
-          <h2 className="text-[14px] sm:text-lg font-medium leading-snug sm:leading-relaxed break-words [overflow-wrap:anywhere] min-w-0">{current.question}</h2>
+          <div className="rounded-xl border border-violet-200 bg-violet-50/80 border-l-4 border-l-violet-500 px-3 py-2.5 sm:px-5 sm:py-4 dark:border-violet-400/20 dark:border-l-violet-400/70 dark:bg-violet-500/[0.12]">
+            <h2 className="text-base sm:text-xl font-medium leading-snug sm:leading-relaxed break-words [overflow-wrap:anywhere] min-w-0">{current.question}</h2>
+          </div>
           {noFile && <p className="mt-1.5 text-[11px] sm:text-xs rounded-full bg-amber-50 px-2 py-0.5 sm:px-3 sm:py-1 inline-block max-w-full break-words text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">{isAuto ? "Хэн ч энэ сорилгыг хадгалаагүй эсвэл санал тэнцсэн — автоматаар зөв гэж үзнэ." : judgeCur.source === "personal" ? "Таны хадгалсан хариултаар дүгнэнэ." : judgeCur.source === "majority" ? "Хамгийн олон санал авсан сонголтоор дүгнэнэ." : "Зөв хариулт хараахан тодорхойгүй — Browse дээр хадгална уу"}</p>}
 
           <div className="mt-3 sm:mt-6 grid gap-1.5 sm:gap-3 min-w-0">

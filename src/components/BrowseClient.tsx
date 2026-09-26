@@ -502,7 +502,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           <span className="shrink-0 text-[11px] sm:text-xs text-zinc-400 w-7 pt-0.5">{globalIdx}.</span>
           <span className={`shrink-0 pt-0.5 text-[13px] sm:text-sm ${st === "unanswered" ? "text-zinc-300 dark:text-zinc-600" : st === "mine" ? "text-emerald-600 dark:text-emerald-400" : "text-indigo-600 dark:text-indigo-300"} ${st === "mine" ? "font-bold" : ""}`}>{mark}</span>
           <span className="min-w-0 flex-1">
-            <span className={`block leading-snug break-words ${isOpen ? "text-[13px] sm:text-[15px] font-medium" : "text-[12px] sm:text-sm line-clamp-2"}`}>{item.question}</span>
+            <span className={`block leading-snug break-words [overflow-wrap:anywhere] ${isOpen ? "text-[13px] sm:text-[15px] font-medium" : "text-[12px] sm:text-sm line-clamp-2"}`}>{item.question}</span>
             <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] text-zinc-400">{item.category}{item.subCategory ? ` · ${item.subCategory}` : ""}{!locked && eff !== null ? ` · ${LETTERS[eff]}` : ""}{!locked && notedIds.has(item.id) ? " · ✎" : ""}</span>
           </span>
           <span className="shrink-0 pt-1 text-[10px] text-zinc-400">{isOpen ? "▴" : "▾"}</span>
@@ -531,7 +531,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
               </div>
             )}
 
-            <div className="mt-2.5 sm:mt-3 grid gap-1.5 sm:gap-2">
+            <div className="mt-2.5 sm:mt-3 grid grid-cols-1 gap-1.5 sm:gap-2">
               {item.options.map((opt, i) => {
                 const isCorrect = eff !== null && i === eff;
                 const answered = locked && eff !== null && pick !== undefined;
@@ -551,7 +551,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
                 const rowBody = (
                   <>
                     <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${pillTone}`}>{LETTERS[i]}</span>
-                    <span className="leading-snug">{opt}</span>
+                    <span className="min-w-0 leading-snug [overflow-wrap:anywhere]">{opt}</span>
                     {showCorrect && <span className="ml-auto font-medium text-xs shrink-0">✓ Зөв</span>}
                     {showWrong && <span className="ml-auto font-medium text-xs shrink-0">✗ Буруу</span>}
                   </>
@@ -583,7 +583,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
                 );
               })}
             </div>
-            {(isRevealed || pick !== undefined) && item.explanation && <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Тайлбар: {item.explanation}</p>}
+            {(isRevealed || pick !== undefined) && item.explanation && <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400 break-words">Тайлбар: {item.explanation}</p>}
 
             {!locked && !isAuthed && (
               <div className="mt-3 rounded-lg border border-dashed border-indigo-200 bg-indigo-50/60 p-2.5 sm:p-3 text-[11px] sm:text-xs text-indigo-700 dark:border-indigo-400/30 dark:bg-indigo-500/10 dark:text-indigo-200">
@@ -836,7 +836,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
 
       {/* views: list / card / grid */}
       {!lockedMain && view === "list" && (
-      <div className="grid gap-1.5 sm:gap-2">
+      <div className="grid grid-cols-1 gap-1.5 sm:gap-2">
         {pagedRows.map((row, idx) => {
           const item = items[row[0]];
           const n = (safePage - 1) * PAGE_SIZE + idx + 1;
@@ -874,7 +874,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
                   className={`relative flex flex-col gap-1 rounded-xl border border-zinc-200 bg-white p-2 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/10 ${narrow ? "h-14 items-center justify-center" : "min-h-[64px] items-stretch text-left"}`}
                 >
                   <span className={`font-semibold leading-none text-zinc-800 dark:text-zinc-200 ${narrow ? "text-[15px]" : "text-[13px]"}`}>{n}</span>
-                  {clamp && item && <span className={`break-words text-[10px] leading-tight text-zinc-500 dark:text-zinc-400 ${clamp}`}>{item.question}</span>}
+                  {clamp && item && <span className={`break-words [overflow-wrap:anywhere] text-[10px] leading-tight text-zinc-500 dark:text-zinc-400 ${clamp}`}>{item.question}</span>}
                   {dot && <span className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full ${dot}`} />}
                 </button>
               );
