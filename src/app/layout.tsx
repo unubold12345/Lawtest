@@ -4,7 +4,7 @@ import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
 import Header from "@/components/Header";
 import PaidFlag from "@/components/PaidFlag";
-import ViewportTint from "@/components/ViewportTint";
+import SafeAreaScrollNudge from "@/components/SafeAreaScrollNudge";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin", "cyrillic"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -49,14 +49,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('lexlab_theme');var d=t!=='light';if(d){document.documentElement.classList.add('dark')}var m=document.createElement('meta');m.setAttribute('name','theme-color');m.setAttribute('content',d?'#07070c':'#ffffff');document.head.appendChild(m);var p=localStorage.getItem('lexlab_paid');if(p==='1'){document.documentElement.classList.add('lexlab-paid')}}catch(e){}})()`,
+            __html: `(function(){try{var t=localStorage.getItem('lexlab_theme');if(t!=='light'){document.documentElement.classList.add('dark')}var p=localStorage.getItem('lexlab_paid');if(p==='1'){document.documentElement.classList.add('lexlab-paid')}}catch(e){}})()`,
           }}
         />
       </head>
       <body className="min-h-full flex flex-col">
         <SessionProvider>
           <PaidFlag />
-          <ViewportTint />
+          <SafeAreaScrollNudge />
           <Header />
           <main className="flex-1 w-full min-w-0 overflow-x-clip">{children}</main>
           <footer className="border-t border-zinc-200/80 px-2 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pt-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-center dark:border-white/10">
