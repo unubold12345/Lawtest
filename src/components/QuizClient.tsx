@@ -258,9 +258,11 @@ export default function QuizClient({ index }: { index: IndexData }) {
     .map(([id, v]) => ({ id, wrongCount: v.wrongCount, manual: v.manual })),
   [mistakes, rowById]);
   // keep the texts of the mistake questions cached for the setup card + modal
-  const mistakeIdsKey = mistakeList.map((m) => m.id).join(",");
+  const mistakeIds = mistakeList.map((m) => m.id);
+  const mistakeIdsKey = mistakeIds.join("\u0001");
   useEffect(() => {
-    if (mistakeIdsKey) void fetchItems(mistakeIdsKey.split(","));
+    if (mistakeIds.length) void fetchItems(mistakeIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mistakeIdsKey, fetchItems]);
 
   const recordMistakes = (ids: string[]) => {
@@ -877,7 +879,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
             {mistakeList.length === 0 ? (
               <p className="mt-3 text-[12px] sm:text-sm text-zinc-500">Бүх алддаг сорилго устгагдлаа.</p>
             ) : (
-              <div className="mt-2 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
+              <div className="mt-2 grid gap-1.5 sm:grid-cols-2 sm:gap-2 select-none">
                 {mistakeList.map(({ id, wrongCount, manual }) => (
                   <div key={id} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 dark:border-white/10 dark:bg-white/5 min-w-0">
                     <p className="flex-1 min-w-0 text-[12px] sm:text-sm leading-snug break-words line-clamp-2">{items[id]?.question ?? "…"}</p>
@@ -1153,7 +1155,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
               <button onClick={startMistakeExam} className="w-full rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
                 Эдгээрээр шалгалт өгөх →
               </button>
-              <div className="mt-2 grid gap-1.5">
+              <div className="mt-2 grid gap-1.5 select-none">
                 {mistakeList.slice(0, 4).map(({ id, wrongCount, manual }) => (
                   <div key={id} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 dark:border-white/10 dark:bg-white/5 min-w-0">
                     <p className="flex-1 min-w-0 text-[12px] sm:text-sm leading-snug break-words line-clamp-2">{items[id]?.question ?? "…"}</p>
@@ -1221,7 +1223,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
           </div>
         )}
 
-          <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-6 dark:border-white/10 dark:bg-white/[0.04] min-w-0 overflow-hidden">
+          <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-6 dark:border-white/10 dark:bg-white/[0.04] min-w-0 overflow-hidden select-none">
           <div className="rounded-xl border border-violet-200 bg-violet-50/80 border-l-4 border-l-violet-500 px-3 py-2.5 sm:px-5 sm:py-4 dark:border-violet-400/20 dark:border-l-violet-400/70 dark:bg-violet-500/[0.12]">
             <h2 className="text-base sm:text-xl font-medium leading-snug sm:leading-relaxed break-words [overflow-wrap:anywhere] min-w-0">{current.question}</h2>
           </div>
@@ -1418,7 +1420,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
       </div>
 
       {/* review: collapsed rows, tap to expand */}
-      <div className="space-y-2 sm:space-y-4 min-w-0">
+      <div className="space-y-2 sm:space-y-4 min-w-0 select-none">
         {reviewItems.map(({ q, i, st }) => {
           const a = answers[q.id];
           const j = judgeOf(q);

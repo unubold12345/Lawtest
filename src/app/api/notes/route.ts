@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     const rows = await prisma.questionNote.findMany({ where: { userId }, select: { questionId: true } });
     return NextResponse.json({ ids: rows.map((r) => r.questionId) });
   }
-  const list = ids.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 100);
+  const list = ids.split("|").map((s) => s.trim()).filter(Boolean).slice(0, 100);
   const rows = await prisma.questionNote.findMany({ where: { userId, questionId: { in: list } } });
   const notes: Record<string, { content: string; updatedAt: string }> = {};
   rows.forEach((r) => { notes[r.questionId] = { content: r.content, updatedAt: r.updatedAt.toISOString() }; });

@@ -284,7 +284,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     const visible = view === "card" ? (cardRow ? [cardRow] : []) : pagedRows;
     const ids = visible.filter((r) => r[3] === 0).map((r) => r[0]);
     if (ids.length === 0) return;
-    fetch(`/api/saved-answers?ids=${encodeURIComponent(ids.join(","))}`)
+    fetch(`/api/saved-answers?ids=${encodeURIComponent(ids.join("|"))}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.counts) setCounts((prev) => ({ ...prev, ...d.counts }));
@@ -292,12 +292,13 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagedIds.join(","), view, cardRow?.[0]]);
+  }, [pagedIds.join("\u0001"), view, cardRow?.[0]]);
 
   // fetch full questions for the visible page (and the card item) by id
-  const needIdsKey = [...new Set([...pagedIds, ...(view === "card" && cardRow ? [cardRow[0]] : [])])].join(",");
+  const needIds = [...new Set([...pagedIds, ...(view === "card" && cardRow ? [cardRow[0]] : [])])];
+  const needIdsKey = needIds.join("\u0001");
   useEffect(() => {
-    const missing = needIdsKey ? needIdsKey.split(",").filter((id) => id && !itemsRef.current[id]) : [];
+    const missing = needIds.filter((id) => id && !itemsRef.current[id]);
     if (missing.length === 0) return;
     let cancelled = false;
     fetchQuestionsByIds(missing)
@@ -497,7 +498,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
             : "sm:col-span-2 lg:col-span-4"
         : "";
     return (
-      <div key={item.id} id={`qrow-${item.id}`} className={`rounded-xl border bg-white dark:bg-white/[0.04] scroll-mt-20 ${gridSpan} ${isActive ? "border-indigo-500 dark:border-indigo-400/60" : "border-zinc-200 dark:border-white/10"}`}>
+      <div key={item.id} id={`qrow-${item.id}`} className={`rounded-xl border bg-white dark:bg-white/[0.04] scroll-mt-20 select-none ${gridSpan} ${isActive ? "border-indigo-500 dark:border-indigo-400/60" : "border-zinc-200 dark:border-white/10"}`}>
         <button onClick={() => toggleExpand(item.id)} aria-expanded={isOpen} className="flex w-full items-start gap-2 px-3 py-2.5 sm:px-4 sm:py-3 text-left">
           <span className="shrink-0 text-[11px] sm:text-xs text-zinc-400 w-7 pt-0.5">{globalIdx}.</span>
           <span className={`shrink-0 pt-0.5 text-[13px] sm:text-sm ${st === "unanswered" ? "text-zinc-300 dark:text-zinc-600" : st === "mine" ? "text-emerald-600 dark:text-emerald-400" : "text-indigo-600 dark:text-indigo-300"} ${st === "mine" ? "font-bold" : ""}`}>{mark}</span>
@@ -871,7 +872,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
                   type="button"
                   onClick={() => { setView("card"); setCardIdx(n - 1); setFocusView(true); }}
                   aria-label={`Асуулт ${n} — карт харах`}
-                  className={`relative flex flex-col gap-1 rounded-xl border border-zinc-200 bg-white p-2 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/10 ${narrow ? "h-14 items-center justify-center" : "min-h-[64px] items-stretch text-left"}`}
+                  className={`relative flex flex-col gap-1 select-none rounded-xl border border-zinc-200 bg-white p-2 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/10 ${narrow ? "h-14 items-center justify-center" : "min-h-[64px] items-stretch text-left"}`}
                 >
                   <span className={`font-semibold leading-none text-zinc-800 dark:text-zinc-200 ${narrow ? "text-[15px]" : "text-[13px]"}`}>{n}</span>
                   {clamp && item && <span className={`break-words [overflow-wrap:anywhere] text-[10px] leading-tight text-zinc-500 dark:text-zinc-400 ${clamp}`}>{item.question}</span>}
@@ -911,7 +912,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button aria-label="close" onClick={() => setPending(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60" />
-            <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
+            <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl select-none dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
               <h3 className="font-semibold">{isChange ? "Зөв хариултыг солих уу?" : "Зөв хариулт хадгалах уу?"}</h3>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-3">{pq.question}</p>
               <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
@@ -945,7 +946,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button aria-label="close" onClick={() => setPendingClear(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60" />
-            <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
+            <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl select-none dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
               <h3 className="font-semibold">Хадгалсан хариултыг арилгах уу?</h3>
               {pq && <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-3">{pq.question}</p>}
               <div className="mt-5 flex justify-end gap-2">

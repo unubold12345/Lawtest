@@ -29,7 +29,7 @@ export async function fetchQuestionsByIds(ids: string[], opts: { texts?: boolean
   for (const chunk of chunkIds(ids)) {
     try {
       const qs = opts.texts ? "&texts=1" : "";
-      const r = await fetch(`/api/questions?ids=${encodeURIComponent(chunk.join(","))}${qs}`, { headers: opts.headers });
+      const r = await fetch(`/api/questions?ids=${encodeURIComponent(chunk.join("|"))}${qs}`, { headers: opts.headers });
       if (!r.ok) continue;
       const d = await r.json();
       if (Array.isArray(d?.questions)) out.push(...(d.questions as Question[]));

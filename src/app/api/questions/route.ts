@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 // Modes:
 //   ?index=1              -> light index (ids + cat/sub refs + hasAnswer)
 //   ?filter=1&q=&by=      -> ids matching a text query (by=all|qo)
-//   ?ids=a,b,c            -> full questions for those ids
-//   ?ids=a,b,c&texts=1    -> { id, question } only (light)
+//   ?ids=a|b|c            -> full questions for those ids
+//   ?ids=a|b|c&texts=1    -> { id, question } only (light)
 //   ?meta=1               -> totals + per main/sub category counts
 //   ?full=1               -> everything (legacy)
 export async function GET(req: Request) {
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
 
   const idsParam = sp.get("ids");
   if (idsParam) {
-    const wanted = idsParam.split(",").map((s) => s.trim()).filter(Boolean);
+    const wanted = idsParam.split("|").map((s) => s.trim()).filter(Boolean);
     const set = new Set(wanted);
     const found = data.questions.filter((q) => set.has(q.id));
     if (sp.get("texts") === "1") {

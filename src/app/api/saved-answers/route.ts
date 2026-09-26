@@ -39,7 +39,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ my });
     }
     const idsParam = searchParams.get("ids") || searchParams.get("questionId") || "";
-    const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 2000);
+    const ids = idsParam.split("|").map((s) => s.trim()).filter(Boolean).slice(0, 2000);
     if (ids.length === 0) return NextResponse.json({ counts: {}, my: {} });
 
     // if authed but no row, also try to ensure my empty handled; counts still valid
