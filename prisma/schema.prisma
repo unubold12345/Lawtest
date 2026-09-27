@@ -37,6 +37,8 @@ model User {
   savedExams    SavedExam[]
   paymentRequests PaymentRequest[]
   otps          Otp[]
+  announcementReads  AnnouncementRead[]
+  announcements      Announcement[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -213,4 +215,27 @@ model QuestionOverride {
   updatedById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// Site-wide announcements shown in the navbar bell (logged-in users only)
+model Announcement {
+  id          String   @id @default(cuid())
+  body        String
+  createdAt   DateTime @default(now())
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  reads       AnnouncementRead[]
+
+  @@index([createdAt])
+}
+
+model AnnouncementRead {
+  userId         String
+  announcementId String
+  readAt         DateTime @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@id([userId, announcementId])
+  @@index([announcementId])
 }

@@ -4,8 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
-import { fileHasAnswer, getAllOverrides } from "@/lib/answerOverrides";
-import { fileAnswer, judgeQuestion } from "@/lib/voteJudge";
+import { fileAnswer } from "@/lib/voteJudge";
 import { readLocalSavedExams, writeLocalSavedExam, removeLocalSavedExam, type SavedExam } from "@/lib/savedExams";
 import { FREE_CATEGORY } from "@/lib/access";
 import DropSelect from "@/components/DropSelect";
@@ -119,53 +118,32 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const t = searchParams.get("type");
     return t === "case" || t === "knowledge" ? t : "all";
   });
-  const [pool, setPool] = useState<"all" | "answered" | "unanswered">("all");
   const [queryIds, setQueryIds] = useState<Set<string> | null>(null);
   const subCategories = useMemo(() => {
     if (mainCategory === "all") return index.allSubs.map((s) => s.name);
     const i = index.mains.findIndex((m) => m.name === mainCategory);
     return i >= 0 ? index.mains[i].subs.map((s) => s.name) : [];
   }, [index, mainCategory]);
-  const [overrides, setOverrides] = useState<Record<string, number>>({});
-  useEffect(() => {
-    setOverrides(getAllOverrides());
-    const h = () => setOverrides(getAllOverrides());
-    window.addEventListener("lawtest:overrides", h as EventListener);
-    window.addEventListener("storage", h);
-    return () => { window.removeEventListener("lawtest:overrides", h as EventListener); window.removeEventListener("storage", h); };
-  }, []);
-
-  // community votes for no-answer questions: per-option tallies + my saved vote
-  const [voteCounts, setVoteCounts] = useState<Record<string, number[]>>({});
-  const [voteMy, setVoteMy] = useState<Record<string, number>>({});
-  const loadVotes = (ids: string[]) => {
-    const list = [...new Set(ids)].filter(Boolean).slice(0, 2000);
-    if (list.length === 0) return;
-    fetch("/api/saved-answers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: list }) })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d) return;
-        if (d.counts) setVoteCounts((p) => ({ ...p, ...d.counts }));
-        if (d.my) setVoteMy((p) => ({ ...p, ...d.my }));
-      })
-      .catch(() => {});
-  };
-  // resolved answer: file (locked) → my saved → majority vote → auto-correct (tie/none)
-  const judgeOf = useCallback((q: Question) => judgeQuestion(q, { overrides, my: voteMy, counts: voteCounts }), [overrides, voteMy, voteCounts]);
+  // my saved answers (DB) — a personal saved answer counts as right in exams
+  const [savedAnswers, setSavedAnswers] = useState<Record<string, number>>({});
+  const correctOf = useCallback(
+    (q: Question): number | null => {
+      const mine = savedAnswers[q.id];
+      if (typeof mine === "number" && Number.isInteger(mine) && mine >= 0 && mine < q.options.length) return mine;
+      return fileAnswer(q);
+    },
+    [savedAnswers]
+  );
 
   useEffect(() => {
     if (!isAuthed) return;
     let cancelled = false;
     fetch("/api/saved-answers?mine=1")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (!cancelled && d?.my) setVoteMy((p) => ({ ...d.my, ...p })); })
+      .then((d) => { if (!cancelled && d?.my) setSavedAnswers((p) => ({ ...d.my, ...p })); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [isAuthed]);
-  const poolMatch = useCallback(
-    (r: IndexRow) => pool === "all" || (r[3] === 1) === (pool === "answered"),
-    [pool]
-  );
 
   const [state, setState] = useState<QuizState>("setup");
   const [preparing, setPreparing] = useState(false);
@@ -320,21 +298,20 @@ export default function QuizClient({ index }: { index: IndexData }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subCategories]);
 
-  // the Хариулт pool filter hides categories with no questions there (like browse) — keep selections valid
+  // exams only use questions with an official answer — keep category selections valid
   useEffect(() => {
-    if (pool === "all" || state !== "setup") return;
-    const match = (r: IndexRow) => (r[3] === 1) === (pool === "answered");
+    if (state !== "setup") return;
     if (mainCategory !== "all") {
       const mi = index.mains.findIndex((m) => m.name === mainCategory);
-      if (mi < 0 || !rowsByMain[mi].some(match)) { setMainCategory("all"); setSubCategory("all"); return; }
+      if (mi < 0 || !rowsByMain[mi].some((r) => r[3] === 1)) { setMainCategory("all"); setSubCategory("all"); return; }
     }
     if (subCategory !== "all") {
       const mi = index.mains.findIndex((m) => m.name === mainCategory);
       const rows = mi >= 0 ? rowsByMain[mi] : index.rows;
-      if (!rows.some((r) => indexSubName(index, r) === subCategory && match(r))) setSubCategory("all");
+      if (!rows.some((r) => indexSubName(index, r) === subCategory && r[3] === 1)) setSubCategory("all");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pool, mainCategory, subCategory, index, rowsByMain, state]);
+  }, [mainCategory, subCategory, index, rowsByMain, state]);
 
   // saved-exam helpers — one paused exam per category key
   const buildRecord = (): SavedExam | null => {
@@ -393,7 +370,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
         setMinutes(rec.minutes);
         setQuizQs(qs);
         setAnswers(rec.answers || {});
-        loadVotes(qs.map((q) => q.id));
         setOptionOrder(rec.optionOrder || {});
         setIdx(Math.min(rec.idx || 0, qs.length - 1));
         setTimeLeft(rec.timeLeft || 0);
@@ -434,6 +410,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
       const set = new Set(o.ids);
       rows = index.rows.filter((r) => set.has(r[0]));
       if (!fullAccess) rows = rows.filter((r) => r[1] === freeIdx);
+      rows = rows.filter((r) => r[3] === 1);
       if (rows.length === 0) {
         if (!fullAccess) setPaywallNote(true);
         return;
@@ -445,7 +422,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
         rows = mi >= 0 ? rows.filter((r) => r[1] === mi) : [];
       }
       if (sc !== "all") rows = rows.filter((r) => indexSubName(index, r) === sc);
-      if (pool !== "all") rows = rows.filter(poolMatch);
+      rows = rows.filter((r) => r[3] === 1);
       if (qtype !== "all") rows = rows.filter((r) => (r[4] === 1) === (qtype === "case"));
       if (qstr) {
         const ids = await filterIds(qstr);
@@ -456,7 +433,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const base = o.tag ?? (mc === "all" ? "all" : sc !== "all" ? `${mc} / ${sc}` : mc);
     const filters = [
       qtype !== "all" ? (qtype === "case" ? "Кейс" : "Онол") : null,
-      pool !== "all" ? (pool === "answered" ? "Хариулттай" : "Хариултгүй") : null,
       o.tag ? null : rm === "study" ? "Сургалт" : "Шалгалт",
       o.tag ? null : `${total} сорилго`,
       qstr && !o.tag ? `Шүүлтүүр: ${qstr}` : null,
@@ -481,7 +457,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
     setOptionOrder(order);
     setQuizQs(picked);
     setAnswers({});
-    loadVotes(picked.map((q) => q.id));
     setConfirmExit(false);
     setPaused(false);
     setSettingsOpen(false);
@@ -516,29 +491,25 @@ export default function QuizClient({ index }: { index: IndexData }) {
     }
   }, [state, isAuthed]);
 
+  // quick exam picker — officially answered questions only, 0-count subs never show
   const subPairs = useMemo(() => {
-    const out: Array<{ main: string; sub: string; count: number; label: string }> = [];
-    for (const m of index.mains) {
-      for (const s of m.subs) out.push({ main: m.name, sub: s.name, count: s.count, label: `${m.name} / ${s.name}` });
+    const answered = new Map<string, number>();
+    for (const r of index.rows) {
+      if (r[3] !== 1) continue;
+      const key = `${r[1]}\u0001${r[2]}`;
+      answered.set(key, (answered.get(key) ?? 0) + 1);
     }
+    const out: Array<{ main: string; sub: string; count: number; label: string }> = [];
+    index.mains.forEach((m, mi) => {
+      m.subs.forEach((s, si) => {
+        const n = answered.get(`${mi}\u0001${si}`) ?? 0;
+        if (n > 0) out.push({ main: m.name, sub: s.name, count: n, label: `${m.name} / ${s.name}` });
+      });
+    });
     return out.sort((a, b) => collator.compare(a.main, b.main) || collator.compare(a.sub, b.sub));
   }, [index, collator]);
 
   const subPair = subPick === "" ? null : (subPairs[Number(subPick)] ?? null);
-
-  // no-answer questions in the picked subcategory (file-level) — for friendly judging text
-  const subUnknowns = useMemo(() => {
-    if (!subPair) return [] as IndexRow[];
-    return index.rows.filter(
-      (r) => indexMainName(index, r) === subPair.main && indexSubName(index, r) === subPair.sub && r[3] === 0
-    );
-  }, [index, subPair]);
-  useEffect(() => {
-    if (subUnknowns.length === 0) return;
-    loadVotes(subUnknowns.map((r) => r[0]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subPair]);
-  const subUnsaved = subUnknowns.filter((r) => voteMy[r[0]] === undefined && overrides[r[0]] === undefined).length;
 
   const subStats = useMemo(() => {
     if (!subPair) return null;
@@ -559,12 +530,12 @@ export default function QuizClient({ index }: { index: IndexData }) {
     return { n: list.length, best, avg: Math.round((sum / list.length) * 100), last: list[0] as { score: number; total: number } };
   }, [histAttempts]);
 
-  // questions answered wrong in the current run (resolved answer only; auto-correct never wrong) — for mistake tracking
+  // questions answered wrong in the current run — for mistake tracking
   const examWrongIds = () =>
     quizQs.filter((q) => {
       const a = answers[q.id];
-      const j = judgeOf(q);
-      return j.source !== "auto" && j.correct !== null && a !== undefined && a !== j.correct;
+      const c = correctOf(q);
+      return c !== null && a !== undefined && a !== c;
     }).map((q) => q.id);
 
   // timer
@@ -574,10 +545,9 @@ export default function QuizClient({ index }: { index: IndexData }) {
     if (timeLeft <= 0) {
       const s = quizQs.reduce((acc, q) => {
         const a = answers[q.id];
-        const j = judgeOf(q);
-        if (j.source === "auto") return acc + 1;
-        if (j.correct === null) return acc;
-        return acc + (a === j.correct ? 1 : 0);
+        const c = correctOf(q);
+        if (c === null) return acc;
+        return acc + (a === c ? 1 : 0);
       }, 0);
       // study mode never saves statistics
       if (runMode === "exam") saveAttempt({ category: runLabel, mode: runMode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
@@ -591,7 +561,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const id = setInterval(() => { setTimeLeft((t) => t - 1); setElapsed((e) => e + 1); }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, timeLeft, minutes, quizQs, answers, runMode, isAuthed, runLabel, paused, judgeOf]);
+  }, [state, timeLeft, minutes, quizQs, answers, runMode, isAuthed, runLabel, paused, correctOf]);
 
   // also count elapsed when no timer
   useEffect(() => {
@@ -617,44 +587,40 @@ export default function QuizClient({ index }: { index: IndexData }) {
   const score = useMemo(() => {
     let s = 0;
     quizQs.forEach((q) => {
-      const a = answers[q.id];
-      const j = judgeOf(q);
-      if (j.source === "auto") s++;
-      else if (j.correct !== null && a === j.correct) s++;
+      const c = correctOf(q);
+      if (c !== null && answers[q.id] === c) s++;
     });
     return s;
-  }, [quizQs, answers, judgeOf]);
+  }, [quizQs, answers, correctOf]);
 
   // result dashboard stats: correct / wrong / unanswered / unknown
   const resultStats = useMemo(() => {
     let ok = 0, wrong = 0, un = 0, unk = 0;
     quizQs.forEach((q) => {
       const a = answers[q.id];
-      const j = judgeOf(q);
-      if (j.source === "auto") ok++;
-      else if (j.correct === null) unk++;
+      const c = correctOf(q);
+      if (c === null) unk++;
       else if (a === undefined) un++;
-      else if (a === j.correct) ok++;
+      else if (a === c) ok++;
       else wrong++;
     });
     return { ok, wrong, un, unk };
-  }, [quizQs, answers, judgeOf]);
+  }, [quizQs, answers, correctOf]);
 
-  // per main-category breakdown (unresolved unknown-answer questions excluded)
+  // per main-category breakdown (questions with no official answer excluded)
   const catBreakdown = useMemo(() => {
     const map = new Map<string, { ok: number; tot: number }>();
     quizQs.forEach((q) => {
-      const j = judgeOf(q);
-      if (j.correct === null && j.source !== "auto") return;
+      const c = correctOf(q);
+      if (c === null) return;
       const key = (q.category as string) || "Бусад";
       const e = map.get(key) ?? { ok: 0, tot: 0 };
       e.tot++;
-      if (j.source === "auto") e.ok++;
-      else if (answers[q.id] === j.correct) e.ok++;
+      if (answers[q.id] === c) e.ok++;
       map.set(key, e);
     });
     return [...map.entries()].sort((a, b) => collator.compare(a[0], b[0]));
-  }, [quizQs, answers, judgeOf, collator]);
+  }, [quizQs, answers, correctOf, collator]);
 
   const submit = () => {
     // study mode never saves statistics
@@ -718,16 +684,16 @@ export default function QuizClient({ index }: { index: IndexData }) {
         out = mi >= 0 ? out.filter((r) => r[1] === mi) : [];
       }
       if (subCategory !== "all") out = out.filter((r) => indexSubName(index, r) === subCategory);
-      if (pool !== "all") out = out.filter(poolMatch);
+      out = out.filter((r) => r[3] === 1);
       if (qtype !== "all") out = out.filter((r) => (r[4] === 1) === (qtype === "case"));
       if (queryIds) out = out.filter((r) => queryIds.has(r[0]));
       return out;
     })();
     const poolSize = poolRows.length;
-    const examCountRows = (rows: IndexRow[]) => rows.filter(poolMatch).length;
+    const examCountRows = (rows: IndexRow[]) => rows.filter((r) => r[3] === 1).length;
     const labelMainIdx = mainCategory === "all" ? -1 : index.mains.findIndex((m) => m.name === mainCategory);
     const labelMainRows = labelMainIdx < 0 ? index.rows : rowsByMain[labelMainIdx] ?? [];
-    const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${qtype === "all" ? "" : qtype === "case" ? "Кейс · " : "Онол · "}${pool === "all" ? "" : pool === "answered" ? "Хариулттай · " : "Хариултгүй · "}${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
+    const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${qtype === "all" ? "" : qtype === "case" ? "Кейс · " : "Онол · "}${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
     return (
       <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0 min-h-[100vh]">
       <button onClick={() => (fullAccess ? setSettingsOpen(true) : setPaywallNote(true))} className="w-full rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-white/10 dark:bg-white/[0.04] overflow-hidden text-left hover:border-indigo-400 dark:hover:border-indigo-400/50 transition-colors min-w-0">
@@ -918,7 +884,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
                 { value: "all", label: `Бүх үндсэн (${examCountRows(baseRows)})` },
                 ...mainCategories
                   .map((c, i) => ({ value: c, label: `${!fullAccess && c !== FREE_CATEGORY ? "🔒 " : ""}${c} (${examCountRows(rowsByMain[i])})`, n: examCountRows(rowsByMain[i]) }))
-                  .filter((o) => pool === "all" || o.n > 0)
+                  .filter((o) => o.n > 0)
                   .map(({ value, label }) => ({ value, label })),
               ]}
             />
@@ -939,7 +905,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
                 { value: "all", label: `Бүх дэд (${examCountRows(labelMainRows)})` },
                 ...subCategories
                   .map((c) => { const n = examCountRows(labelMainRows.filter((r) => indexSubName(index, r) === c)); return { value: c, label: `${c} (${n})`, n }; })
-                  .filter((o) => pool === "all" || o.n > 0)
+                  .filter((o) => o.n > 0)
                   .map(({ value, label }) => ({ value, label })),
               ]}
             />
@@ -950,15 +916,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
             <div className="flex gap-1.5 sm:gap-2 min-w-0">
               {([{ v: "all", label: "Бүгд" }, { v: "case", label: "Кейс" }, { v: "knowledge", label: "Онол" }] as { v: "all" | "case" | "knowledge"; label: string }[]).map((o) => (
                 <button key={o.v} onClick={() => setQtype(o.v)} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${qtype === o.v ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"}`}>{o.label}</button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-1.5 sm:gap-2 min-w-0">
-            <span className="text-[12px] sm:text-sm font-medium">Хариулт</span>
-            <div className="flex gap-1.5 sm:gap-2 min-w-0">
-              {([{ v: "all", label: "Бүгд" }, { v: "answered", label: "Хариулттай" }, { v: "unanswered", label: "Хариултгүй" }] as { v: "all" | "answered" | "unanswered"; label: string }[]).map((o) => (
-                <button key={o.v} onClick={() => setPool(o.v)} className={`flex-1 min-w-0 rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm min-h-[36px] sm:min-h-[48px] ${pool === o.v ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"}`}>{o.label}</button>
               ))}
             </div>
           </div>
@@ -1036,7 +993,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
               <>
                 <button aria-label="close" onClick={() => setSubDropOpen(false)} className="fixed inset-0 z-10 cursor-default bg-transparent" />
                 <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg sm:rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:bg-[#0c0c14]/95 dark:border-white/10 dark:backdrop-blur-xl">
-                  {mainCategories.map((m) => (
+                  {mainCategories.filter((m) => subPairs.some((p) => p.main === m)).map((m) => (
                     <div key={m}>
                       <p className="truncate px-3 pt-2 pb-0.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{m}</p>
                       {subPairs.map((p, i) => p.main === m ? (
@@ -1083,13 +1040,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
               </div>
             ) : (
               <p className="rounded-lg sm:rounded-xl bg-zinc-50 p-3 sm:p-4 text-[12px] sm:text-sm text-zinc-500 dark:bg-white/5">Энэ дэд ангиллаар оролдлого байхгүй байна — эхлээд шалгалт өгнө үү.</p>
-            )}
-            {subUnknowns.length > 0 && (
-              <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 text-[12px] sm:text-sm text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
-                <p className="font-medium text-amber-900 dark:text-amber-100">Та энэ дэд ангиллын {subUnknowns.length} хариултгүй сорилгоос {subUnsaved}-г нь хадгалаагүй байна.</p>
-                <p className="mt-1">Хадгалаагүй сорилгыг хамгийн олон санал авсан сонголтоор дүгнэнэ. Хэн ч хадгалаагүй эсвэл санал тэнцсэн бол автоматаар зөв гэж үзнэ.</p>
-                <p className="mt-1">Өөрийн хариултаа <Link href="/browse/unanswered" className="font-medium text-indigo-700 underline dark:text-indigo-300">Хариултгүй сорилго</Link> дээр хадгалж болно.</p>
-              </div>
             )}
             <button
               onClick={() => { setMainCategory(subPair.main); setSubCategory(subPair.sub); setCount(subPair.count); setCustomCount(""); start({ main: subPair.main, sub: subPair.sub, n: subPair.count, m: "exam" }); }}
@@ -1192,11 +1142,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
 
   if (state === "running" && current) {
     const ans = answers[current.id];
-    const noFile = !fileHasAnswer(current);
-    const judgeCur = judgeOf(current);
-    const correct = noFile ? judgeCur.correct : fileAnswer(current);
-    const isUnknown = noFile && judgeCur.source === "unknown";
-    const isAuto = noFile && judgeCur.source === "auto";
+    const correct = correctOf(current);
     const answered = ans !== undefined;
     return (
       <div className="mx-auto max-w-3xl w-full space-y-3 sm:space-y-4 min-w-0 overflow-hidden px-3 sm:px-0 max-sm:min-h-[calc(100dvh-12rem)] max-sm:flex max-sm:flex-col max-sm:justify-center">
@@ -1227,7 +1173,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
           <div className="rounded-xl border border-violet-200 bg-violet-50/80 border-l-4 border-l-violet-500 px-3 py-2.5 sm:px-5 sm:py-4 dark:border-violet-400/20 dark:border-l-violet-400/70 dark:bg-violet-500/[0.12]">
             <h2 className="text-base sm:text-xl font-medium leading-snug sm:leading-relaxed break-words [overflow-wrap:anywhere] min-w-0">{current.question}</h2>
           </div>
-          {noFile && <p className="mt-1.5 text-[11px] sm:text-xs rounded-full bg-amber-50 px-2 py-0.5 sm:px-3 sm:py-1 inline-block max-w-full break-words text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">{isAuto ? "Хэн ч энэ сорилгыг хадгалаагүй эсвэл санал тэнцсэн — автоматаар зөв гэж үзнэ." : judgeCur.source === "personal" ? "Таны хадгалсан хариултаар дүгнэнэ." : judgeCur.source === "majority" ? "Хамгийн олон санал авсан сонголтоор дүгнэнэ." : "Зөв хариулт хараахан тодорхойгүй — Browse дээр хадгална уу"}</p>}
 
           <div className="mt-3 sm:mt-6 grid gap-1.5 sm:gap-3 min-w-0">
             {(optionOrder[current.id] ?? current.options.map((_, oi) => oi)).map((oi) => {
@@ -1250,16 +1195,8 @@ export default function QuizClient({ index }: { index: IndexData }) {
 
           {runMode === "study" && answered && (
             <div className="mt-3 sm:mt-4 flex gap-2 min-w-0">
-              {isAuto ? (
-                <p className="text-[12px] sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 break-words">✓ Автоматаар зөв</p>
-              ) : noFile && judgeCur.source !== "unknown" ? (
-                !showStudyFeedback ? (
-                  <button onClick={() => setShowStudyFeedback(true)} className="rounded-full border border-zinc-200 px-4 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm dark:border-white/15 shrink-0">Хариу шалгах</button>
-                ) : (
-                  <p className={`text-[12px] sm:text-sm font-medium break-words min-w-0 ${ans === correct ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>{ans === correct ? "✓ Зөв!" : "✗ Буруу"}</p>
-                )
-              ) : isUnknown ? (
-                <p className="text-[12px] sm:text-sm text-amber-600 dark:text-amber-400 break-words">Зөв хариулт тодорхойгүй тул дүгнээгүй — Browse дээр хадгалж болно.</p>
+              {correct === null ? (
+                <p className="text-[12px] sm:text-sm text-amber-600 dark:text-amber-400 break-words">Зөв хариулт тодорхойгүй тул дүгнээгүй.</p>
               ) : !showStudyFeedback ? (
                 <button onClick={() => setShowStudyFeedback(true)} className="rounded-full border border-zinc-200 px-4 py-1.5 sm:px-5 sm:py-2 text-[12px] sm:text-sm dark:border-white/15 shrink-0">Хариу шалгах</button>
               ) : (
@@ -1331,11 +1268,10 @@ export default function QuizClient({ index }: { index: IndexData }) {
   const pct = total ? Math.round((score / total) * 100) : 0;
   const statusOf = (q: Question) => {
     const a = answers[q.id];
-    const j = judgeOf(q);
-    if (j.source === "auto") return "correct" as const;
-    if (j.correct === null) return "unknown" as const;
+    const c = correctOf(q);
+    if (c === null) return "unknown" as const;
     if (a === undefined) return "unanswered" as const;
-    return a === j.correct ? ("correct" as const) : ("wrong" as const);
+    return a === c ? ("correct" as const) : ("wrong" as const);
   };
   // default to mistakes-only view; fall back to all when nothing to fix
   const effFilter = resultStats.wrong + resultStats.un > 0 ? reviewFilter : "all";
@@ -1423,10 +1359,8 @@ export default function QuizClient({ index }: { index: IndexData }) {
       <div className="space-y-2 sm:space-y-4 min-w-0 select-none">
         {reviewItems.map(({ q, i, st }) => {
           const a = answers[q.id];
-          const j = judgeOf(q);
-          const c = j.correct;
+          const c = correctOf(q);
           const unknown = st === "unknown";
-          const auto = j.source === "auto";
           const ok = st === "correct";
           const open = !!expanded[q.id];
           return (
@@ -1439,11 +1373,11 @@ export default function QuizClient({ index }: { index: IndexData }) {
               </button>
               {open && (
                 <div className="px-3 pb-3 sm:px-4 sm:pb-4">
-                  <p className="text-[10px] sm:text-xs text-zinc-500 break-words">{q.category}{q.subCategory ? ` · ${q.subCategory}` : ""} {unknown ? "· хариултгүй" : auto ? "· Автоматаар зөв" : j.source === "majority" ? "· Олонхын санал" : j.source === "personal" ? "· Та хадгалсан" : ""} {st === "unanswered" ? "· хариулаагүй" : ""}</p>
+                  <p className="text-[10px] sm:text-xs text-zinc-500 break-words">{q.category}{q.subCategory ? ` · ${q.subCategory}` : ""} {unknown ? "· хариултгүй" : ""} {st === "unanswered" ? "· хариулаагүй" : ""}</p>
                   <div className="mt-2 grid gap-1.5 sm:gap-2 min-w-0">
                     {(optionOrder[q.id] ?? q.options.map((_, oi) => oi)).map((oi, di) => (
-                      <div key={oi} className={`rounded-lg sm:rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm flex gap-1.5 sm:gap-2 min-w-0 overflow-hidden ${!unknown && !auto && oi === c ? "border-emerald-500 bg-emerald-100 dark:bg-emerald-400/10" : ""} ${oi === a && !ok && !unknown && !auto ? "border-rose-500 bg-rose-100 dark:bg-rose-400/10" : "bg-white dark:bg-white/5"}`}>
-                        <span className="font-bold shrink-0">{letters[di]}.</span><span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere] leading-snug">{q.options[oi]} {!unknown && !auto && oi === c && "✓"} {!unknown && !auto && oi === c && j.source === "personal" && <span className="text-[10px]">· Та хадгалсан</span>} {oi === a && oi !== c && !unknown && !auto && "← таны сонголт"}</span>
+                      <div key={oi} className={`rounded-lg sm:rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm flex gap-1.5 sm:gap-2 min-w-0 overflow-hidden ${!unknown && oi === c ? "border-emerald-500 bg-emerald-100 dark:bg-emerald-400/10" : ""} ${oi === a && !ok && !unknown ? "border-rose-500 bg-rose-100 dark:bg-rose-400/10" : "bg-white dark:bg-white/5"}`}>
+                        <span className="font-bold shrink-0">{letters[di]}.</span><span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere] leading-snug">{q.options[oi]} {!unknown && oi === c && "✓"} {oi === a && oi !== c && !unknown && "← таны сонголт"}</span>
                       </div>
                     ))}
                   </div>
@@ -1452,8 +1386,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
                       ? <p className="mt-2 text-[11px] sm:text-xs text-zinc-500">✓ Их алддагт нэмэгдсэн{mistakes[q.id].wrongCount > 0 ? ` · ✗ ${mistakes[q.id].wrongCount}` : ""}</p>
                       : <button onClick={() => addManualMistake(q.id)} className="mt-2 rounded-full border border-zinc-200 px-3 py-1.5 text-[11px] sm:text-xs font-medium hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">+ Их алддагт нэмэх</button>
                   )}
-                  {unknown && <p className="mt-1.5 text-[11px] sm:text-xs text-zinc-500 break-words">Зөв хариулт хараахан тодорхойгүй — Browse дээр A–D сонгоод хадгална уу.</p>}
-                  {auto && <p className="mt-1.5 text-[11px] sm:text-xs text-zinc-500 break-words">Хэн ч хадгалаагүй эсвэл санал тэнцсэн — автоматаар зөв гэж үзсэн.</p>}
+                  {unknown && <p className="mt-1.5 text-[11px] sm:text-xs text-zinc-500 break-words">Зөв хариулт тодорхойгүй тул дүгнээгүй.</p>}
                 </div>
               )}
             </div>

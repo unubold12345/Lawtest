@@ -3,7 +3,7 @@ import { buildIndex } from "@/lib/questionIndexServer";
 import { loadQuestions } from "@/lib/questions";
 import { refreshOverrides } from "@/lib/questionOverrides";
 import type { Question } from "@/types/question";
-import type { QuestionPool } from "@/lib/questionIndex";
+import type { IndexRow, QuestionPool } from "@/lib/questionIndex";
 import BrowseClient from "@/components/BrowseClient";
 
 // Shared server view for /browse (answered) and /browse/unanswered.
@@ -18,11 +18,13 @@ export default async function BrowsePage({ pool }: { pool: QuestionPool }) {
     );
   }
   // first page of this pool is rendered server-side: no skeleton flash, no first fetch
-  const want = pool === "answered" ? 1 : 0;
+  // unanswered also lists admin-answered (override) questions so they stay in the working set;
+  // the answered pool excludes them so marking an answer never moves a question between pages
+  const inPool = (r: IndexRow) => (pool === "answered" ? r[3] === 1 && r[5] === 0 : r[3] === 0 || r[5] === 1);
   const { questions } = loadQuestions();
   const byId = new Map(questions.map((q) => [q.id, q]));
   const firstPage = index.rows
-    .filter((r) => r[3] === want)
+    .filter(inPool)
     .slice(0, 20)
     .map((r) => byId.get(r[0]))
     .filter((q): q is Question => !!q);

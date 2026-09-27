@@ -25,7 +25,9 @@ type PaymentRow = { id: string; status: string; createdAt: string; decidedAt: st
 
 type ReportRow = { id: string; questionId: string; type: string; message: string; status: string; createdAt: string; user: { id: string; name: string | null; email: string; phone: string | null } };
 
-type TabId = "overview" | "users" | "questions" | "attempts" | "reports" | "payments";
+type AnnouncementRow = { id: string; body: string; createdAt: string; readCount: number };
+
+type TabId = "overview" | "users" | "questions" | "attempts" | "reports" | "payments" | "announcements";
 
 const REPORT_TYPES: Record<string, string> = {
   WRONG_ANSWER: "Зөв хариулт буруу",
@@ -41,6 +43,7 @@ const SECTIONS: { id: TabId; label: string; desc: string }[] = [
   { id: "attempts", label: "Оролдлогууд", desc: "Хэрэглэгчдийн шалгалтын үр дүн" },
   { id: "questions", label: "Сорилгууд", desc: "Асуултын сан, чанарын хяналт" },
   { id: "reports", label: "Мэдээлэл", desc: "Хэрэглэгчдийн мэдээлсэн алдаа" },
+  { id: "announcements", label: "Мэдэгдэл", desc: "Хэрэглэгчдэд мэдэгдэл илгээх" },
 ];
 
 const ICONS: Record<TabId, ReactNode> = {
@@ -81,6 +84,11 @@ const ICONS: Record<TabId, ReactNode> = {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
       <path d="M5 3v18" />
       <path d="M5 4h13l-2.5 4L18 12H5" />
+    </svg>
+  ),
+  announcements: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
     </svg>
   ),
 };
@@ -416,6 +424,9 @@ export default function AdminClient() {
   const [navOpen, setNavOpen] = useState(false);
   const [reportQ, setReportQ] = useState<Record<string, string>>({});
   const [editReport, setEditReport] = useState<ReportRow | null>(null);
+  const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
+  const [annBody, setAnnBody] = useState("");
+  const [annSaving, setAnnSaving] = useState(false);
 
   const fetchStats = async () => {
     const r = await fetch("/api/admin/stats");
@@ -452,6 +463,12 @@ export default function AdminClient() {
     setPayments(d.requests);
     setPendingPayments(d.pending);
   };
+  const fetchAnnouncements = async () => {
+    const r = await fetch("/api/admin/announcements");
+    if (!r.ok) throw new Error("announcements failed");
+    const d = await r.json();
+    setAnnouncements(d.announcements || []);
+  };
 
   useEffect(() => {
     (async () => {
@@ -487,6 +504,7 @@ export default function AdminClient() {
     setNavOpen(false);
     if (id === "reports") fetchReports();
     if (id === "payments") fetchPayments();
+    if (id === "announcements") fetchAnnouncements();
   };
 
   const setReportStatus = async (id: string, status: "OPEN" | "RESOLVED") => {
@@ -500,6 +518,27 @@ export default function AdminClient() {
     const r = await fetch(`/api/admin/reports/${id}`, { method: "DELETE" });
     if (!r.ok) { alert("Амжилтгүй"); return; }
     await fetchReports(reportFilter, reports.length === 1 && reportsPage > 1 ? reportsPage - 1 : reportsPage);
+  };
+
+  const publishAnnouncement = async () => {
+    const body = annBody.trim();
+    if (body.length < 3) return;
+    setAnnSaving(true);
+    try {
+      const r = await fetch("/api/admin/announcements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body }) });
+      if (!r.ok) { alert((await r.json()).error || "Амжилтгүй"); return; }
+      const d = await r.json();
+      setAnnouncements((prev) => [{ ...d.announcement, readCount: 0 }, ...prev]);
+      setAnnBody("");
+    } finally {
+      setAnnSaving(false);
+    }
+  };
+  const delAnnouncement = async (id: string) => {
+    if (!confirm("Мэдэгдлийг устгах уу?")) return;
+    const r = await fetch(`/api/admin/announcements?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!r.ok) { alert("Амжилтгүй"); return; }
+    setAnnouncements((prev) => prev.filter((a) => a.id !== id));
   };
 
   const toggleRole = async (u: UserRow) => {
@@ -549,6 +588,7 @@ export default function AdminClient() {
     attempts: { badge: 0, tone: "rose" },
     questions: { badge: errCount, tone: "rose" },
     reports: { badge: openReports, tone: "rose" },
+    announcements: { badge: 0, tone: "rose" },
   };
 
   const navList = (onPick: (id: TabId) => void) => (
@@ -839,6 +879,37 @@ export default function AdminClient() {
                 {reports.length === 0 && <p className="text-sm text-zinc-500 text-center py-6">Мэдээлэл алга</p>}
               </div>
               <Pager page={reportsPage} pageSize={PAGE_SIZE} total={reportsTotal} onChange={(p) => fetchReports(reportFilter, p)} />
+            </div>
+          )}
+
+          {tab === "announcements" && (
+            <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
+              <h3 className="font-semibold text-sm">Хэрэглэгчдэд мэдэгдэл илгээх</h3>
+              <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">Мэдэгдэл бүх нэвтэрсэн хэрэглэгчийн хонхон дээр харагдана.</p>
+              <div className="mt-3 grid gap-2">
+                <AutoGrowTextarea value={annBody} onChange={(e) => setAnnBody(e.target.value)} disabled={annSaving} className={editorInput} />
+                <div className="flex justify-end">
+                  <button
+                    onClick={publishAnnouncement}
+                    disabled={annSaving || annBody.trim().length < 3}
+                    className="rounded-full bg-indigo-600 px-4 py-1.5 text-[11px] sm:text-xs text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 disabled:opacity-50 min-h-[32px]"
+                  >
+                    {annSaving ? "Илгээж байна…" : "Мэдэгдэл илгээх"}
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {announcements.map((a) => (
+                  <div key={a.id} className="rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[13px] leading-snug break-words whitespace-pre-wrap">{a.body}</p>
+                      <button onClick={() => delAnnouncement(a.id)} className="shrink-0 rounded-full border border-rose-200 px-4 py-1.5 text-[11px] sm:text-xs text-rose-600 dark:border-rose-400/30 dark:text-rose-400 min-h-[32px]">Устгах</button>
+                    </div>
+                    <p className="mt-1 text-[11px] text-zinc-500">{new Date(a.createdAt).toLocaleString("mn-MN")} · {a.readCount} уншсан</p>
+                  </div>
+                ))}
+                {announcements.length === 0 && <p className="text-sm text-zinc-500 text-center py-6">Мэдэгдэл алга</p>}
+              </div>
             </div>
           )}
 

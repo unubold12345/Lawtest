@@ -50,6 +50,15 @@ export function overridesStamp(): string {
   return stamp;
 }
 
+// True when an admin override supplies an answer for this question. The index
+// builder combines this with file-answer info: answers ADDED by an admin on a
+// question that had none keep it listed on the unanswered page; edits of an
+// existing official answer (e.g. q001) stay only on the answered page.
+export function overrideHasAnswer(questionId: string): boolean {
+  const o = map.get(questionId);
+  return !!o && typeof o.answer === "number";
+}
+
 function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((x) => typeof x === "string");
 }

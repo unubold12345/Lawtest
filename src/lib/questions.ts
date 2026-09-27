@@ -80,15 +80,26 @@ function dataStamp(): string {
   return parts.join("|");
 }
 
-let cache: { stamp: string; result: QuestionsLoadResult } | null = null;
+let cache: { stamp: string; result: QuestionsLoadResult; fileAnswered: Set<string> } | null = null;
 
 export function loadQuestions(): QuestionsLoadResult {
   const stamp = `${dataStamp()}@@${overridesStamp()}`;
   if (cache && cache.stamp === stamp) return cache.result;
   const result = loadQuestionsUncached();
+  const fileAnswered = new Set<string>();
+  for (const q of result.questions) {
+    const a = q.answer;
+    if (typeof a === "number" || (Array.isArray(a) && a.length > 0)) fileAnswered.add(q.id);
+  }
   result.questions = applyOverrides(result.questions);
-  cache = { stamp, result };
+  cache = { stamp, result, fileAnswered };
   return result;
+}
+
+// Ids whose answer exists in the JSON data files (before DB overrides are merged).
+export function fileAnsweredIds(): Set<string> {
+  if (!cache) loadQuestions();
+  return cache!.fileAnswered;
 }
 
 // Called after a data file is edited so the next load re-reads from disk.

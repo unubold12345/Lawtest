@@ -3,10 +3,11 @@
 
 export type IndexSub = { name: string; count: number };
 export type IndexMain = { name: string; count: number; subs: IndexSub[] };
-// tuple form keeps the payload small: [id, mainIdx, subIdx, hasAnswer, isCase]
-export type IndexRow = [string, number, number, number, number];
+// tuple form keeps the payload small: [id, mainIdx, subIdx, hasAnswer, isCase, adminAdded]
+export type IndexRow = [string, number, number, number, number, number];
 export type IndexData = { total: number; mains: IndexMain[]; allSubs: IndexSub[]; rows: IndexRow[] };
-// answered = has an official answer in the data files; unanswered = still open
+// answered = has an official answer (file, or admin answer added where the file had none);
+// unanswered = still open (plus admin-answered questions from no-answer banks, which stay listed)
 export type QuestionPool = "answered" | "unanswered";
 
 export function indexMainName(index: IndexData, row: IndexRow): string {

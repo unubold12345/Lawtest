@@ -1,4 +1,5 @@
-import { loadQuestions } from "@/lib/questions";
+import { fileAnsweredIds, loadQuestions } from "@/lib/questions";
+import { overrideHasAnswer } from "@/lib/questionOverrides";
 import type { Question } from "@/types/question";
 import { classifyQType } from "@/lib/qtype";
 import type { IndexData, IndexMain, IndexRow, IndexSub } from "@/lib/questionIndex";
@@ -56,11 +57,13 @@ export function buildIndex(): IndexData {
     subIdx.push(new Map(m.subs.map((s, j) => [s.name, j])));
   });
 
+  const fileAnswered = fileAnsweredIds();
   const rows: IndexRow[] = questions.map((q) => {
     const cat = q.category || "";
     const m = mainIdx.get(cat) ?? -1;
     const s = m >= 0 && q.subCategory ? (subIdx[m].get(q.subCategory) ?? -1) : -1;
-    return [q.id, m, s, hasFileAnswer(q) ? 1 : 0, classifyQType(q.question) === "case" ? 1 : 0];
+    const adminAdded = overrideHasAnswer(q.id) && !fileAnswered.has(q.id);
+    return [q.id, m, s, hasFileAnswer(q) ? 1 : 0, classifyQType(q.question) === "case" ? 1 : 0, adminAdded ? 1 : 0];
   });
 
   lastSrc = questions;

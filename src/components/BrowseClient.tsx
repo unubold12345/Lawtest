@@ -42,6 +42,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const fullAccess =
     (session?.user as unknown as { hasPaid?: boolean; role?: string } | undefined)?.hasPaid === true ||
     (session?.user as unknown as { role?: string } | undefined)?.role === "ADMIN";
+  const isAdmin = (session?.user as unknown as { role?: string } | undefined)?.role === "ADMIN";
   // saving answers is a paid feature
   const canSave = isAuthed && fullAccess;
   const searchRef = useRef<HTMLInputElement>(null);
@@ -60,12 +61,13 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const [activeId, setActiveId] = useState<string | null>(null);
   const [myDb, setMyDb] = useState<Record<string, number>>({});
   const [notedIds, setNotedIds] = useState<Set<string>>(new Set());
-  const [counts, setCounts] = useState<Record<string, number[]>>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [picked, setPicked] = useState<Record<string, number>>({});
   const [flash, setFlash] = useState<Record<string, string>>({});
-  const [pending, setPending] = useState<{ id: string; index: number } | null>(null);
+  const [flashErr, setFlashErr] = useState<Record<string, boolean>>({});
+  const [pending, setPending] = useState<{ id: string; index: number | null } | null>(null);
   const [pendingClear, setPendingClear] = useState<string | null>(null);
+  const [marking, setMarking] = useState<string | null>(null);
   const [view, setView] = useState<View>("list");
   const [gridCols, setGridCols] = useState<number>(2);
   const [cardIdx, setCardIdx] = useState(0);
@@ -89,11 +91,13 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   // session data is unknown until /api/auth/session resolves — don't flash
   // "locked" UI at paid users during that window
   const sessionPending = !session && sessionStatus === "loading";
-  // this page's pool: the hasAnswer bit in the index row decides answered vs unanswered
-  const poolRows = useMemo(() => {
-    const want = pool === "answered" ? 1 : 0;
-    return index.rows.filter((r) => r[3] === want);
-  }, [index, pool]);
+  // this page's pool: the hasAnswer bit in the index row decides answered vs unanswered.
+  // admin-answered (override) questions stay in the unanswered working set via the r[5] bit
+  // and are excluded from the answered pool (r[5]=1), so marking an answer does not move them.
+  const poolRows = useMemo(
+    () => (pool === "answered" ? index.rows.filter((r) => r[3] === 1 && r[5] === 0) : index.rows.filter((r) => r[3] === 0 || r[5] === 1)),
+    [index, pool]
+  );
   // category counts restricted to this pool, so dropdown labels stay honest
   const poolMainCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -279,21 +283,6 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     return () => { cancelled = true; };
   }, [isAuthed]);
 
-  // fetch vote counts for saveable visible rows (public, my vote if authed)
-  useEffect(() => {
-    const visible = view === "card" ? (cardRow ? [cardRow] : []) : pagedRows;
-    const ids = visible.filter((r) => r[3] === 0).map((r) => r[0]);
-    if (ids.length === 0) return;
-    fetch(`/api/saved-answers?ids=${encodeURIComponent(ids.join("|"))}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.counts) setCounts((prev) => ({ ...prev, ...d.counts }));
-        if (d.my) setMyDb((prev) => ({ ...prev, ...d.my }));
-      })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagedIds.join("\u0001"), view, cardRow?.[0]]);
-
   // fetch full questions for the visible page (and the card item) by id
   const needIds = [...new Set([...pagedIds, ...(view === "card" && cardRow ? [cardRow[0]] : [])])];
   const needIdsKey = needIds.join("\u0001");
@@ -364,19 +353,69 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         } else {
           setMyDb((prev) => ({ ...prev, [id]: index }));
         }
-        fetch(`/api/saved-answers?ids=${encodeURIComponent(id)}`).then((rr) => rr.json()).then((d) => { if (d.counts) setCounts((p) => ({ ...p, ...d.counts })); }).catch(() => {});
       }
     } catch { /* ignore */ }
   };
 
-  const flashSaved = (id: string, text: string) => {
+  const flashSaved = (id: string, text: string, err = false) => {
+    setFlashErr((p) => { const n = { ...p }; if (err) n[id] = true; else delete n[id]; return n; });
     setFlash((p) => ({ ...p, [id]: text }));
-    window.setTimeout(() => setFlash((p) => { const n = { ...p }; delete n[id]; return n; }), 2600);
+    window.setTimeout(() => {
+      setFlash((p) => { const n = { ...p }; delete n[id]; return n; });
+      setFlashErr((p) => { const n = { ...p }; delete n[id]; return n; });
+    }, 2600);
   };
 
-  const chooseAnswer = (id: string, index: number) => {
-    if (!canSave) return;
-    setPending({ id, index });
+  // user's own saved answer (even when an official answer exists) — shown dominantly
+  const mySavedOf = (item: Question): number | null =>
+    isAuthed && typeof myDb[item.id] === "number" ? (myDb[item.id] as number) : null;
+
+  // admin on the unanswered pool: clicking an option marks it as the official answer
+  const markOfficial = async (item: Question, index: number) => {
+    if (marking) return;
+    if (typeof item.answer === "number" && item.answer === index) {
+      flashSaved(item.id, `${LETTERS[index]} аль хэдийн зөв хариулт байна`);
+      return;
+    }
+    setMarking(item.id);
+    try {
+      const r = await fetch("/api/admin/questions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: item.id,
+          question: item.question,
+          options: item.options,
+          answer: index,
+          explanation: item.explanation ?? "",
+          lawRef: item.lawRef ?? "",
+        }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        flashSaved(item.id, d.error || "Хадгалж чадсангүй", true);
+        return;
+      }
+      mergeItems([{ ...item, answer: index }]);
+      flashSaved(item.id, `✓ ${LETTERS[index]} зөв хариулт болголоо`);
+    } catch {
+      flashSaved(item.id, "Сүлжээний алдаа", true);
+    } finally {
+      setMarking(null);
+    }
+  };
+
+  const onOptionClick = (item: Question, i: number) => {
+    if (isAdmin && pool === "unanswered") {
+      void markOfficial(item, i);
+      return;
+    }
+    setPicked((prev) => {
+      const next = { ...prev };
+      if (next[item.id] === i) delete next[item.id];
+      else next[item.id] = i;
+      return next;
+    });
   };
 
   const toggleExpand = (id: string) => {
@@ -478,14 +517,15 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const renderItem = (item: Question, globalIdx: number) => {
     const locked = fileHasAnswer(item);
     const eff = effOf(item);
-    const mine = mineOf(item);
+    const mySaved = mySavedOf(item);
     const st = statusOf(item);
     const isOpen = !!expanded[item.id];
     const isActive = activeId === item.id;
     const isRevealed = !!revealed[item.id];
     const pick = picked[item.id];
-    const voteCounts: number[] = counts[item.id] || [];
-    const totalVotes = voteCounts.reduce((a, b) => a + b, 0);
+    const official = locked && typeof eff === "number" ? eff : null;
+    const isUnansweredPool = pool === "unanswered";
+    const adminView = isAdmin && isUnansweredPool;
     const mark = st === "mine" ? "✓" : st === "answered" ? "●" : "○";
     // grid view (desktop, 2+ columns): the expanded question spans the full row,
     // other tiles repack around it via grid-auto-flow: dense
@@ -504,7 +544,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           <span className={`shrink-0 pt-0.5 text-[13px] sm:text-sm ${st === "unanswered" ? "text-zinc-300 dark:text-zinc-600" : st === "mine" ? "text-emerald-600 dark:text-emerald-400" : "text-indigo-600 dark:text-indigo-300"} ${st === "mine" ? "font-bold" : ""}`}>{mark}</span>
           <span className="min-w-0 flex-1">
             <span className={`block leading-snug break-words [overflow-wrap:anywhere] ${isOpen ? "text-[13px] sm:text-[15px] font-medium" : "text-[12px] sm:text-sm line-clamp-2"}`}>{item.question}</span>
-            <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] text-zinc-400">{item.category}{item.subCategory ? ` · ${item.subCategory}` : ""}{!locked && eff !== null ? ` · ${LETTERS[eff]}` : ""}{!locked && notedIds.has(item.id) ? " · ✎" : ""}</span>
+            <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] text-zinc-400">{item.category}{item.subCategory ? ` · ${item.subCategory}` : ""}{!locked && eff !== null ? ` · ${LETTERS[eff]}` : isUnansweredPool && mySaved !== null ? ` · ${LETTERS[mySaved]}` : ""}{!locked && notedIds.has(item.id) ? " · ✎" : ""}</span>
           </span>
           <span className="shrink-0 pt-1 text-[10px] text-zinc-400">{isOpen ? "▴" : "▾"}</span>
         </button>
@@ -514,9 +554,13 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
             <div className="flex gap-1 flex-wrap">
               {item.category && <span className="rounded-full bg-indigo-50 text-indigo-600 px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-indigo-500/10 dark:text-indigo-300">{item.category}</span>}
               {item.subCategory && <span className="rounded-full bg-zinc-100 text-zinc-600 px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-white/5 dark:text-zinc-300">{item.subCategory}</span>}
-              {!locked && mine && <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] sm:text-xs dark:bg-emerald-400/10 dark:text-emerald-400">✓ Та хадгалсан</span>}
+              {isUnansweredPool && mySaved !== null && <span className="rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-[10px] sm:text-xs dark:bg-indigo-500/10 dark:text-indigo-300">Таны хариулт: {LETTERS[mySaved]}</span>}
               {!locked && eff === null && <span className="rounded-full border border-dashed border-zinc-200 px-2 py-0.5 text-[10px] sm:text-xs text-zinc-500 dark:border-white/15">○ Хариултгүй</span>}
             </div>
+
+            {adminView && (
+              <p className="mt-2 text-[10px] sm:text-[11px] text-amber-600 dark:text-amber-400">Админ: сонголт дээр дарахад зөв хариулт болж хадгалагдана — бүх хэрэглэгчид харагдана.</p>
+            )}
 
             {locked && eff !== null && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -526,7 +570,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
                 >
                   {isRevealed ? "Нуух" : "Зөв хариулт харах"}
                 </button>
-                {pick === undefined && !isRevealed && (
+                {pick === undefined && !isRevealed && !adminView && (
                   <span className="text-[11px] sm:text-xs text-zinc-400">Сонголт дээр дарж шалгах боломжтой</span>
                 )}
               </div>
@@ -534,108 +578,85 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
 
             <div className="mt-2.5 sm:mt-3 grid grid-cols-1 gap-1.5 sm:gap-2">
               {item.options.map((opt, i) => {
-                const isCorrect = eff !== null && i === eff;
-                const answered = locked && eff !== null && pick !== undefined;
-                const showCorrect = (isRevealed || answered) && isCorrect;
-                const showWrong = answered && pick === i && !isCorrect;
+                const isCorrect = official !== null && i === official;
+                const showCorrect = isCorrect && (isRevealed || pick !== undefined || adminView);
+                const showWrong = !isCorrect && pick === i;
+                const isMySaved = isUnansweredPool && mySaved === i;
                 const tone = showCorrect
                   ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-100"
                   : showWrong
                     ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-100"
-                    : "border-zinc-200 dark:border-white/10";
+                    : isMySaved
+                      ? "border-indigo-300 bg-indigo-50/60 dark:border-indigo-400/40 dark:bg-indigo-500/10"
+                      : "border-zinc-200 dark:border-white/10";
                 const pillTone = showCorrect
                   ? "bg-emerald-600 text-white dark:bg-emerald-500/30 dark:text-emerald-100"
                   : showWrong
                     ? "bg-rose-600 text-white dark:bg-rose-500/30 dark:text-rose-100"
-                    : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300";
-                const rowCls = `rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-2.5 text-[13px] sm:text-sm flex gap-2 ${tone}`;
+                    : isMySaved
+                      ? "bg-indigo-600 text-white dark:bg-indigo-500/30 dark:text-indigo-100"
+                      : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300";
+                const rowCls = `rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-2.5 text-[13px] sm:text-sm flex gap-2 ${tone}${isMySaved ? " ring-1 ring-inset ring-indigo-500/50" : ""}`;
                 const rowBody = (
                   <>
                     <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${pillTone}`}>{LETTERS[i]}</span>
                     <span className="min-w-0 leading-snug [overflow-wrap:anywhere]">{opt}</span>
-                    {showCorrect && <span className="ml-auto font-medium text-xs shrink-0">✓ Зөв</span>}
-                    {showWrong && <span className="ml-auto font-medium text-xs shrink-0">✗ Буруу</span>}
+                    {(isMySaved || showCorrect || showWrong) && (
+                      <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                        {isMySaved && <span className="text-[10px] sm:text-[11px] font-medium text-indigo-600 dark:text-indigo-300">Таны хариулт</span>}
+                        {showCorrect && <span className="font-medium text-xs">✓ Зөв</span>}
+                        {showWrong && <span className="font-medium text-xs">✗ Буруу</span>}
+                      </span>
+                    )}
                   </>
                 );
-                if (locked && eff !== null) {
-                  return (
-                    <button
-                      type="button"
-                      key={i}
-                      aria-pressed={pick === i}
-                      onClick={() =>
-                        setPicked((prev) => {
-                          const next = { ...prev };
-                          if (next[item.id] === i) delete next[item.id];
-                          else next[item.id] = i;
-                          return next;
-                        })
-                      }
-                      className={`${rowCls} w-full text-left hover:border-indigo-300 hover:bg-indigo-50/40 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/5`}
-                    >
-                      {rowBody}
-                    </button>
-                  );
-                }
                 return (
-                  <div key={i} className={rowCls}>
+                  <button
+                    type="button"
+                    key={i}
+                    aria-pressed={pick === i}
+                    disabled={marking === item.id}
+                    onClick={() => onOptionClick(item, i)}
+                    className={`${rowCls} w-full text-left hover:border-indigo-300 hover:bg-indigo-50/40 disabled:opacity-60 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/5`}
+                  >
                     {rowBody}
-                  </div>
+                  </button>
                 );
               })}
             </div>
+            {isUnansweredPool && official === null && pick === undefined && (
+              <p className="mt-2 text-[11px] sm:text-xs text-zinc-400">Зөв хариулт тогтоогдоогүй — сонголт дээр дарж шалгах боломжтой.</p>
+            )}
             {(isRevealed || pick !== undefined) && item.explanation && <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400 break-words">Тайлбар: {item.explanation}</p>}
 
-            {!locked && !isAuthed && (
+            {isUnansweredPool && !isAuthed && (
               <div className="mt-3 rounded-lg border border-dashed border-indigo-200 bg-indigo-50/60 p-2.5 sm:p-3 text-[11px] sm:text-xs text-indigo-700 dark:border-indigo-400/30 dark:bg-indigo-500/10 dark:text-indigo-200">
                 Зөв хариулт хадгалахын тулд <Link href="/login" className="font-medium text-zinc-900 underline hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300">нэвтэрнэ үү</Link>.
               </div>
             )}
 
-            {!locked && isAuthed && !fullAccess && (
+            {isUnansweredPool && isAuthed && !fullAccess && (
               <div className="mt-3 rounded-lg border border-dashed border-amber-200 bg-amber-50 p-2.5 sm:p-3 text-[11px] sm:text-xs text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
                 Зөв хариулт хадгалах нь төлбөртэй — <Link href="/plan" className="font-medium text-zinc-900 underline hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300">Эрх авах</Link>.
               </div>
             )}
 
-            {!locked && canSave && (
+            {isUnansweredPool && canSave && (
               <div className="mt-3 rounded-lg border border-dashed border-zinc-200 p-2.5 sm:p-3 dark:border-white/10">
-                <p className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {eff === null
-                    ? "Зөв хариулт тодорхойгүй — сонгоод хадгална уу:"
-                    : `Таны хадгалсан: ${LETTERS[eff]} — солих:`}
-                </p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {item.options.map((_, i) => {
-                    const c = voteCounts[i] || 0;
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => chooseAnswer(item.id, i)}
-                        className={`rounded-full px-3.5 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-sm border flex items-center gap-1 min-h-[34px] sm:min-h-[40px] ${eff === i ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"}`}
-                      >
-                        <span className="font-bold">{LETTERS[i]}</span>
-                        <span className={`text-[11px] ${eff === i ? "opacity-70" : "text-zinc-400"}`}>· {c}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {flash[item.id] && <p className="mt-1.5 text-[11px] sm:text-xs font-medium text-emerald-600 dark:text-emerald-400">{flash[item.id]}</p>}
-                {totalVotes > 0 && (
-                  <p className="mt-1.5 text-[10px] sm:text-xs text-zinc-500">
-                    Нийт {totalVotes} санал
-                    {(() => {
-                      let max = -1, maxIdx = -1;
-                      voteCounts.forEach((v, i) => { if (v > max) { max = v; maxIdx = i; } });
-                      return voteCounts.filter((v) => v === max).length === 1 && max > 0 ? ` · хамгийн их: ${LETTERS[maxIdx]} (${max})` : "";
-                    })()}
-                  </p>
-                )}
-                {mine && (
-                  <button onClick={() => setPendingClear(item.id)} className="mt-1.5 text-[11px] sm:text-xs underline text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400">
-                    Хадгалснаа арилгах
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <button
+                    onClick={() => setPending({ id: item.id, index: mySaved })}
+                    className="rounded-full border border-indigo-300 px-4 py-2 text-[12px] sm:text-sm font-medium text-indigo-700 hover:bg-indigo-50 dark:border-indigo-400/40 dark:text-indigo-200 dark:hover:bg-indigo-500/10 min-h-[36px]"
+                  >
+                    Өөрийн хариултыг оруулах
                   </button>
-                )}
+                  {mySaved !== null && (
+                    <button onClick={() => setPendingClear(item.id)} className="text-[11px] sm:text-xs underline text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400">
+                      Хадгалснаа арилгах
+                    </button>
+                  )}
+                </div>
+                {flash[item.id] && <p className={`mt-1.5 text-[11px] sm:text-xs font-medium ${flashErr[item.id] ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>{flash[item.id]}</p>}
               </div>
             )}
 
@@ -903,34 +924,42 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         </div>
       )}
 
-      {/* confirm save (normal mode) */}
+      {/* pick own answer (unanswered page) */}
       {pending && (() => {
         const pq = items[pending.id];
         if (!pq) return null;
-        const curEff = effOf(pq);
-        const isChange = curEff !== null && curEff !== pending.index;
+        const idx = pending.index;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button aria-label="close" onClick={() => setPending(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60" />
             <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl select-none dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
-              <h3 className="font-semibold">{isChange ? "Зөв хариултыг солих уу?" : "Зөв хариулт хадгалах уу?"}</h3>
+              <h3 className="font-semibold">Өөрийн хариултыг оруулах</h3>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-3">{pq.question}</p>
-              <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                <p className="text-sm"><span className="font-bold">{LETTERS[pending.index]}.</span> {pq.options[pending.index]}</p>
-                {curEff !== null && <p className="mt-1 text-xs text-zinc-500">Одоогийн: {LETTERS[curEff]} · Шинэ: {LETTERS[pending.index]}</p>}
+              <div className="mt-4 grid gap-1.5">
+                {pq.options.map((opt, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    onClick={() => setPending((p) => (p ? { ...p, index: i } : p))}
+                    className={`flex w-full items-start gap-2 rounded-xl border px-3 py-2 text-left text-[13px] sm:text-sm ${idx === i ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400/60 dark:bg-indigo-500/15" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/10 dark:hover:bg-white/5"}`}
+                  >
+                    <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${idx === i ? "bg-indigo-600 text-white dark:bg-indigo-500/40 dark:text-indigo-100" : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{LETTERS[i]}</span>
+                    <span className="min-w-0 leading-snug [overflow-wrap:anywhere]">{opt}</span>
+                  </button>
+                ))}
               </div>
-              <p className="mt-3 text-xs text-zinc-500">Андуурч дарсан бол Цуцлах дарна уу — шууд хадгалагдахгүй.</p>
+              <p className="mt-3 text-xs text-zinc-500">Сонголт хийгээд Хадгалах дарна уу — дараа нь өөрчилж болно.</p>
               <div className="mt-5 flex justify-end gap-2">
                 <button onClick={() => setPending(null)} className="rounded-full border border-zinc-200 px-5 py-2 text-sm hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5">Цуцлах</button>
                 <button
-                  autoFocus
+                  disabled={idx === null}
                   onClick={async () => {
-                    const { id, index } = pending;
-                    await persistAnswer(id, index);
-                    flashSaved(id, `✓ ${LETTERS[index]} хадгалагдлаа`);
+                    if (idx === null || !pending) return;
+                    await persistAnswer(pending.id, idx);
+                    flashSaved(pending.id, `✓ ${LETTERS[idx]} хадгалагдлаа`);
                     setPending(null);
                   }}
-                  className="rounded-full bg-indigo-600 px-6 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400"
+                  className="rounded-full bg-indigo-600 px-6 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-40 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400"
                 >
                   Хадгалах
                 </button>

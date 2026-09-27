@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
+import NotificationBell from "@/components/NotificationBell";
 import BrandMark from "@/components/BrandMark";
 
 export default function Header() {
@@ -11,19 +12,14 @@ export default function Header() {
   const user = session?.user as unknown as { name?: string | null; email?: string | null; role?: string; hasPaid?: boolean } | undefined;
   // show auto display name (user01, ...) — never a phone number (legacy names stay hidden)
   const displayName = user?.name && !/^[+\d]/.test(user.name.trim()) ? user.name : null;
-  const [adminOverride, setAdminOverride] = useState(false);
   // refresh JWT once after promotion so Админ appears without manual re-login
   useEffect(() => {
     if (user && user.role !== "ADMIN") {
-      // try to refresh session from server (jwt callback re-reads DB role)
+      // jwt callback re-reads the DB role, so a session update is enough
       update();
-      // fallback: direct admin check bypasses stale JWT
-      fetch("/api/admin/stats").then((r) => {
-        if (r.ok) setAdminOverride(true);
-      }).catch(() => {});
     }
   }, [user?.email]);
-  const isAdmin = user?.role === "ADMIN" || adminOverride;
+  const isAdmin = user?.role === "ADMIN";
   // session not resolved yet — show invisible placeholders instead of flashing guest UI
   const authPending = !user && status === "loading";
   const pathname = usePathname();
@@ -108,6 +104,7 @@ export default function Header() {
         </Link>
         <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle />
+          <NotificationBell />
           {authPending ? (
             <span aria-hidden className="hidden sm:inline-flex items-center rounded-full px-5 py-2.5 sm:py-2 text-sm font-medium min-h-[40px] invisible">
               Нэвтрэх

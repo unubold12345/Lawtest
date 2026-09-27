@@ -82,6 +82,7 @@ export async function PATCH(req: Request) {
   if (Array.isArray(target.answer)) {
     return NextResponse.json({ error: "Олон зөв хариулттай сорилгыг энэ хэлбэрээр засах боломжгүй" }, { status: 400 });
   }
+  const fileHadAnswer = typeof target.answer === "number";
 
   const updatedById = (gate.session.user as unknown as { id: string }).id;
   const snapshot = { question, options, answer, explanation: explanation || null, lawRef: lawRef || null };
@@ -99,7 +100,7 @@ export async function PATCH(req: Request) {
   try {
     target.question = question;
     target.options = options;
-    if (answer === null) delete target.answer;
+    if (answer === null || !fileHadAnswer) delete target.answer;
     else target.answer = answer;
     if (explanation !== undefined) {
       if (explanation) target.explanation = explanation;
