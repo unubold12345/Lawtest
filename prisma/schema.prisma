@@ -37,8 +37,9 @@ model User {
   savedExams    SavedExam[]
   paymentRequests PaymentRequest[]
   otps          Otp[]
+  announcements      Announcement[] @relation("AnnouncementAuthor")
+  receivedAnnouncements Announcement[] @relation("AnnouncementRecipients")
   announcementReads  AnnouncementRead[]
-  announcements      Announcement[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -223,7 +224,8 @@ model Announcement {
   body        String
   createdAt   DateTime @default(now())
   createdById String?
-  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?    @relation("AnnouncementAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  recipients  User[]   @relation("AnnouncementRecipients")
   reads       AnnouncementRead[]
 
   @@index([createdAt])

@@ -15,7 +15,11 @@ export async function POST(req: Request) {
   } catch {}
   let ids: string[] = Array.isArray(body.ids) ? body.ids.filter((x): x is string => typeof x === "string").slice(0, 100) : [];
   if (ids.length === 0) {
-    const all = await prisma.announcement.findMany({ select: { id: true }, take: 100 });
+    const all = await prisma.announcement.findMany({
+      where: { OR: [{ recipients: { none: {} } }, { recipients: { some: { id: userId } } }] },
+      select: { id: true },
+      take: 100,
+    });
     ids = all.map((a) => a.id);
   }
   if (ids.length > 0) {

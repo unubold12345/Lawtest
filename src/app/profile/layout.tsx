@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Шалгалтын түүх",
+  title: "Профайл",
   robots: { index: false, follow: false },
 };
 
-export default function HistoryLayout({ children }: LayoutProps<"/history">) {
+export default function ProfileLayout({ children }: LayoutProps<"/profile">) {
   return children;
 }

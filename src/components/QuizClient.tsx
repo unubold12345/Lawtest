@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -177,9 +177,12 @@ export default function QuizClient({ index }: { index: IndexData }) {
   const [showStudyFeedback, setShowStudyFeedback] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
   const [pendingDeleteExam, setPendingDeleteExam] = useState<string | null>(null);
-  const [examsModalOpen, setExamsModalOpen] = useState(false);
   const [paused, setPaused] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [setupTab, setSetupTab] = useState<"exam" | "saved" | "mistakes">("exam");
+  const [savedPage, setSavedPage] = useState(1);
+  const [mistakePage, setMistakePage] = useState(1);
+  const [navOpen, setNavOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0); // seconds
   const [elapsed, setElapsed] = useState(0);
   const [reviewFilter, setReviewFilter] = useState<"review" | "all" | "correct">("review");
@@ -189,8 +192,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
   const [runLabel, setRunLabel] = useState<string>("all");
   const [savedExams, setSavedExams] = useState<Record<string, SavedExam>>({});
   const [mistakes, setMistakes] = useState<Record<string, { wrongCount: number; manual: boolean }>>({});
-  const [mistakesOpen, setMistakesOpen] = useState(false);
-  const [mistakesModalOpen, setMistakesModalOpen] = useState(false);
 
   // load saved (paused) exams: local always, DB merge when authed
   useEffect(() => {
@@ -379,6 +380,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
         setPaused(false);
         setReviewFilter("review");
         setExpanded({});
+        setNavOpen(false);
         setState("running");
         window.scrollTo({ top: 0 });
       })
@@ -460,6 +462,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     setConfirmExit(false);
     setPaused(false);
     setSettingsOpen(false);
+    setNavOpen(false);
     setIdx(0);
     setMinutes(dur);
     setTimeLeft(dur * 60);
@@ -530,6 +533,32 @@ export default function QuizClient({ index }: { index: IndexData }) {
     return { n: list.length, best, avg: Math.round((sum / list.length) * 100), last: list[0] as { score: number; total: number } };
   }, [histAttempts]);
 
+  // Desktop (lg: 3 columns) exam sections: pin the first two cards to the
+  // main-exam card's height so all three match, without one card's expansion
+  // stretching the others (the grid is items-start, so nothing stretches).
+  const secARef = useRef<HTMLButtonElement | null>(null);
+  const secBRef = useRef<HTMLDivElement | null>(null);
+  const secCRef = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    if (setupTab !== "exam") return;
+    const pin = () => {
+      const a = secARef.current, b = secBRef.current, c = secCRef.current;
+      if (!a || !b || !c) return;
+      a.style.minHeight = "";
+      b.style.minHeight = "";
+      if (window.innerWidth < 1024) return;
+      const h = c.offsetHeight;
+      if (h > 0) {
+        a.style.minHeight = `${h}px`;
+        b.style.minHeight = `${h}px`;
+      }
+    };
+    pin();
+    const t = window.setTimeout(pin, 350);
+    window.addEventListener("resize", pin);
+    return () => { window.removeEventListener("resize", pin); window.clearTimeout(t); };
+  }, [setupTab, fullAccess, mainExamStats]);
+
   // questions answered wrong in the current run — for mistake tracking
   const examWrongIds = () =>
     quizQs.filter((q) => {
@@ -581,6 +610,14 @@ export default function QuizClient({ index }: { index: IndexData }) {
     return () => window.removeEventListener("beforeunload", h);
   }, [state]);
 
+  // question-nav modal: close on Escape
+  useEffect(() => {
+    if (!navOpen) return;
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") setNavOpen(false); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [navOpen]);
+
   const current = quizQs[idx];
   const total = quizQs.length;
 
@@ -629,6 +666,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     deleteSaved(runLabel);
     setReviewFilter("review");
     setExpanded({});
+    setNavOpen(false);
     setState("result");
   };
 
@@ -647,6 +685,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     setElapsed(0);
     setShowStudyFeedback(false);
     setPaused(false);
+    setNavOpen(false);
     setState("running");
     window.scrollTo({ top: 0 });
   };
@@ -693,17 +732,50 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const examCountRows = (rows: IndexRow[]) => rows.filter((r) => r[3] === 1).length;
     const labelMainIdx = mainCategory === "all" ? -1 : index.mains.findIndex((m) => m.name === mainCategory);
     const labelMainRows = labelMainIdx < 0 ? index.rows : rowsByMain[labelMainIdx] ?? [];
-    const settingsSummary = `${mainCategory === "all" ? "Бүх үндсэн" : mainCategory} · ${subCategory === "all" ? "Бүх дэд" : subCategory} · ${qtype === "all" ? "" : qtype === "case" ? "Кейс · " : "Онол · "}${count} сорилго · ${mode === "exam" ? "Шалгалт" : "Сургалт"} · ${mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}`;
+    const savedList = Object.values(savedExams).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    const savedTotalPages = Math.max(1, Math.ceil(savedList.length / 6));
+    const savedPageClamped = Math.min(savedPage, savedTotalPages);
+    const savedSlice = savedList.slice((savedPageClamped - 1) * 6, savedPageClamped * 6);
+    const mistakeTotalPages = Math.max(1, Math.ceil(mistakeList.length / 6));
+    const mistakePageClamped = Math.min(mistakePage, mistakeTotalPages);
+    const mistakeSlice = mistakeList.slice((mistakePageClamped - 1) * 6, mistakePageClamped * 6);
     return (
       <div className="mx-auto max-w-5xl w-full space-y-4 min-w-0 px-3 sm:px-0 min-h-[100vh]">
-      <button onClick={() => (fullAccess ? setSettingsOpen(true) : setPaywallNote(true))} className="w-full rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-white/10 dark:bg-white/[0.04] overflow-hidden text-left hover:border-indigo-400 dark:hover:border-indigo-400/50 transition-colors min-w-0">
-        <div className="flex items-center justify-between gap-2 min-w-0">
-          <span className="font-semibold text-[14px] sm:text-base truncate">{fullAccess ? "⚙" : "🔒"} Шалгалт тохиргоо</span>
-          <span className="text-[11px] sm:text-xs text-zinc-500 shrink-0">Өөрчлөх →</span>
+      <div className="relative overflow-hidden pt-1 sm:pt-3">
+        <div aria-hidden className="pointer-events-none absolute -top-10 -right-16 h-56 w-56 rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/20" />
+        <div aria-hidden className="pointer-events-none absolute -top-6 right-24 h-40 w-40 rounded-full bg-violet-500/10 blur-3xl dark:bg-violet-500/20" />
+        <div className="relative flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-300">Lexlab · Бэлтгэл</p>
+            <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight">Шалгалт</h1>
+            <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Ангилал, сорилгын тоо, горимоо сонгоод бэлдэж эхлээрэй.</p>
+          </div>
+          <div className="hidden sm:flex shrink-0 items-center gap-2.5 rounded-2xl border border-zinc-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+            <span className="text-xl font-extrabold tabular-nums leading-none text-indigo-600 dark:text-indigo-300">{examCountRows(index.rows)}</span>
+            <span className="text-[11px] leading-tight text-zinc-500">бэлэн<br />сорилго</span>
+          </div>
         </div>
-        <p className="mt-1 text-[11px] sm:text-sm text-zinc-500 break-words leading-snug">{settingsSummary}</p>
-        {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Тохиргоо өөрчлөх нь Эрх авах төлөвлөгөөнд багтдаг — үнэгүй эрхээр дэд ангиллаар шалгалт өгнө.</p>}
-      </button>
+      </div>
+      <div className="sticky top-0 sm:top-[61px] z-20 -mx-3 bg-white/90 px-3 py-2 backdrop-blur-xl dark:bg-[#07070c]/85 sm:mx-0 sm:rounded-2xl sm:border sm:border-zinc-200 sm:bg-white/95 sm:px-2 sm:py-2 sm:dark:border-white/10 sm:dark:bg-[#0c0c14]/90">
+        <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 p-1 dark:border-white/10 dark:bg-white/5">
+          <button onClick={() => setSetupTab("exam")} className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${setupTab === "exam" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"}`}>
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M9.5 15.5v-7l6 3.5-6 3.5Z" /></svg>
+            Шалгалт
+          </button>
+          <button onClick={() => setSetupTab("saved")} className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${setupTab === "saved" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"}`}>
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="6" y="4" width="4" height="16" rx="1.5" /><rect x="14" y="4" width="4" height="16" rx="1.5" /></svg>
+            Хадгалсан
+            {Object.keys(savedExams).length > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold tabular-nums ${setupTab === "saved" ? "bg-white/25" : "bg-zinc-200 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{Object.keys(savedExams).length}</span>}
+          </button>
+          <button onClick={() => setSetupTab("mistakes")} className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${setupTab === "mistakes" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"}`}>
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></svg>
+            Их алддаг
+            {mistakeList.length > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold tabular-nums ${setupTab === "mistakes" ? "bg-white/25" : "bg-zinc-200 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{mistakeList.length}</span>}
+          </button>
+        </div>
+      </div>
+      {setupTab === "exam" && (
+      <>
       {query.trim() && (
         <div className="flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl border border-dashed border-zinc-200 bg-white px-3.5 py-2.5 sm:px-5 sm:py-3 dark:border-white/15 dark:bg-white/[0.04]">
           <p className="min-w-0 truncate text-[12px] sm:text-sm">Шүүлтүүр: “{query.trim()}” — {poolSize} сорилго</p>
@@ -726,41 +798,67 @@ export default function QuizClient({ index }: { index: IndexData }) {
         </div>
       )}
 
-      {Object.keys(savedExams).length > 0 && (
-        <div className="rounded-xl sm:rounded-2xl border border-dashed border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/15 dark:bg-white/[0.04]">
-          <p className="text-[11px] sm:text-xs font-medium text-amber-600 dark:text-amber-400">⏸ Хадгалсан шалгалтууд</p>
-          <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2">
-            {Object.values(savedExams)
-              .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-              .slice(0, 4)
-              .map((rec) => {
-                const done = Object.keys(rec.answers || {}).length;
-                const timeTxt = rec.minutes > 0 ? fmt(Math.max(rec.timeLeft, 0)) : `⏱ ${fmt(rec.elapsed || 0)}`;
-                return (
-                  <div key={rec.key} className="rounded-lg sm:rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-white/5 min-w-0">
-                    <div className="min-w-0">
-                      <p className="text-[12px] sm:text-sm font-medium break-words sm:truncate">{rec.tag ?? rec.key}</p>
-                      <p className="text-[10px] sm:text-xs text-zinc-500">
-                        {done}/{rec.ids.length} хариулсан · {timeTxt} · {rec.mode === "exam" ? "Шалгалт" : "Сургалт"}
-                      </p>
+      </>)}
+
+      {setupTab === "saved" && (
+      <>
+      {Object.keys(savedExams).length > 0 ? (
+        <>
+        <div className="grid gap-3 sm:grid-cols-2 items-stretch min-w-0">
+          {savedSlice.map((rec) => {
+              const done = Object.keys(rec.answers || {}).length;
+              const timeTxt = rec.minutes > 0 ? fmt(Math.max(rec.timeLeft, 0)) : `⏱ ${fmt(rec.elapsed || 0)}`;
+              const pct = rec.ids.length ? Math.round((done / rec.ids.length) * 100) : 0;
+              return (
+                <div key={rec.key} className="flex flex-col rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:border-white/10 dark:bg-white/[0.04] min-w-0">
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    <p className="min-w-0 text-[14px] sm:text-[15px] font-semibold break-words line-clamp-2">{rec.tag ?? rec.key}</p>
+                    <button onClick={() => setPendingDeleteExam(rec.key)} aria-label="Устгах" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[13px] text-zinc-500 hover:bg-rose-50 hover:text-rose-600 dark:border-white/15 dark:hover:bg-rose-400/10 dark:hover:text-rose-400">✕</button>
+                  </div>
+                  <span className="mt-1.5 inline-flex w-fit items-center rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-zinc-600 dark:bg-white/10 dark:text-zinc-300">{rec.mode === "exam" ? "Шалгалт" : "Сургалт"}</span>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-white/5 min-w-0">
+                      <p className="text-[13px] sm:text-sm font-semibold tabular-nums">{done}/{rec.ids.length}</p>
+                      <p className="mt-0.5 text-[10px] sm:text-[11px] text-zinc-500">Хариулсан</p>
                     </div>
-                    <div className="mt-2 flex items-center gap-1.5">
-                      <button onClick={() => resume(rec)} className="flex-1 min-w-0 rounded-full bg-indigo-600 px-2 py-1.5 text-[11px] font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 truncate">
-                        Үргэлжлүүлэх →
-                      </button>
-                      <button onClick={() => setPendingDeleteExam(rec.key)} aria-label="Устгах" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[12px] text-zinc-500 hover:bg-rose-50 hover:text-rose-600 dark:border-white/15 dark:hover:bg-rose-400/10 dark:hover:text-rose-400">✕</button>
+                    <div className="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-white/5 min-w-0">
+                      <p className="text-[13px] sm:text-sm font-semibold tabular-nums truncate">{timeTxt}</p>
+                      <p className="mt-0.5 text-[10px] sm:text-[11px] text-zinc-500">{rec.minutes > 0 ? "Үлдсэн цаг" : "Зарцуулсан"}</p>
                     </div>
                   </div>
-                );
-              })}
-          </div>
-          {Object.keys(savedExams).length > 4 && (
-            <button onClick={() => setExamsModalOpen(true)} className="mt-2 w-full rounded-full border border-zinc-200 py-2 text-[12px] sm:text-sm font-medium hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">
-              +{Object.keys(savedExams).length - 4} илүү үзэх ↓
-            </button>
-          )}
+                  <div className="mt-3 h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+                    <div className="h-full rounded-full bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500" style={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }} />
+                  </div>
+                  <p className="mt-1.5 text-[10px] sm:text-[11px] text-zinc-500">{pct}% гүйцэтгэл</p>
+                  <button onClick={() => resume(rec)} className="mt-3 self-end inline-flex items-center justify-center gap-1.5 rounded-full bg-indigo-600 px-4 py-2 text-[12px] sm:text-[13px] font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden><path d="M8 5v14l11-7L8 5z" /></svg>
+                    Үргэлжлүүлэх
+                  </button>
+                </div>
+              );
+            })}
+        </div>
+        {savedTotalPages > 1 && (
+        <div className="mt-3 flex items-center justify-center gap-2">
+          <button onClick={() => setSavedPage((p) => Math.max(1, p - 1))} disabled={savedPageClamped <= 1} className="rounded-full border border-zinc-200 px-3.5 py-1.5 text-[11px] sm:text-xs disabled:opacity-40 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[32px]">← Өмнөх</button>
+          <span className="text-[11px] sm:text-xs tabular-nums text-zinc-500">{savedPageClamped} / {savedTotalPages}</span>
+          <button onClick={() => setSavedPage((p) => Math.min(savedTotalPages, p + 1))} disabled={savedPageClamped >= savedTotalPages} className="rounded-full border border-zinc-200 px-3.5 py-1.5 text-[11px] sm:text-xs disabled:opacity-40 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[32px]">Дараах →</button>
+        </div>
+        )}
+        </>
+      ) : (
+        <div className="rounded-xl sm:rounded-2xl border border-dashed border-zinc-200 bg-white p-6 sm:p-10 text-center dark:border-white/15 dark:bg-white/[0.04]">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-500 dark:bg-amber-400/10 dark:text-amber-300">
+            <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><rect x="6" y="4" width="4" height="16" rx="1.5" /><rect x="14" y="4" width="4" height="16" rx="1.5" /></svg>
+          </span>
+          <h3 className="mt-3 font-semibold text-[14px] sm:text-base">Хадгалсан шалгалт байхгүй байна.</h3>
+          <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Шалгалтаа эхлээд түр зогсоож хадгалахад энд гарч ирнэ.</p>
+          <button onClick={() => setSetupTab("exam")} className="mt-4 rounded-full bg-indigo-600 px-5 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
+            Шалгалт эхлэх →
+          </button>
         </div>
       )}
+      </>)}
 
       {/* paywall notice (paid category / paid save action) */}
       {paywallNote && (
@@ -791,77 +889,63 @@ export default function QuizClient({ index }: { index: IndexData }) {
         </div>
       )}
 
-      {/* all saved exams modal */}
-      {examsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button aria-label="close" onClick={() => setExamsModalOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div className="relative w-full max-w-md sm:max-w-3xl max-h-[80vh] overflow-auto rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-[#0c0c14]/95 dark:border dark:border-white/10 dark:backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-semibold text-[14px] sm:text-base">⏸ Хадгалсан шалгалтууд ({Object.keys(savedExams).length})</h3>
-              <button onClick={() => setExamsModalOpen(false)} aria-label="Хаах" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[13px] text-zinc-500 dark:border-white/15">✕</button>
-            </div>
-            <div className="mt-3 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
-              {Object.values(savedExams)
-                .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-                .map((rec) => {
-                  const done = Object.keys(rec.answers || {}).length;
-                  const timeTxt = rec.minutes > 0 ? fmt(Math.max(rec.timeLeft, 0)) : `⏱ ${fmt(rec.elapsed || 0)}`;
-                  return (
-                    <div key={rec.key} className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-white/5 min-w-0">
-                      <div className="min-w-0">
-                        <p className="text-[12px] sm:text-sm font-medium break-words">{rec.tag ?? rec.key}</p>
-                        <p className="text-[10px] sm:text-xs text-zinc-500">
-                          {done}/{rec.ids.length} хариулсан · {timeTxt} · {rec.mode === "exam" ? "Шалгалт" : "Сургалт"}
-                        </p>
-                      </div>
-                      <div className="mt-2 flex items-center gap-1.5">
-                        <button onClick={() => { setExamsModalOpen(false); resume(rec); }} className="flex-1 min-w-0 rounded-full bg-indigo-600 px-2 py-1.5 text-[11px] font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 truncate">
-                          Үргэлжлүүлэх →
-                        </button>
-                        <button onClick={() => setPendingDeleteExam(rec.key)} aria-label="Устгах" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[12px] text-zinc-500 hover:bg-rose-50 hover:text-rose-600 dark:border-white/15 dark:hover:bg-rose-400/10 dark:hover:text-rose-400">✕</button>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
+      {setupTab === "exam" && (
+      <>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 items-start min-w-0">
+      <button ref={secARef} onClick={() => (fullAccess ? setSettingsOpen(true) : setPaywallNote(true))} className="w-full rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-white/10 dark:bg-white/[0.04] overflow-hidden text-left hover:border-indigo-400 dark:hover:border-indigo-400/50 transition-colors min-w-0 flex flex-col">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <span className="flex items-center gap-2 sm:gap-2.5 font-semibold text-[14px] sm:text-base truncate min-w-0">
+            <span className="inline-flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+              {fullAccess ? (
+                <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-[18px] sm:w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="3.2" />
+                  <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-[18px] sm:w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="4" y="10" width="16" height="10" rx="2.5" />
+                  <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                </svg>
+              )}
+            </span>
+            Шалгалт тохиргоо
+          </span>
+          <span className="shrink-0 rounded-full border border-zinc-200 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium text-zinc-500 dark:border-white/15">Өөрчлөх →</span>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-white/5 min-w-0">
+            <p className="truncate text-[12px] sm:text-sm font-semibold">{mainCategory === "all" ? "Бүх үндсэн" : mainCategory}</p>
+            <p className="mt-0.5 truncate text-[10px] sm:text-[11px] text-zinc-500">{subCategory === "all" ? "Бүх дэд" : subCategory}</p>
+            <p className="mt-1 text-[9px] sm:text-[10px] uppercase tracking-wide text-zinc-400">Ангилал</p>
+          </div>
+          <div className="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-white/5">
+            <p className="text-[12px] sm:text-sm font-semibold tabular-nums">{Math.min(count, poolSize)}</p>
+            <p className="mt-0.5 truncate text-[10px] sm:text-[11px] text-zinc-500">{qtype === "all" ? "Бүх төрөл" : qtype === "case" ? "Кейс" : "Онол"}</p>
+            <p className="mt-1 text-[9px] sm:text-[10px] uppercase tracking-wide text-zinc-400">Сорилго</p>
+          </div>
+          <div className="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-white/5">
+            <p className="text-[12px] sm:text-sm font-semibold">{mode === "exam" ? "Шалгалт" : "Сургалт"}</p>
+            <p className="mt-0.5 truncate text-[10px] sm:text-[11px] text-zinc-500">{mode === "exam" ? `${Math.min(count, poolSize)} мин` : "Хязгааргүй"}</p>
+            <p className="mt-1 text-[9px] sm:text-[10px] uppercase tracking-wide text-zinc-400">Горим</p>
           </div>
         </div>
-      )}
-
-      {/* all mistakes modal */}
-      {mistakesModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button aria-label="close" onClick={() => setMistakesModalOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div className="relative w-full max-w-md sm:max-w-3xl max-h-[80vh] overflow-auto rounded-2xl bg-white p-5 sm:p-6 shadow-xl dark:bg-[#0c0c14]/95 dark:border dark:border-white/10 dark:backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-semibold text-[14px] sm:text-base">Их алддаг сорилгууд ({mistakeList.length})</h3>
-              <button onClick={() => setMistakesModalOpen(false)} aria-label="Хаах" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[13px] text-zinc-500 dark:border-white/15">✕</button>
-            </div>
-            {mistakeList.length > 0 && (
-              <button onClick={() => { setMistakesModalOpen(false); startMistakeExam(); }} className="mt-3 w-full rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
-                Эдгээрээр шалгалт өгөх →
-              </button>
-            )}
-            {mistakeList.length === 0 ? (
-              <p className="mt-3 text-[12px] sm:text-sm text-zinc-500">Бүх алддаг сорилго устгагдлаа.</p>
-            ) : (
-              <div className="mt-2 grid gap-1.5 sm:grid-cols-2 sm:gap-2 select-none">
-                {mistakeList.map(({ id, wrongCount, manual }) => (
-                  <div key={id} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 dark:border-white/10 dark:bg-white/5 min-w-0">
-                    <p className="flex-1 min-w-0 text-[12px] sm:text-sm leading-snug break-words line-clamp-2">{items[id]?.question ?? "…"}</p>
-                    <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-rose-700 dark:bg-rose-400/15 dark:text-rose-300">
-                      {wrongCount > 0 ? `✗ ${wrongCount}` : "гараар"}
-                    </span>
-                    <button onClick={() => deleteMistake(id)} aria-label="Устгах" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[12px] text-zinc-500 hover:bg-rose-50 hover:text-rose-600 dark:border-white/15 dark:hover:bg-rose-400/10 dark:hover:text-rose-400">✕</button>
-                  </div>
-                ))}
-              </div>
-            )}
+        <div className="min-h-2 flex-1" aria-hidden />
+        <div className="mt-3 space-y-1.5 border-t border-zinc-100 pt-3 text-[11px] sm:text-xs dark:border-white/10">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-zinc-500">Сорилгын сан</span>
+            <span className="font-medium tabular-nums">{poolSize} сорилго</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-zinc-500">Сонгосон</span>
+            <span className="font-medium tabular-nums">{Math.min(count, poolSize)} сорилго</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-zinc-500">Хугацаа</span>
+            <span className="font-medium tabular-nums">{mode === "exam" ? `${Math.min(count, poolSize)} мин · 1 мин/сорилго` : "Хязгааргүй"}</span>
           </div>
         </div>
-      )}
-
-      <div className="flex flex-col sm:flex-row gap-4 min-w-0 sm:items-start">
+        {!fullAccess && <p className="mt-2.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Тохиргоо өөрчлөх нь Эрх авах төлөвлөгөөнд багтдаг — үнэгүй эрхээр дэд ангиллаар шалгалт өгнө.</p>}
+      </button>
       {settingsOpen && fullAccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           <button aria-label="close" onClick={() => setSettingsOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
@@ -978,9 +1062,16 @@ export default function QuizClient({ index }: { index: IndexData }) {
         </div>
       )}
 
-      <div className="contents sm:flex sm:w-[calc(50%-0.5rem)] sm:flex-col sm:gap-4 sm:min-w-0">
-      <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-4 sm:p-8 dark:border-white/10 dark:bg-white/[0.04]">
-        <h2 className="text-[14px] sm:text-xl font-semibold break-words">Дэд ангиллаар шалгалт</h2>
+      <div ref={secBRef} className="w-full min-w-0 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-4 sm:p-8 dark:border-white/10 dark:bg-white/[0.04] flex flex-col">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m12 2 9 4.9-9 4.9-9-4.9 9-4.9Z" /><path d="m3 12 9 4.9 9-4.9" /><path d="m3 17 9 4.9 9-4.9" /></svg>
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-[14px] sm:text-xl font-semibold break-words">Дэд ангиллаар шалгалт</h2>
+            <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500">Нэг дэд ангиллын бүх сорилгоор бэлдэнэ</p>
+          </div>
+        </div>
 
         <div className="mt-3 sm:mt-4 grid gap-1.5 sm:gap-2 min-w-0">
           <span className="text-[12px] sm:text-sm font-medium">Дэд ангилал</span>
@@ -1050,12 +1141,24 @@ export default function QuizClient({ index }: { index: IndexData }) {
             </button>
           </div>
         ))}
+        <div className="min-h-2 flex-1" aria-hidden />
+        <p className="mt-3 border-t border-zinc-100 pt-3 text-[11px] sm:text-xs leading-snug text-zinc-500 dark:border-white/10 dark:text-zinc-400">
+          Нийт {subPairs.length} дэд ангилал · <span className="whitespace-nowrap">⏸ — хадгалсан шалгалттай</span>
+        </p>
       </div>
 
 
 
-      <div className="order-2 w-full min-w-0 rounded-xl sm:rounded-2xl bg-zinc-950 border border-zinc-800 p-4 sm:p-8 text-white dark:bg-gradient-to-br dark:from-indigo-600/25 dark:to-violet-600/20 dark:border-indigo-400/25 overflow-hidden">
-        <h2 className="text-[14px] sm:text-xl font-semibold break-words">Үндсэн шалгалт</h2>
+      <div ref={secCRef} className="w-full min-w-0 rounded-xl sm:rounded-2xl bg-zinc-950 border border-zinc-800 p-4 sm:p-8 text-white dark:bg-gradient-to-br dark:from-indigo-600/25 dark:to-violet-600/20 dark:border-indigo-400/25 overflow-hidden">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-indigo-200 ring-1 ring-inset ring-white/15">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-[14px] sm:text-xl font-semibold break-words">Үндсэн шалгалт</h2>
+            <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-400">Бодит шалгалтын загвараар · бүх ангилал</p>
+          </div>
+        </div>
         {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Үндсэн шалгалт нь Эрх авах төлөвлөгөөнд багтдаг.</p>}
         <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-1.5 sm:gap-2 text-center">
           <div className="rounded-lg bg-white/10 p-2 sm:p-3">
@@ -1070,6 +1173,11 @@ export default function QuizClient({ index }: { index: IndexData }) {
             <p className="text-[16px] sm:text-2xl font-bold leading-none">{mainExamStats.n > 0 ? `${mainExamStats.avg}%` : "—"}</p>
             <p className="text-[10px] sm:text-xs text-zinc-300 mt-0.5">Дундаж{mainExamStats.n > 0 ? ` · ${mainExamStats.n}` : ""}</p>
           </div>
+        </div>
+        <div className="mt-3 sm:mt-4 flex flex-wrap gap-1.5">
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] text-zinc-200">200 сорилго</span>
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] text-zinc-200">200 минут</span>
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] text-zinc-200">1 мин/сорилго</span>
         </div>
         {mainExamStats.n > 0 && mainExamStats.best && mainExamStats.last && (
           <p className="mt-2 text-center text-[11px] sm:text-xs text-zinc-300">Оролдлого: {mainExamStats.n} · Шилдэг: {mainExamStats.best.score}/{mainExamStats.best.total} · Сүүлд: {mainExamStats.last.score}/{mainExamStats.last.total}</p>
@@ -1092,41 +1200,55 @@ export default function QuizClient({ index }: { index: IndexData }) {
         )}
       </div>
       </div>
-      <div className="contents sm:flex sm:w-[calc(50%-0.5rem)] sm:flex-col sm:min-w-0">
-      {/* Их алддаг сорилгууд — always visible on setup; collapsed, questions hidden until tapped */}
+      </>)}
+
+      {setupTab === "mistakes" && (
+      <>
+      {/* Их алддаг сорилгууд — collapsed, questions hidden until tapped */}
       {mistakeList.length > 0 ? (
-        <div className="order-1 w-full min-w-0 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-white/[0.04] overflow-hidden">
-          <button onClick={() => setMistakesOpen((o) => !o)} className="w-full flex items-center justify-between gap-2 p-3.5 sm:p-5 text-left min-w-0 min-h-[48px]">
-            <span className="font-semibold text-[14px] sm:text-base truncate">Их алддаг сорилгууд · {mistakeList.length}</span>
-            <span className="shrink-0 text-[11px] sm:text-xs text-zinc-500">{mistakesOpen ? "Нуух ▾" : "Сорилгуудыг харах ▸"}</span>
-          </button>
-          {mistakesOpen && (
-            <div className="px-3 pb-3 sm:px-4 sm:pb-4">
-              <button onClick={startMistakeExam} className="w-full rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
-                Эдгээрээр шалгалт өгөх →
-              </button>
-              <div className="mt-2 grid gap-1.5 select-none">
-                {mistakeList.slice(0, 4).map(({ id, wrongCount, manual }) => (
-                  <div key={id} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 dark:border-white/10 dark:bg-white/5 min-w-0">
-                    <p className="flex-1 min-w-0 text-[12px] sm:text-sm leading-snug break-words line-clamp-2">{items[id]?.question ?? "…"}</p>
-                    <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-rose-700 dark:bg-rose-400/15 dark:text-rose-300">
-                      {wrongCount > 0 ? `✗ ${wrongCount}` : "гараар"}
-                    </span>
-                    <button onClick={() => deleteMistake(id)} aria-label="Устгах" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[12px] text-zinc-500 hover:bg-rose-50 hover:text-rose-600 dark:border-white/15 dark:hover:bg-rose-400/10 dark:hover:text-rose-400">✕</button>
-                  </div>
-                ))}
-              </div>
-              {mistakeList.length > 4 && (
-                <button onClick={() => setMistakesModalOpen(true)} className="mt-2 w-full rounded-full border border-zinc-200 py-2 text-[12px] sm:text-sm font-medium hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">
-                  +{mistakeList.length - 4} илүү үзэх ↓
-                </button>
-              )}
-            </div>
-          )}
+        <>
+        <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex items-center gap-2.5 min-w-0">
+              <span className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-400/10 dark:text-rose-300">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></svg>
+              </span>
+              <span className="font-semibold text-[14px] sm:text-base truncate">Их алддаг сорилгууд · {mistakeList.length}</span>
+            </span>
+            <button onClick={startMistakeExam} className="shrink-0 rounded-full bg-indigo-600 px-4 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
+              Эдгээрээр шалгалт өгөх →
+            </button>
+          </div>
         </div>
+        <div className="grid gap-3 sm:grid-cols-2 items-stretch min-w-0">
+          {mistakeSlice.map(({ id, wrongCount, manual }) => (
+            <div key={id} className="flex flex-col rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:border-white/10 dark:bg-white/[0.04] min-w-0">
+              <div className="flex items-start justify-between gap-2 min-w-0">
+                <p className="min-w-0 text-[13px] sm:text-[14px] leading-snug break-words line-clamp-3">{items[id]?.question ?? "…"}</p>
+                <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-rose-700 dark:bg-rose-400/15 dark:text-rose-300">
+                  {wrongCount > 0 ? `✗ ${wrongCount}` : "гараар"}
+                </span>
+              </div>
+              <button onClick={() => deleteMistake(id)} aria-label="Устгах" className="mt-3 self-start inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-1.5 text-[11px] sm:text-xs text-zinc-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:border-white/15 dark:hover:bg-rose-400/10 dark:hover:text-rose-400 min-h-[32px]">✕ Устгах</button>
+            </div>
+          ))}
+        </div>
+        {mistakeTotalPages > 1 && (
+        <div className="mt-3 flex items-center justify-center gap-2">
+          <button onClick={() => setMistakePage((p) => Math.max(1, p - 1))} disabled={mistakePageClamped <= 1} className="rounded-full border border-zinc-200 px-3.5 py-1.5 text-[11px] sm:text-xs disabled:opacity-40 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[32px]">← Өмнөх</button>
+          <span className="text-[11px] sm:text-xs tabular-nums text-zinc-500">{mistakePageClamped} / {mistakeTotalPages}</span>
+          <button onClick={() => setMistakePage((p) => Math.min(mistakeTotalPages, p + 1))} disabled={mistakePageClamped >= mistakeTotalPages} className="rounded-full border border-zinc-200 px-3.5 py-1.5 text-[11px] sm:text-xs disabled:opacity-40 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[32px]">Дараах →</button>
+        </div>
+        )}
+        </>
       ) : (
-        <div className="order-1 w-full min-w-0 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-white/[0.04] p-3.5 sm:p-5">
-          <p className="font-semibold text-[14px] sm:text-base">Их алддаг сорилгууд</p>
+        <div className="w-full min-w-0 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-white/[0.04] p-3.5 sm:p-5">
+          <p className="flex items-center gap-2.5 font-semibold text-[14px] sm:text-base">
+            <span className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-400/10 dark:text-rose-300">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></svg>
+            </span>
+            Их алддаг сорилгууд
+          </p>
           <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">
             {isAuthed
               ? "Хоёр ба түүнээс дээш удаа алдсан сорилго энд гарна."
@@ -1134,8 +1256,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
           </p>
         </div>
       )}
-      </div>
-      </div>
+      </>)}
       </div>
     );
   }
@@ -1144,16 +1265,25 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const ans = answers[current.id];
     const correct = correctOf(current);
     const answered = ans !== undefined;
+    const answeredCount = quizQs.filter((q) => answers[q.id] !== undefined).length;
     return (
-      <div className="mx-auto max-w-3xl w-full space-y-3 sm:space-y-4 min-w-0 overflow-hidden px-3 sm:px-0 max-sm:min-h-[calc(100dvh-12rem)] max-sm:flex max-sm:flex-col max-sm:justify-center">
+      <div className="mx-auto max-w-3xl w-full space-y-3 sm:space-y-4 min-w-0 px-3 sm:px-0 max-sm:min-h-[calc(100dvh-12rem)] max-sm:flex max-sm:flex-col max-sm:justify-center">
         <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-2.5 sm:p-4 flex items-center justify-between dark:border-white/10 dark:bg-white/[0.04] gap-2 min-w-0 overflow-hidden">
-          <span className="text-[12px] sm:text-sm font-medium shrink-0">{idx + 1} / {total}</span>
+          <span className="shrink-0 inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] sm:text-xs font-bold tabular-nums text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200">{idx + 1}<span className="mx-0.5 opacity-40">/</span>{total}</span>
           <div className="h-1.5 sm:h-2 flex-1 mx-2 sm:mx-4 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
-            <div className="h-full bg-indigo-600 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 transition-all" style={{ width: `${((idx + 1) / total) * 100}%` }} />
+            <div className="h-full bg-indigo-600 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 transition-all duration-300" style={{ width: `${((idx + 1) / total) * 100}%` }} />
           </div>
-          {minutes > 0 ? <span className={`text-[12px] sm:text-sm font-mono shrink-0 ${timeLeft < 60 ? "text-rose-600 dark:text-rose-400" : ""}`}>{fmt(timeLeft)}</span> : <span title="Зарцуулсан хугацаа" className="text-[12px] sm:text-sm font-mono shrink-0">⏱ {fmt(elapsed)}</span>}
-          <button onClick={() => setPaused(true)} aria-label="Түр зогсоох" title="Түр зогсоох" className="shrink-0 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-zinc-200 text-[12px] sm:text-sm dark:border-white/15 hover:bg-zinc-50 dark:hover:bg-white/5">⏸</button>
-          <button onClick={() => setConfirmExit(true)} aria-label="Шалгалт цуцлах" title="Шалгалт цуцлах" className="shrink-0 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-zinc-200 text-[12px] sm:text-sm dark:border-white/15 hover:bg-zinc-50 dark:hover:bg-white/5">✕</button>
+          {minutes > 0 ? <span className={`shrink-0 inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] sm:text-xs font-mono font-semibold tabular-nums ${timeLeft < 60 ? "border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300" : "border-zinc-200 text-zinc-600 dark:border-white/15 dark:text-zinc-300"}`}>{fmt(timeLeft)}</span> : <span title="Зарцуулсан хугацаа" className="shrink-0 inline-flex items-center rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] sm:text-xs font-mono font-semibold tabular-nums text-zinc-600 dark:border-white/15 dark:text-zinc-300">⏱ {fmt(elapsed)}</span>}
+          <button onClick={() => setNavOpen(true)} aria-label="Сорилгуудын жагсаалт" title="Сорилгуудын жагсаалт" className="shrink-0 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-600 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-indigo-500/15 dark:hover:border-indigo-400/40 dark:hover:text-indigo-200">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <rect x="4" y="4" width="7" height="7" rx="1.5" />
+              <rect x="13" y="4" width="7" height="7" rx="1.5" />
+              <rect x="4" y="13" width="7" height="7" rx="1.5" />
+              <rect x="13" y="13" width="7" height="7" rx="1.5" />
+            </svg>
+          </button>
+          <button onClick={() => setPaused(true)} aria-label="Түр зогсоох" title="Түр зогсоох" className="shrink-0 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5">⏸</button>
+          <button onClick={() => setConfirmExit(true)} aria-label="Шалгалт цуцлах" title="Шалгалт цуцлах" className="shrink-0 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-rose-400/10 dark:hover:text-rose-300">✕</button>
         </div>
 
         {/* pause overlay: hides the question while timer is stopped */}
@@ -1169,13 +1299,62 @@ export default function QuizClient({ index }: { index: IndexData }) {
           </div>
         )}
 
-          <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-6 dark:border-white/10 dark:bg-white/[0.04] min-w-0 overflow-hidden select-none">
-          <div className="rounded-xl border border-violet-200 bg-violet-50/80 border-l-4 border-l-violet-500 px-3 py-2.5 sm:px-5 sm:py-4 dark:border-violet-400/20 dark:border-l-violet-400/70 dark:bg-violet-500/[0.12]">
-            <h2 className="text-base sm:text-xl font-medium leading-snug sm:leading-relaxed break-words [overflow-wrap:anywhere] min-w-0">{current.question}</h2>
+        {/* question-nav modal: grid of question numbers */}
+        {navOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <button aria-label="close" onClick={() => setNavOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60" />
+            <div className="relative w-full max-w-md sm:max-w-lg rounded-2xl bg-white p-4 sm:p-6 shadow-xl dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl motion-safe:animate-[bellIn_160ms_ease-out]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="font-semibold text-[14px] sm:text-base">Сорилгууд</h3>
+                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300 tabular-nums">✓ {answeredCount} / {total} хариулсан</span>
+                </div>
+                <button onClick={() => setNavOpen(false)} aria-label="Хаах" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[13px] text-zinc-500 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">✕</button>
+              </div>
+              <div className="mt-3 sm:mt-4 max-h-[58vh] overflow-y-auto overscroll-contain pr-0.5">
+                <div className="grid grid-cols-5 sm:grid-cols-8 gap-1.5 sm:gap-2">
+                  {quizQs.map((q, i) => {
+                    const isAnswered = answers[q.id] !== undefined;
+                    const isCurrent = i === idx;
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => { setIdx(i); setShowStudyFeedback(false); setNavOpen(false); window.scrollTo({ top: 0 }); }}
+                        aria-label={`Сорилго ${i + 1}`}
+                        className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[12px] sm:text-[13px] font-semibold tabular-nums border transition-colors min-w-0 ${
+                          isAnswered
+                            ? "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-400 dark:bg-emerald-500/90 dark:border-emerald-400/50 dark:hover:bg-emerald-400"
+                            : "bg-transparent border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/10"
+                        } ${isCurrent ? "ring-2 ring-indigo-500 ring-offset-1 dark:ring-indigo-400 dark:ring-offset-transparent" : ""}`}
+                      >
+                        {i + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-zinc-100 pt-3 text-[10px] sm:text-[11px] text-zinc-500 dark:border-white/10 dark:text-zinc-400">
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Хариулсан</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-indigo-500 ring-1 ring-indigo-300 dark:ring-indigo-400/40" /> Одоогийн</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-zinc-300 dark:border-white/25" /> Үлдсэн · {total - answeredCount}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+          <div key={current.id} className="rounded-2xl border border-zinc-200 bg-white p-3 sm:p-6 dark:border-white/10 dark:bg-white/[0.04] min-w-0 select-none motion-safe:animate-[fadeUp_220ms_ease-out]">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="inline-flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-[12px] sm:text-sm font-extrabold tabular-nums text-white shadow-sm shadow-indigo-600/30 dark:bg-gradient-to-br dark:from-indigo-500 dark:to-violet-500">{idx + 1}</span>
+            <span className="shrink-0 rounded-full bg-violet-50 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium text-violet-700 dark:bg-violet-400/10 dark:text-violet-300 max-w-[46%] truncate">{current.category}</span>
+            {current.subCategory && <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium text-zinc-600 dark:bg-white/5 dark:text-zinc-400 max-w-[34%] truncate">{current.subCategory}</span>}
+            <span className="ml-auto shrink-0 rounded-full border border-zinc-200 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium text-zinc-500 dark:border-white/15 dark:text-zinc-400">{runMode === "study" ? "Сургалт" : "Шалгалт"}</span>
+          </div>
+          <div className="mt-2.5 sm:mt-3 rounded-xl border border-violet-200 bg-violet-50/80 border-l-4 border-l-violet-500 px-3 py-3 sm:px-5 sm:py-4 dark:border-violet-400/20 dark:border-l-violet-400/70 dark:bg-violet-500/[0.12]">
+            <h2 className="text-[15px] sm:text-xl font-semibold leading-snug sm:leading-relaxed break-words [overflow-wrap:anywhere] min-w-0">{current.question}</h2>
           </div>
 
           <div className="mt-3 sm:mt-6 grid gap-1.5 sm:gap-3 min-w-0">
-            {(optionOrder[current.id] ?? current.options.map((_, oi) => oi)).map((oi) => {
+            {(optionOrder[current.id] ?? current.options.map((_, oi) => oi)).map((oi, di) => {
               const opt = current.options[oi];
               const selected = ans === oi;
               const showCorrect = runMode === "study" && showStudyFeedback;
@@ -1186,7 +1365,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
                   onClick={() => { setAnswers((a) => ({ ...a, [current.id]: oi })); if (runMode === "study") setShowStudyFeedback(false); }}
                   className={`text-left rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-3 flex gap-2 sm:gap-3 text-[13px] sm:text-sm transition-colors min-w-0 overflow-hidden ${selected ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-100" : "border-zinc-200 hover:bg-zinc-50 dark:border-white/10 dark:hover:bg-white/5"} ${showCorrect && isCorrect ? "!border-emerald-500 !bg-emerald-50 !text-emerald-900 dark:!bg-emerald-400/10 dark:!text-emerald-200" : ""} ${showCorrect && selected && !isCorrect ? "!border-rose-500 !bg-rose-50 !text-rose-900 dark:!bg-rose-400/10 dark:!text-rose-200" : ""}`}
                 >
-                  <span className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${selected ? "bg-white text-indigo-700 dark:bg-white/15 dark:text-indigo-100" : "bg-zinc-100 dark:bg-white/5"}`}>•</span>
+                  <span className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${selected ? "bg-white text-indigo-700 dark:bg-white/15 dark:text-indigo-100" : "bg-indigo-50 text-indigo-600 dark:bg-white/5 dark:text-indigo-200"} ${showCorrect && isCorrect ? "!bg-emerald-500 !text-white" : ""} ${showCorrect && selected && !isCorrect ? "!bg-rose-500 !text-white" : ""}`}>{letters[di]}</span>
                   <span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere] leading-snug">{opt}</span>
                 </button>
               );
@@ -1209,13 +1388,15 @@ export default function QuizClient({ index }: { index: IndexData }) {
             <QuestionReport questionId={current.id} />
           </div>
 
-          <div className="mt-4 sm:mt-6 flex justify-between gap-2 sm:gap-3 min-w-0">
-            <button onClick={() => { setIdx((v) => Math.max(0, v - 1)); setShowStudyFeedback(false); }} disabled={idx === 0} className="rounded-full border border-zinc-200 px-4 py-2 sm:px-5 sm:py-2 text-[13px] sm:text-sm disabled:opacity-40 dark:border-white/15 min-h-[36px] sm:min-h-[44px] shrink-0">Өмнөх</button>
+          <div className="mt-4 sm:mt-6 min-w-0">
+            <div className="sticky bottom-2 sm:bottom-3 z-10 mx-auto flex w-full max-w-md items-center gap-2 rounded-full border border-zinc-200 bg-white/95 p-1.5 shadow-lg shadow-zinc-900/5 backdrop-blur dark:border-white/10 dark:bg-[#0c0c14]/90 dark:shadow-black/40">
+            <button onClick={() => { setIdx((v) => Math.max(0, v - 1)); setShowStudyFeedback(false); }} disabled={idx === 0} className="rounded-full border border-zinc-200 px-4 py-2 sm:px-5 text-[13px] sm:text-sm disabled:opacity-40 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px] flex-1 sm:flex-none shrink-0">Өмнөх</button>
             {idx === total - 1 ? (
-              <button onClick={submit} className="rounded-full bg-indigo-600 px-5 py-2 sm:px-6 sm:py-2 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px] sm:min-h-[44px] shrink-0">Дуусгах</button>
+              <button onClick={submit} className="flex-1 rounded-full bg-indigo-600 px-5 py-2 sm:px-7 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] shrink-0">Дуусгах</button>
             ) : (
-              <button onClick={() => { setIdx((v) => v + 1); setShowStudyFeedback(false); }} className="rounded-full bg-indigo-600 px-5 py-2 sm:px-6 sm:py-2 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px] sm:min-h-[44px] shrink-0">Дараах</button>
+              <button onClick={() => { setIdx((v) => v + 1); setShowStudyFeedback(false); }} className="flex-1 rounded-full bg-indigo-600 px-5 py-2 sm:px-7 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] shrink-0">Дараах</button>
             )}
+            </div>
           </div>
         </div>
 
@@ -1266,6 +1447,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
 
   // result
   const pct = total ? Math.round((score / total) * 100) : 0;
+  const ring = 2 * Math.PI * 54;
   const statusOf = (q: Question) => {
     const a = answers[q.id];
     const c = correctOf(q);
@@ -1288,18 +1470,30 @@ export default function QuizClient({ index }: { index: IndexData }) {
   return (
     <div className="mx-auto max-w-3xl w-full space-y-3 sm:space-y-6 min-w-0 overflow-hidden px-3 sm:px-0">
       {/* summary dashboard */}
-      <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-4 sm:p-8 text-center dark:border-white/10 dark:bg-white/[0.04] min-w-0 overflow-hidden">
-        <h1 className="text-[16px] sm:text-2xl font-semibold">Дүн</h1>
-        <p className="mt-1 sm:mt-2 text-3xl sm:text-5xl font-bold">{score} / {total}</p>
-        <p className="mt-1 text-[12px] sm:text-base text-zinc-500">{pct}% · {fmt(elapsed)} зарцуулсан</p>
-        {runMode === "study" && <p className="mt-1 text-[11px] sm:text-xs text-amber-600 dark:text-amber-400">Сургалтын горим — дүн түүхэнд хадгалагдаагүй</p>}
-
-        {/* stat chips */}
-        <div className="mt-3 sm:mt-4 flex flex-wrap justify-center gap-1.5 sm:gap-2">
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-400">✓ Зөв · {resultStats.ok}</span>
-          <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-rose-600 dark:bg-rose-400/10 dark:text-rose-400">✗ Буруу · {resultStats.wrong}</span>
-          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">○ Хариулаагүй · {resultStats.un}</span>
-          {resultStats.unk > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">? Тодорхойгүй · {resultStats.unk}</span>}
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 sm:p-8 dark:border-white/10 dark:bg-white/[0.04] min-w-0">
+        <div aria-hidden className={`pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full blur-3xl ${pct >= 60 ? "bg-emerald-500/10" : "bg-rose-500/10"}`} />
+        <div className="relative flex flex-col sm:flex-row items-center gap-4 sm:gap-8 motion-safe:animate-[popIn_260ms_ease-out]">
+          <div className="relative shrink-0">
+            <svg viewBox="0 0 120 120" className="h-28 w-28 sm:h-36 sm:w-36 -rotate-90" aria-hidden>
+              <circle cx="60" cy="60" r="54" fill="none" strokeWidth="10" className="stroke-zinc-100 dark:stroke-white/10" />
+              <circle cx="60" cy="60" r="54" fill="none" strokeWidth="10" strokeLinecap="round" className={pct >= 60 ? "stroke-emerald-500" : "stroke-rose-500"} strokeDasharray={ring} strokeDashoffset={ring * (1 - Math.max(Math.min(pct, 100), 0) / 100)} />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <p className="text-2xl sm:text-4xl font-extrabold tabular-nums leading-none">{pct}%</p>
+              <p className="mt-0.5 text-[10px] sm:text-xs text-zinc-500">{score} / {total}</p>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1 text-center sm:text-left">
+            <h1 className="text-xl sm:text-3xl font-extrabold tracking-tight">Дүн</h1>
+            <div className="mt-1.5 sm:mt-2 flex flex-wrap justify-center sm:justify-start gap-1.5">
+              {runMode === "exam" && <span className={`rounded-full px-2.5 py-1 text-[11px] sm:text-xs font-bold ${pct >= 60 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300" : "bg-rose-50 text-rose-700 dark:bg-rose-400/10 dark:text-rose-300"}`}>{pct >= 60 ? "Тэнцсэн" : "Унасан"}</span>}
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-400">✓ Зөв · {resultStats.ok}</span>
+              <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-rose-600 dark:bg-rose-400/10 dark:text-rose-400">✗ Буруу · {resultStats.wrong}</span>
+              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">○ Хариулаагүй · {resultStats.un}</span>
+              {resultStats.unk > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">? Тодорхойгүй · {resultStats.unk}</span>}
+            </div>
+            <p className="mt-2 text-[12px] sm:text-sm text-zinc-500">⏱ {fmt(elapsed)} зарцуулсан{runMode === "study" ? " · дүн түүхэнд хадгалагдаагүй" : ""}</p>
+          </div>
         </div>
 
         {/* per-category breakdown */}

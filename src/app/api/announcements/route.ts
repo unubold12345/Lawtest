@@ -10,7 +10,12 @@ export async function GET() {
   const userId = (session?.user as unknown as { id?: string })?.id;
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   const [rows, reads] = await Promise.all([
-    prisma.announcement.findMany({ orderBy: { createdAt: "desc" }, take: 30, select: { id: true, body: true, createdAt: true } }),
+    prisma.announcement.findMany({
+      where: { OR: [{ recipients: { none: {} } }, { recipients: { some: { id: userId } } }] },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: { id: true, body: true, createdAt: true },
+    }),
     prisma.announcementRead.findMany({ where: { userId }, select: { announcementId: true } }),
   ]);
   const readSet = new Set(reads.map((r) => r.announcementId));

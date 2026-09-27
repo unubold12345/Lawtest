@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import NotificationBell from "@/components/NotificationBell";
 import BrandMark from "@/components/BrandMark";
@@ -27,6 +27,17 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const [browseOpen, setBrowseOpen] = useState(false);
   const [mobileBrowse, setMobileBrowse] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
+  const userRef = useRef<HTMLDivElement | null>(null);
+  // close the avatar dropdown on outside click / Escape
+  useEffect(() => {
+    if (!userOpen) return;
+    const onDown = (e: PointerEvent) => { if (userRef.current && !userRef.current.contains(e.target as Node)) setUserOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setUserOpen(false); };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("pointerdown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [userOpen ]);
   // lock body scroll + Escape closes the mobile drawer
   useEffect(() => {
     if (!open) return;
@@ -110,12 +121,32 @@ export default function Header() {
               Нэвтрэх
             </span>
           ) : user ? (
-            <>
-              {displayName && <span className="hidden lg:inline text-sm text-zinc-600 dark:text-zinc-400 max-w-[140px] truncate">{displayName}</span>}
-              <button onClick={() => signOut({ callbackUrl: "/" })} className="hidden sm:inline-flex rounded-full border border-zinc-200 px-4 py-2.5 sm:py-2 text-sm hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px] items-center">
-                Гарах
+            <div ref={userRef} className="relative hidden sm:block">
+              <button
+                type="button"
+                onClick={() => setUserOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={userOpen}
+                aria-label="Профайл цэс"
+                className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${pathname === "/profile" ? "border-indigo-500 ring-1 ring-inset ring-indigo-500 text-indigo-600 dark:border-indigo-400 dark:ring-indigo-400 dark:text-indigo-300" : "border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5" />
+                </svg>
               </button>
-            </>
+              <div className={`absolute right-0 top-full z-40 pt-2 transition-opacity ${userOpen ? "visible opacity-100" : "invisible opacity-0"}`}>
+                <div className="w-52 rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-white/10 dark:bg-[#0b0b12]" role="menu">
+                  {displayName && (
+                    <p className="truncate px-3 py-2 text-[12px] text-zinc-500 dark:text-zinc-400">{displayName}</p>
+                  )}
+                  <Link href="/profile" prefetch={false} onClick={() => setUserOpen(false)} className={menuCls("/profile")} role="menuitem">Профайл</Link>
+                  <button onClick={() => signOut({ callbackUrl: "/" })} className="flex w-full items-center px-3 py-2 rounded-lg text-[13px] font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5" role="menuitem">
+                    Гарах
+                  </button>
+                </div>
+              </div>
+            </div>
           ) : (
             <Link href="/login" className="hidden sm:inline-flex rounded-full bg-indigo-600 px-5 py-2.5 sm:py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] items-center">
               Нэвтрэх
@@ -197,7 +228,15 @@ export default function Header() {
             </span>
           ) : user ? (
             <div className="space-y-2">
-              {displayName && <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">{displayName}</p>}
+              <Link href="/profile" onClick={() => setOpen(false)} aria-current={pathname === "/profile" ? "page" : undefined} className={`flex w-full items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium min-h-[44px] ${pathname === "/profile" ? "border-indigo-500 ring-1 ring-inset ring-indigo-500 text-indigo-700 dark:border-indigo-400 dark:ring-indigo-400 dark:text-indigo-200" : "border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-white/15 dark:text-zinc-200 dark:hover:bg-white/5"}`}>
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5" />
+                  </svg>
+                </span>
+                <span className="min-w-0 truncate">{displayName ?? "Профайл"}</span>
+              </Link>
               <button onClick={() => signOut({ callbackUrl: "/" })} className="flex w-full justify-center rounded-full border border-zinc-200 px-4 py-2.5 text-sm dark:border-white/15 dark:hover:bg-white/5 min-h-[44px] items-center">
                 Гарах
               </button>

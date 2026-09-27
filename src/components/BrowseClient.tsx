@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
 import { indexMainName, indexSubName, type IndexData, type IndexRow, type QuestionPool } from "@/lib/questionIndex";
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
+import { optionOrder } from "@/lib/optionOrder";
 import { fileHasAnswer } from "@/lib/answerOverrides";
 import { FREE_CATEGORY } from "@/lib/access";
 import QuestionDiscussion from "@/components/QuestionDiscussion";
@@ -549,7 +550,8 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           <span className="shrink-0 pt-1 text-[10px] text-zinc-400">{isOpen ? "▴" : "▾"}</span>
         </button>
 
-        {isOpen && (
+        <div className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+          <div className="min-h-0 overflow-hidden" inert={!isOpen} aria-hidden={!isOpen}>
           <div className="border-t px-3 py-3 sm:px-4 sm:py-4 dark:border-white/10">
             <div className="flex gap-1 flex-wrap">
               {item.category && <span className="rounded-full bg-indigo-50 text-indigo-600 px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs dark:bg-indigo-500/10 dark:text-indigo-300">{item.category}</span>}
@@ -577,7 +579,8 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
             )}
 
             <div className="mt-2.5 sm:mt-3 grid grid-cols-1 gap-1.5 sm:gap-2">
-              {item.options.map((opt, i) => {
+              {(isUnansweredPool ? item.options.map((_, i) => i) : optionOrder(item.id, item.options.length)).map((i) => {
+                const opt = item.options[i];
                 const isCorrect = official !== null && i === official;
                 const showCorrect = isCorrect && (isRevealed || pick !== undefined || adminView);
                 const showWrong = !isCorrect && pick === i;
@@ -599,7 +602,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
                 const rowCls = `rounded-lg sm:rounded-xl border px-3 py-2 sm:px-4 sm:py-2.5 text-[13px] sm:text-sm flex gap-2 ${tone}${isMySaved ? " ring-1 ring-inset ring-indigo-500/50" : ""}`;
                 const rowBody = (
                   <>
-                    <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${pillTone}`}>{LETTERS[i]}</span>
+                    {isUnansweredPool && <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${pillTone}`}>{LETTERS[i]}</span>}
                     <span className="min-w-0 leading-snug [overflow-wrap:anywhere]">{opt}</span>
                     {(isMySaved || showCorrect || showWrong) && (
                       <span className="ml-auto flex shrink-0 items-center gap-1.5">
@@ -670,7 +673,8 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
               <QuestionReport questionId={item.id} />
             </div>
           </div>
-        )}
+          </div>
+        </div>
       </div>
     );
   };

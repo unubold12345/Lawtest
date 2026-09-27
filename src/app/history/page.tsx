@@ -27,7 +27,6 @@ export default function HistoryPage() {
   const [reviewFilter, setReviewFilter] = useState<"review" | "all" | "correct">("review");
   const [openQ, setOpenQ] = useState<Record<string, boolean>>({});
   const [catFilter, setCatFilter] = useState<"all" | "main" | "sub" | "other">("all");
-  const [view, setView] = useState<"list" | "grid">("list");
   const [openReview, setOpenReview] = useState<string | null>(null);
   const [pendingClearAll, setPendingClearAll] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Attempt | null>(null);
@@ -160,17 +159,43 @@ export default function HistoryPage() {
   if (attempts.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-2 sm:px-6 py-6 sm:py-10">
-        <p className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-500 dark:bg-white/[0.04] dark:border-white/10">
-          Одоогоор шалгалт өгөөгүй. <Link href="/quiz" className="underline">Шалгалт эхлэх</Link>
-        </p>
+        <div className="rounded-2xl border border-zinc-200 bg-white p-8 sm:p-10 text-center dark:bg-white/[0.04] dark:border-white/10">
+          <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-500 dark:bg-indigo-500/15 dark:text-indigo-300">
+            <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" />
+              <path d="M14 3v6h6" />
+              <path d="M9 15h6M9 11h2" />
+            </svg>
+          </span>
+          <h1 className="mt-3 text-base sm:text-lg font-semibold">Шалгалтын түүх</h1>
+          <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Одоогоор шалгалт өгөөгүй.</p>
+          <Link href="/quiz" className="mt-4 inline-flex items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
+            Шалгалт эхлэх →
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-2 sm:px-6 py-6 sm:py-10">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+    <div className="mx-auto max-w-4xl px-2 sm:px-6 py-6 sm:py-10">
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white px-4 py-4 sm:px-6 sm:py-5 dark:border-white/10 dark:bg-white/[0.04]">
+        <div aria-hidden className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/20" />
+        <div aria-hidden className="pointer-events-none absolute -top-4 right-20 h-32 w-32 rounded-full bg-violet-500/10 blur-3xl dark:bg-violet-500/20" />
+        <div className="relative flex flex-wrap items-end justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-300">Lexlab · Бүртгэл</p>
+            <h1 className="mt-1 text-xl sm:text-2xl font-extrabold tracking-tight">Шалгалтын түүх</h1>
+            <p className="mt-0.5 text-[12px] sm:text-sm text-zinc-500">{attempts.length} шалгалтын бүртгэл</p>
+          </div>
+          <Link href="/quiz" className="shrink-0 inline-flex items-center rounded-full bg-indigo-600 px-4 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
+            + Шалгалт эхлэх
+          </Link>
+        </div>
+      </div>
+
+      <div className="mt-5 sm:mt-6 flex items-center gap-1.5 sm:gap-2">
+        <div className="flex flex-1 items-center gap-1.5 sm:gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {([
             { k: "all", label: "Бүгд", n: attempts.length },
             { k: "main", label: "Үндсэн", n: catCounts.main },
@@ -181,92 +206,94 @@ export default function HistoryPage() {
               key={c.k}
               onClick={() => { setCatFilter(c.k); setExpanded(null); }}
               aria-pressed={catFilter === c.k}
-              className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] ${catFilter === c.k ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${catFilter === c.k ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
             >
-              {c.label} · {c.n}
+              {c.label}
+              <span className={`tabular-nums rounded-full px-1.5 text-[10px] font-semibold ${catFilter === c.k ? "bg-white/20" : "bg-zinc-100 dark:bg-white/10"}`}>{c.n}</span>
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-2 shrink-0">
-          <div className="hidden sm:inline-flex items-center gap-0.5 rounded-full border border-zinc-200 bg-zinc-50 p-0.5 dark:border-white/15 dark:bg-white/5" role="group" aria-label="Харагдац">
-            {([{ v: "list", label: "Жагсаалт" }, { v: "grid", label: "Сүлжээ" }] as const).map((o) => (
-              <button
-                key={o.v}
-                onClick={() => setView(o.v)}
-                aria-label={o.label}
-                aria-pressed={view === o.v}
-                title={o.label}
-                className={`inline-flex h-8 w-11 items-center justify-center rounded-full transition-colors ${view === o.v ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-500 hover:bg-white hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100"}`}
-              >
-                {o.v === "list" ? (
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-                    <path d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                    <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
-                    <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
-                    <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
-                    <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
-                  </svg>
-                )}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => setPendingClearAll(true)} className="text-sm underline text-zinc-500 min-h-[44px] px-2">Цэвэрлэх</button>
-        </div>
+        <button
+          onClick={() => setPendingClearAll(true)}
+          aria-label="Бүх түүхийг цэвэрлэх"
+          title="Бүх түүхийг цэвэрлэх"
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-zinc-200 px-2.5 text-zinc-500 transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:border-white/15 dark:text-zinc-400 dark:hover:border-rose-400/40 dark:hover:bg-rose-400/10 dark:hover:text-rose-300 sm:px-3.5"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M3 6h18" />
+            <path d="M8 6V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1" />
+            <path d="m19 6-.9 13a2 2 0 0 1-2 1.9H7.9a2 2 0 0 1-2-1.9L5 6" />
+            <path d="M10 11v6M14 11v6" />
+          </svg>
+          <span className="hidden sm:inline text-[12px] font-medium">Цэвэрлэх</span>
+        </button>
       </div>
 
-      <div className={view === "grid" ? "mt-6 grid gap-4 sm:grid-cols-2 sm:items-start sm:grid-flow-row-dense" : "mt-6 grid gap-4"}>
-        {shownAttempts.map((a) => {
+      <div className="mt-6 grid grid-cols-2 items-start gap-3 sm:gap-4">
+        {shownAttempts.map((a, i) => {
           const isOpen = expanded === a.id;
           const pct = Math.round((a.score / a.total) * 100);
+          const passed = a.score / a.total >= 0.6;
+          const hasQs = !!a.questionIds && a.questionIds.length > 0;
+          const { items, nOk } = itemsOf(a);
+          const chev = isOpen ? "rotate-180" : "";
           return (
-            <div key={a.id} className={`rounded-2xl border border-zinc-200 bg-white dark:bg-white/[0.04] dark:border-white/10 overflow-hidden${view === "grid" && isOpen ? " sm:col-span-2" : ""}`}>
-              <button onClick={() => openAttempt(a.id, isOpen)} className="w-full p-3 sm:p-4 flex justify-between items-center text-left hover:bg-zinc-50 dark:hover:bg-white/5 gap-2 min-h-[56px]">
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm sm:text-base">{a.score} / {a.total} · {pct}%</p>
-                  <p className="text-xs text-zinc-500 break-words">{new Date(a.date).toLocaleString()} · {a.category} · {fmt(a.elapsed)} · {a.mode === "study" ? "Сургалт" : "Шалгалт"}</p>
-                </div>
-                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                  <span className={`rounded-full px-2.5 sm:px-3 py-1 text-xs font-medium ${a.score / a.total >= 0.6 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300" : "bg-rose-50 text-rose-700 dark:bg-rose-400/10 dark:text-rose-300"}`}>
-                    {a.score / a.total >= 0.6 ? "Тэнцсэн" : "Унасан"}
+            <div
+              key={a.id}
+              style={isOpen && i % 2 === 1 ? { gridRowStart: Math.floor(i / 2) + 1, gridColumn: "1 / -1" } : undefined}
+              className={`group rounded-2xl border bg-white dark:bg-white/[0.04] transition-[border-color,box-shadow] duration-300 ${isOpen ? "col-span-2 border-indigo-300 shadow-lg shadow-indigo-950/[0.07] dark:border-indigo-400/30 dark:shadow-indigo-950/30" : "border-zinc-200 hover:border-zinc-300 hover:shadow-sm dark:border-white/10 dark:hover:border-white/20 dark:hover:shadow-black/20"}`}
+            >
+              <button onClick={() => openAttempt(a.id, isOpen)} aria-expanded={isOpen} className="w-full p-3 sm:p-4 text-left min-h-[56px]">
+                <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-[13px] sm:text-base tabular-nums">{a.score} / {a.total} · <span className={passed ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>{pct}%</span></p>
+                    <p className="mt-0.5 truncate text-[10px] sm:text-xs text-zinc-500">{new Date(a.date).toLocaleString()} · {a.category}</p>
+                    <p className="mt-0.5 truncate text-[10px] sm:text-[11px] text-zinc-400 dark:text-zinc-500">{fmt(a.elapsed)} · {a.mode === "study" ? "Сургалт" : "Шалгалт"}</p>
+                  </div>
+                  <span className={`inline-flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full border transition-all duration-300 ${chev} ${isOpen ? "border-indigo-300 bg-indigo-50 text-indigo-600 dark:border-indigo-400/30 dark:bg-indigo-500/15 dark:text-indigo-300" : "border-zinc-200 text-zinc-400 group-hover:border-zinc-300 group-hover:text-zinc-600 dark:border-white/15 dark:group-hover:border-white/25 dark:group-hover:text-zinc-200"}`}>
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m6 9 6 6 6-6" /></svg>
                   </span>
-                  <span className="text-sm text-zinc-400">{isOpen ? "▲" : "▼"}</span>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="h-1.5 flex-1 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+                    <div className={`h-full rounded-full transition-[width] duration-500 ${passed ? "bg-emerald-500" : "bg-rose-500"}`} style={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }} />
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-medium ${passed ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300" : "bg-rose-50 text-rose-700 dark:bg-rose-400/10 dark:text-rose-300"}`}>
+                    {passed ? "Тэнцсэн" : "Унасан"}
+                  </span>
                 </div>
               </button>
 
-              {isOpen && (() => {
-                const hasQs = !!a.questionIds && a.questionIds.length > 0;
-                const { items, nOk } = itemsOf(a);
-                return (
-                  <div className="border-t border-zinc-200 p-3 sm:p-4 space-y-2 sm:space-y-3 bg-zinc-50 dark:bg-white/[0.02] dark:border-white/10">
-                    {!hasQs && <p className="text-sm text-zinc-500">Дэлгэрэнгүй сорилго олдсонгүй (хуучин түүх).</p>}
-                    {hasQs && (
+              <div className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                <div inert={!isOpen} aria-hidden={!isOpen} className="min-h-0 overflow-hidden">
+                  <div className="border-t border-zinc-200 bg-zinc-50 p-3 sm:p-4 space-y-2 sm:space-y-3 dark:border-white/10 dark:bg-white/[0.02]">
+                    {hasQs ? (
                       <div className="flex flex-wrap gap-1.5">
                         <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">✓ Зөв · {nOk}</span>
                         <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-rose-700 dark:bg-rose-400/10 dark:text-rose-300">✗ Буруу · {items.filter((x) => x.st === "wrong").length}</span>
                         <span className="rounded-full bg-zinc-200 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-zinc-700 dark:bg-white/5 dark:text-zinc-300">○ Хариулаагүй · {items.filter((x) => x.st === "unanswered").length}</span>
                       </div>
+                    ) : (
+                      <p className="text-[11px] sm:text-xs text-zinc-500">Дэлгэрэнгүй мэдээлэл байхгүй.</p>
                     )}
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                       {hasQs && (
-                        <button onClick={() => setOpenReview(a.id)} className="flex-1 min-w-[160px] rounded-full bg-indigo-600 px-4 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
+                        <button onClick={() => setOpenReview(a.id)} className="flex-1 min-w-0 rounded-full bg-indigo-600 px-3 py-1.5 text-[11px] sm:text-xs font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[32px] sm:min-h-[36px]">
                           Асуултуудыг үзэх ({items.length}) →
                         </button>
                       )}
-                      <button onClick={() => setPendingDelete(a)} className="rounded-full border border-rose-200 px-4 py-2.5 text-[13px] sm:text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-400/30 dark:text-rose-300 dark:hover:bg-rose-400/10 min-h-[40px]">
+                      <button onClick={() => setPendingDelete(a)} className="shrink-0 rounded-full border border-rose-200 px-3 py-1.5 text-[11px] sm:text-xs font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-400/30 dark:text-rose-300 dark:hover:bg-rose-400/10 min-h-[32px] sm:min-h-[36px]">
                         Устгах
                       </button>
                     </div>
                   </div>
-                );
-              })()}
+                </div>
+              </div>
             </div>
           );
         })}
         {shownAttempts.length === 0 && (
-          <p className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-500 dark:bg-white/[0.04] dark:border-white/10 sm:col-span-2">
+          <p className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-500 dark:bg-white/[0.04] dark:border-white/10 col-span-2">
             Энэ шүүлтэд тохирох шалгалт олдсонгүй.
           </p>
         )}

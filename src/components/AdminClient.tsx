@@ -25,7 +25,7 @@ type PaymentRow = { id: string; status: string; createdAt: string; decidedAt: st
 
 type ReportRow = { id: string; questionId: string; type: string; message: string; status: string; createdAt: string; user: { id: string; name: string | null; email: string; phone: string | null } };
 
-type AnnouncementRow = { id: string; body: string; createdAt: string; readCount: number };
+type AnnouncementRow = { id: string; body: string; createdAt: string; readCount: number; recipientCount: number };
 
 type TabId = "overview" | "users" | "questions" | "attempts" | "reports" | "payments" | "announcements";
 
@@ -427,6 +427,10 @@ export default function AdminClient() {
   const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
   const [annBody, setAnnBody] = useState("");
   const [annSaving, setAnnSaving] = useState(false);
+  const [annMode, setAnnMode] = useState<"all" | "picked">("all");
+  const [annUsers, setAnnUsers] = useState<UserRow[]>([]);
+  const [annUserQ, setAnnUserQ] = useState("");
+  const [annPicked, setAnnPicked] = useState<string[]>([]);
 
   const fetchStats = async () => {
     const r = await fetch("/api/admin/stats");
@@ -469,6 +473,12 @@ export default function AdminClient() {
     const d = await r.json();
     setAnnouncements(d.announcements || []);
   };
+  const fetchAnnUsers = async (search = annUserQ) => {
+    const r = await fetch(`/api/admin/users?q=${encodeURIComponent(search)}`);
+    if (!r.ok) throw new Error("users failed");
+    const d = await r.json();
+    setAnnUsers(d.users);
+  };
 
   useEffect(() => {
     (async () => {
@@ -504,7 +514,10 @@ export default function AdminClient() {
     setNavOpen(false);
     if (id === "reports") fetchReports();
     if (id === "payments") fetchPayments();
-    if (id === "announcements") fetchAnnouncements();
+    if (id === "announcements") {
+      fetchAnnouncements();
+      fetchAnnUsers();
+    }
   };
 
   const setReportStatus = async (id: string, status: "OPEN" | "RESOLVED") => {
@@ -523,12 +536,13 @@ export default function AdminClient() {
   const publishAnnouncement = async () => {
     const body = annBody.trim();
     if (body.length < 3) return;
+    if (annMode === "picked" && annPicked.length === 0) return;
     setAnnSaving(true);
     try {
-      const r = await fetch("/api/admin/announcements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body }) });
+      const r = await fetch("/api/admin/announcements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body, userIds: annMode === "picked" ? annPicked : [] }) });
       if (!r.ok) { alert((await r.json()).error || "Амжилтгүй"); return; }
       const d = await r.json();
-      setAnnouncements((prev) => [{ ...d.announcement, readCount: 0 }, ...prev]);
+      setAnnouncements((prev) => [d.announcement, ...prev]);
       setAnnBody("");
     } finally {
       setAnnSaving(false);
@@ -885,13 +899,63 @@ export default function AdminClient() {
           {tab === "announcements" && (
             <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
               <h3 className="font-semibold text-sm">Хэрэглэгчдэд мэдэгдэл илгээх</h3>
-              <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">Мэдэгдэл бүх нэвтэрсэн хэрэглэгчийн хонхон дээр харагдана.</p>
+              <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">Сонгосон хэрэглэгчдийн хонхон дээр харагдана. Хоосон бол бүх хэрэглэгчид.</p>
+              <div className="mt-3">
+                <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Хүлээн авагч</p>
+                <div className="mt-1.5 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAnnMode("all")}
+                    className={`flex-1 rounded-full px-3 py-1.5 text-[11px] sm:text-xs font-medium border transition-colors min-h-[32px] ${annMode === "all" ? "bg-indigo-600 text-white border-transparent shadow-sm shadow-indigo-600/30 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-none" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+                  >
+                    Бүх хэрэглэгч
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnnMode("picked")}
+                    className={`flex-1 rounded-full px-3 py-1.5 text-[11px] sm:text-xs font-medium border transition-colors min-h-[32px] ${annMode === "picked" ? "bg-indigo-600 text-white border-transparent shadow-sm shadow-indigo-600/30 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-none" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+                  >
+                    Сонгосон хэрэглэгчид{annPicked.length > 0 ? ` (${annPicked.length})` : ""}
+                  </button>
+                </div>
+                {annMode === "picked" && (
+                  <div className="mt-2 rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+                    <div className="flex gap-2">
+                      <input
+                        value={annUserQ}
+                        onChange={(e) => setAnnUserQ(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); fetchAnnUsers(); } }}
+                        placeholder="Утас / имэйлээр хайх"
+                        className={`${editorInput} flex-1`}
+                      />
+                      <button type="button" onClick={() => fetchAnnUsers()} className="rounded-full border border-zinc-200 px-3 text-[11px] sm:text-xs dark:border-white/15 dark:hover:bg-white/5 min-h-[32px]">
+                        Хайх
+                      </button>
+                    </div>
+                    <div className="mt-2 max-h-56 overflow-y-auto grid gap-1">
+                      {annUsers.map((u) => (
+                        <label key={u.id} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] cursor-pointer ${annPicked.includes(u.id) ? "bg-indigo-50 dark:bg-indigo-500/15" : "hover:bg-zinc-50 dark:hover:bg-white/5"}`}>
+                          <input type="checkbox" checked={annPicked.includes(u.id)} onChange={() => setAnnPicked((p) => p.includes(u.id) ? p.filter((x) => x !== u.id) : [...p, u.id])} className="accent-indigo-600" />
+                          <span className="truncate">{u.phone || u.email}{u.role === "ADMIN" ? " · админ" : ""}</span>
+                        </label>
+                      ))}
+                      {annUsers.length === 0 && <p className="text-xs text-zinc-500 text-center py-3">Хэрэглэгч олдсонгүй</p>}
+                    </div>
+                    {annPicked.length > 0 && (
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className="text-[11px] text-zinc-500">{annPicked.length} сонгогдсон</span>
+                        <button type="button" onClick={() => setAnnPicked([])} className="text-[11px] text-rose-600 dark:text-rose-400">Цэвэрлэх</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="mt-3 grid gap-2">
                 <AutoGrowTextarea value={annBody} onChange={(e) => setAnnBody(e.target.value)} disabled={annSaving} className={editorInput} />
                 <div className="flex justify-end">
                   <button
                     onClick={publishAnnouncement}
-                    disabled={annSaving || annBody.trim().length < 3}
+                    disabled={annSaving || annBody.trim().length < 3 || (annMode === "picked" && annPicked.length === 0)}
                     className="rounded-full bg-indigo-600 px-4 py-1.5 text-[11px] sm:text-xs text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 disabled:opacity-50 min-h-[32px]"
                   >
                     {annSaving ? "Илгээж байна…" : "Мэдэгдэл илгээх"}
@@ -905,7 +969,7 @@ export default function AdminClient() {
                       <p className="text-[13px] leading-snug break-words whitespace-pre-wrap">{a.body}</p>
                       <button onClick={() => delAnnouncement(a.id)} className="shrink-0 rounded-full border border-rose-200 px-4 py-1.5 text-[11px] sm:text-xs text-rose-600 dark:border-rose-400/30 dark:text-rose-400 min-h-[32px]">Устгах</button>
                     </div>
-                    <p className="mt-1 text-[11px] text-zinc-500">{new Date(a.createdAt).toLocaleString("mn-MN")} · {a.readCount} уншсан</p>
+                    <p className="mt-1 text-[11px] text-zinc-500">{new Date(a.createdAt).toLocaleString("mn-MN")} · {a.recipientCount > 0 ? `${a.recipientCount} хэрэглэгчид` : "Бүх хэрэглэгч"} · {a.readCount} уншсан</p>
                   </div>
                 ))}
                 {announcements.length === 0 && <p className="text-sm text-zinc-500 text-center py-6">Мэдэгдэл алга</p>}
