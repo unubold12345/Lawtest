@@ -69,6 +69,9 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const [pending, setPending] = useState<{ id: string; index: number | null } | null>(null);
   const [pendingClear, setPendingClear] = useState<string | null>(null);
   const [marking, setMarking] = useState<string | null>(null);
+  // admin-marked this session: index rows are a server snapshot, so r[5] only
+  // flips after reload — track fresh marks locally for live progress
+  const [markedIds, setMarkedIds] = useState<Set<string>>(new Set());
   const [view, setView] = useState<View>("list");
   const [gridCols, setGridCols] = useState<number>(2);
   const [cardIdx, setCardIdx] = useState(0);
@@ -197,9 +200,11 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const statusOf = (item: Question): "answered" | "unanswered" | "mine" =>
     mineOf(item) ? "mine" : effOf(item) === null ? "unanswered" : "answered";
 
-  // row-level helpers (index rows): [id, mainIdx, subIdx, hasAnswer, isCase]
+  // row-level helpers (index rows): [id, mainIdx, subIdx, hasAnswer, isCase, adminAdded]
+  // r[5]=1 = admin added the answer where the file had none — counts as answered
+  // for progress (the question has an official answer now, it just stays listed here)
   const statusOfRow = (r: IndexRow): "answered" | "unanswered" | "mine" =>
-    r[3] === 1 ? "answered" : isAuthed && typeof myDb[r[0]] === "number" ? "mine" : "unanswered";
+    r[3] === 1 || r[5] === 1 || markedIds.has(r[0]) ? "answered" : isAuthed && typeof myDb[r[0]] === "number" ? "mine" : "unanswered";
   const notedOfRow = (r: IndexRow): boolean => isAuthed && notedIds.has(r[0]);
 
   const filteredNoType = useMemo(() => {
@@ -236,14 +241,14 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     });
     return { answered, unanswered, mine, noted, total: filteredBase.length };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredBase, myDb, notedIds, isAuthed]);
+  }, [filteredBase, myDb, notedIds, isAuthed, markedIds]);
 
   const filtered = useMemo(() => {
     if (status === "all") return filteredBase;
     if (status === "noted") return filteredBase.filter((r) => notedOfRow(r));
     return filteredBase.filter((r) => statusOfRow(r) === status);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredBase, status, myDb, notedIds, isAuthed]);
+  }, [filteredBase, status, myDb, notedIds, isAuthed, markedIds]);
 
   const readyPct = statusCounts.total === 0 ? 0 : Math.round(((statusCounts.answered + statusCounts.mine) / statusCounts.total) * 100);
 
@@ -398,6 +403,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         return;
       }
       mergeItems([{ ...item, answer: index }]);
+      setMarkedIds((prev) => new Set(prev).add(item.id));
       flashSaved(item.id, `✓ ${LETTERS[index]} зөв хариулт болголоо`);
     } catch {
       flashSaved(item.id, "Сүлжээний алдаа", true);
