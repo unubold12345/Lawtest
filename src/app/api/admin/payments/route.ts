@@ -27,10 +27,20 @@ export async function PATCH(req: Request) {
   const found = await prisma.paymentRequest.findUnique({ where: { id } });
   if (!found) return NextResponse.json({ error: "Хүсэлт олдсонгүй" }, { status: 404 });
   if (action === "approve") {
+    const target = await prisma.user.findUnique({ where: { id: found.userId }, select: { paidAt: true } });
     await prisma.$transaction([
       prisma.paymentRequest.update({ where: { id }, data: { status: "APPROVED", decidedAt: new Date() } }),
       prisma.user.update({ where: { id: found.userId }, data: { paidAt: new Date() } }),
     ]);
+    // paid-plan grant bell notification (only on unpaid → paid transition)
+    if (!target?.paidAt) {
+      await prisma.announcement.create({
+        data: {
+          body: "Таны эрх амжилттай нээгдлээ. Lexlab-ийг сонгосонд баярлалаа.",
+          recipients: { connect: [{ id: found.userId }] },
+        },
+      });
+    }
   } else {
     await prisma.paymentRequest.update({ where: { id }, data: { status: "REJECTED", decidedAt: new Date() } });
   }

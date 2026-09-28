@@ -431,6 +431,7 @@ export default function AdminClient() {
   const [annUsers, setAnnUsers] = useState<UserRow[]>([]);
   const [annUserQ, setAnnUserQ] = useState("");
   const [annPicked, setAnnPicked] = useState<string[]>([]);
+  const [annUserMap, setAnnUserMap] = useState<Record<string, string>>({});
 
   const fetchStats = async () => {
     const r = await fetch("/api/admin/stats");
@@ -478,6 +479,11 @@ export default function AdminClient() {
     if (!r.ok) throw new Error("users failed");
     const d = await r.json();
     setAnnUsers(d.users);
+    setAnnUserMap((prev) => {
+      const next = { ...prev };
+      for (const u of d.users as UserRow[]) next[u.id] = u.phone || u.email || u.id;
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -544,6 +550,7 @@ export default function AdminClient() {
       const d = await r.json();
       setAnnouncements((prev) => [d.announcement, ...prev]);
       setAnnBody("");
+      setAnnPicked([]);
     } finally {
       setAnnSaving(false);
     }
@@ -942,9 +949,19 @@ export default function AdminClient() {
                       {annUsers.length === 0 && <p className="text-xs text-zinc-500 text-center py-3">Хэрэглэгч олдсонгүй</p>}
                     </div>
                     {annPicked.length > 0 && (
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-[11px] text-zinc-500">{annPicked.length} сонгогдсон</span>
-                        <button type="button" onClick={() => setAnnPicked([])} className="text-[11px] text-rose-600 dark:text-rose-400">Цэвэрлэх</button>
+                      <div className="mt-2 grid gap-1.5">
+                        <div className="flex flex-wrap gap-1">
+                          {annPicked.map((id) => (
+                            <span key={id} className="inline-flex items-center gap-1 rounded-full bg-indigo-50 py-0.5 pl-2 pr-1 text-[10px] sm:text-[11px] text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200">
+                              <span className="max-w-32 truncate">{annUserMap[id] || `${id.slice(0, 6)}…`}</span>
+                              <button type="button" onClick={() => setAnnPicked((p) => p.filter((x) => x !== id))} aria-label="Хасах" className="grid h-4 w-4 place-items-center rounded-full hover:bg-indigo-200/60 dark:hover:bg-indigo-400/20">×</button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-zinc-500">{annPicked.length} сонгогдсон</span>
+                          <button type="button" onClick={() => setAnnPicked([])} className="text-[11px] text-rose-600 dark:text-rose-400">Цэвэрлэх</button>
+                        </div>
                       </div>
                     )}
                   </div>

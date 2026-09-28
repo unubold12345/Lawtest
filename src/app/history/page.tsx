@@ -361,7 +361,7 @@ export default function HistoryPage() {
                       </button>
                       {open && (
                         <div className="px-3 pb-3">
-                          <p className="text-[10px] text-zinc-500 break-words">{q.category}{q.subCategory ? ` · ${q.subCategory}` : ""} {unknown ? "· хариултгүй" : ""} {st === "unanswered" ? "· хариулаагүй" : ""}</p>
+                          <p className="text-[10px] text-zinc-500 break-words">{a.category !== "Үндсэн шалгалт" && <>{q.category}{q.subCategory ? ` · ${q.subCategory}` : ""} </>}{unknown ? "· хариултгүй" : ""} {st === "unanswered" ? "· хариулаагүй" : ""}</p>
                           <div className="mt-2 grid gap-1.5 min-w-0">
                             {q.options.map((opt, oi) => (
                               <div

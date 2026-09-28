@@ -4,19 +4,10 @@ import { useSession } from "next-auth/react";
 
 type Ann = { id: string; body: string; createdAt: string; read: boolean };
 
-function timeAgo(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return "";
-  const mins = Math.floor((Date.now() - then) / 60000);
-  if (mins < 1) return "саяхан";
-  if (mins < 60) return `${mins} мин өмнө`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} цаг өмнө`;
-  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const days = Math.round((day(new Date()) - day(new Date(iso))) / 86400000);
-  if (days <= 1) return "өчигдөр";
-  if (days < 30) return `${days} хоногийн өмнө`;
-  return new Date(iso).toLocaleDateString("mn-MN", { year: "numeric", month: "2-digit", day: "2-digit" });
+function fmtTime(iso: string): string {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  return d.toLocaleString("mn-MN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 export default function NotificationBell() {
@@ -147,7 +138,7 @@ export default function NotificationBell() {
                         <p className={`whitespace-pre-wrap break-words text-[13px] leading-snug ${a.read ? "text-zinc-600 dark:text-zinc-300" : "font-medium text-zinc-800 dark:text-zinc-100"}`}>
                           {a.body}
                         </p>
-                        <p className="mt-1 text-[10.5px] text-zinc-400 dark:text-zinc-500">{timeAgo(a.createdAt)}</p>
+                        <p className="mt-1 text-[10.5px] text-zinc-400 dark:text-zinc-500">{fmtTime(a.createdAt)}</p>
                       </div>
                     </div>
                   </li>

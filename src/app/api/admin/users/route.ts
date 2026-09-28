@@ -28,11 +28,21 @@ export async function PATCH(req: Request) {
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
     // manual plan grant / revoke (төлбөрийг гараар баталгаажуулах)
     if (typeof paid === "boolean") {
+      const before = await prisma.user.findUnique({ where: { id }, select: { paidAt: true } });
       const updated = await prisma.user.update({
         where: { id },
         data: { paidAt: paid ? new Date() : null },
         select: { id: true, paidAt: true },
       });
+      // paid-plan grant bell notification (only on unpaid → paid transition)
+      if (paid && !before?.paidAt) {
+        await prisma.announcement.create({
+          data: {
+            body: "Таны эрх амжилттай нээгдлээ. Lexlab-ийг сонгосонд баярлалаа.",
+            recipients: { connect: [{ id }] },
+          },
+        });
+      }
       return NextResponse.json({ user: updated });
     }
     if (!["USER", "ADMIN"].includes(role)) return NextResponse.json({ error: "role USER|ADMIN required" }, { status: 400 });

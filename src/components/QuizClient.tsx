@@ -39,6 +39,63 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+// Main exam blueprint (expert sampling): 100 case + 100 theory, with every
+// (main, subcategory) pair represented. Each pair holding the type is
+// guaranteed 1 slot; leftover slots split proportionally to pair size via
+// the largest-remainder method (bigger subjects weigh more, like a real bar
+// exam). Final set is shuffled so case/theory are mixed, sources stay hidden.
+const MAIN_EXAM_CASE = 100;
+const MAIN_EXAM_THEORY = 100;
+
+function apportion(sizes: Map<string, number>, slots: number): Map<string, number> {
+  const out = new Map<string, number>();
+  const total = [...sizes.values()].reduce((a, b) => a + b, 0);
+  if (total <= 0 || slots <= 0) { sizes.forEach((_, k) => out.set(k, 0)); return out; }
+  const raw = new Map<string, number>();
+  sizes.forEach((n, k) => { const v = (slots * n) / total; raw.set(k, v); out.set(k, Math.floor(v)); });
+  let assigned = [...out.values()].reduce((a, b) => a + b, 0);
+  const byFrac = [...sizes.keys()].sort((a, b) => (raw.get(b)! - out.get(b)!) - (raw.get(a)! - out.get(a)!));
+  for (const k of byFrac) {
+    if (assigned >= slots) break;
+    out.set(k, out.get(k)! + 1);
+    assigned++;
+  }
+  return out;
+}
+
+function pickStratified(pool: IndexRow[], need: number): IndexRow[] {
+  const groups = new Map<string, IndexRow[]>();
+  for (const r of pool) {
+    const k = `${r[1]}:${r[2]}`;
+    const g = groups.get(k);
+    if (g) g.push(r); else groups.set(k, [r]);
+  }
+  const keys = [...groups.keys()];
+  if (keys.length === 0 || need <= 0) return [];
+  const sizes = new Map(keys.map((k) => [k, groups.get(k)!.length] as [string, number]));
+  const take = new Map<string, number>();
+  if (keys.length <= need) {
+    keys.forEach((k) => take.set(k, 1));
+    apportion(sizes, need - keys.length).forEach((n, k) => take.set(k, take.get(k)! + n));
+  } else {
+    apportion(sizes, need).forEach((n, k) => take.set(k, n));
+  }
+  const out: IndexRow[] = [];
+  take.forEach((n, k) => {
+    const g = groups.get(k)!;
+    out.push(...shuffle(g).slice(0, Math.min(n, g.length)));
+  });
+  return out;
+}
+
+function pickMainExamRows(rows: IndexRow[]): IndexRow[] {
+  const picked = [
+    ...pickStratified(rows.filter((r) => r[4] === 1), MAIN_EXAM_CASE),
+    ...pickStratified(rows.filter((r) => r[4] !== 1), MAIN_EXAM_THEORY),
+  ];
+  return shuffle(picked);
+}
+
 function saveLocal(attempt: object) {
   const raw = localStorage.getItem("lawtest_attempts");
   const arr = raw ? JSON.parse(raw) : [];
@@ -146,7 +203,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
   }, [isAuthed]);
 
   const [state, setState] = useState<QuizState>("setup");
-  const [preparing, setPreparing] = useState(false);
+  const [preparing, setPreparing] = useState<string | null>(null);
   const [count, setCount] = useState(20);
   const [customCount, setCustomCount] = useState("");
   const [lastExam, setLastExam] = useState<Attempt | null>(null);
@@ -357,7 +414,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
   const resume = (rec: SavedExam) => {
     const known = rec.ids.filter((id) => rowById.has(id));
     if (known.length === 0) return;
-    setPreparing(true);
+    setPreparing("resume");
     fetchItems(known)
       .then((qs) => {
         if (qs.length === 0) return;
@@ -384,7 +441,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
         setState("running");
         window.scrollTo({ top: 0 });
       })
-      .finally(() => setPreparing(false));
+      .finally(() => setPreparing(null));
   };
 
   const start = async (o: { main?: string; sub?: string; n?: number; mins?: number; m?: Mode; tag?: string; ids?: string[] } = {}) => {
@@ -442,14 +499,14 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const label = filters && !o.tag ? `${base} · ${filters}` : base;
     setRunLabel(label);
     deleteSaved(label);
-    const pickedRows = shuffle(rows).slice(0, total);
+    const pickedRows = o.tag === "Үндсэн шалгалт" ? pickMainExamRows(rows) : shuffle(rows).slice(0, total);
     if (pickedRows.length === 0) return;
-    setPreparing(true);
+    setPreparing(o.tag ?? "exam");
     let picked: Question[] = [];
     try {
       picked = await fetchItems(pickedRows.map((r) => r[0]));
     } finally {
-      setPreparing(false);
+      setPreparing(null);
     }
     if (picked.length === 0) return;
     // 1 minute per question in exam mode; study mode is untimed
@@ -1156,7 +1213,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
           </span>
           <div className="min-w-0">
             <h2 className="text-[14px] sm:text-xl font-semibold break-words">Үндсэн шалгалт</h2>
-            <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-400">Бодит шалгалтын загвараар · бүх ангилал</p>
+            <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-400">Бодит шалгалтын загвараар · 100 кейс + 100 онол</p>
           </div>
         </div>
         {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Үндсэн шалгалт нь Эрх авах төлөвлөгөөнд багтдаг.</p>}
@@ -1176,6 +1233,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
         </div>
         <div className="mt-3 sm:mt-4 flex flex-wrap gap-1.5">
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] text-zinc-200">200 сорилго</span>
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] text-zinc-200">100 кейс · 100 онол</span>
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] text-zinc-200">200 минут</span>
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] text-zinc-200">1 мин/сорилго</span>
         </div>
@@ -1192,10 +1250,10 @@ export default function QuizClient({ index }: { index: IndexData }) {
         ) : (
           <button
             onClick={() => { setMainCategory("all"); setSubCategory("all"); setCount(200); setCustomCount(""); setMinutes(200); start({ main: "all", sub: "all", n: 200, mins: 200, m: "exam", tag: "Үндсэн шалгалт" }); }}
-            disabled={index.total === 0 || preparing}
+            disabled={index.total === 0 || preparing !== null}
             className="mt-3 sm:mt-4 w-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 py-2.5 sm:py-3 font-semibold text-[13px] sm:text-base text-white shadow-lg shadow-indigo-950/40 hover:from-indigo-400 hover:to-violet-400 disabled:opacity-40 min-h-[40px] sm:min-h-[48px]"
           >
-            {preparing ? "Бэлдэж байна…" : "Үндсэн шалгалт эхлэх"}
+            {preparing === "Үндсэн шалгалт" ? "Бэлдэж байна…" : "Үндсэн шалгалт эхлэх"}
           </button>
         )}
       </div>
@@ -1262,6 +1320,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
   }
 
   if (state === "running" && current) {
+    const isMainExam = examTag === "Үндсэн шалгалт";
     const ans = answers[current.id];
     const correct = correctOf(current);
     const answered = ans !== undefined;
@@ -1345,8 +1404,8 @@ export default function QuizClient({ index }: { index: IndexData }) {
           <div key={current.id} className="rounded-2xl border border-zinc-200 bg-white p-3 sm:p-6 dark:border-white/10 dark:bg-white/[0.04] min-w-0 select-none motion-safe:animate-[fadeUp_220ms_ease-out]">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span className="inline-flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-[12px] sm:text-sm font-extrabold tabular-nums text-white shadow-sm shadow-indigo-600/30 dark:bg-gradient-to-br dark:from-indigo-500 dark:to-violet-500">{idx + 1}</span>
-            <span className="shrink-0 rounded-full bg-violet-50 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium text-violet-700 dark:bg-violet-400/10 dark:text-violet-300 max-w-[46%] truncate">{current.category}</span>
-            {current.subCategory && <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium text-zinc-600 dark:bg-white/5 dark:text-zinc-400 max-w-[34%] truncate">{current.subCategory}</span>}
+            {!isMainExam && <span className="shrink-0 rounded-full bg-violet-50 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium text-violet-700 dark:bg-violet-400/10 dark:text-violet-300 max-w-[46%] truncate">{current.category}</span>}
+            {!isMainExam && current.subCategory && <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium text-zinc-600 dark:bg-white/5 dark:text-zinc-400 max-w-[34%] truncate">{current.subCategory}</span>}
             <span className="ml-auto shrink-0 rounded-full border border-zinc-200 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium text-zinc-500 dark:border-white/15 dark:text-zinc-400">{runMode === "study" ? "Сургалт" : "Шалгалт"}</span>
           </div>
           <div className="mt-2.5 sm:mt-3 rounded-xl border border-violet-200 bg-violet-50/80 border-l-4 border-l-violet-500 px-3 py-3 sm:px-5 sm:py-4 dark:border-violet-400/20 dark:border-l-violet-400/70 dark:bg-violet-500/[0.12]">
@@ -1390,11 +1449,11 @@ export default function QuizClient({ index }: { index: IndexData }) {
 
           <div className="mt-4 sm:mt-6 min-w-0">
             <div className="sticky bottom-2 sm:bottom-3 z-10 mx-auto flex w-full max-w-md items-center gap-2 rounded-full border border-zinc-200 bg-white/95 p-1.5 shadow-lg shadow-zinc-900/5 backdrop-blur dark:border-white/10 dark:bg-[#0c0c14]/90 dark:shadow-black/40">
-            <button onClick={() => { setIdx((v) => Math.max(0, v - 1)); setShowStudyFeedback(false); }} disabled={idx === 0} className="rounded-full border border-zinc-200 px-4 py-2 sm:px-5 text-[13px] sm:text-sm disabled:opacity-40 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px] flex-1 sm:flex-none shrink-0">Өмнөх</button>
+            <button onClick={() => { setIdx((v) => Math.max(0, v - 1)); setShowStudyFeedback(false); }} disabled={idx === 0} className="rounded-full border border-zinc-200 px-4 py-2 sm:px-4 sm:py-1.5 text-[13px] disabled:opacity-40 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px] sm:min-h-[36px] flex-1 sm:flex-none shrink-0">Өмнөх</button>
             {idx === total - 1 ? (
-              <button onClick={submit} className="flex-1 rounded-full bg-indigo-600 px-5 py-2 sm:px-7 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] shrink-0">Дуусгах</button>
+              <button onClick={submit} className="flex-1 sm:flex-none sm:ml-auto rounded-full bg-indigo-600 px-5 py-2 sm:py-1.5 text-[13px] font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] sm:min-h-[36px] shrink-0">Дуусгах</button>
             ) : (
-              <button onClick={() => { setIdx((v) => v + 1); setShowStudyFeedback(false); }} className="flex-1 rounded-full bg-indigo-600 px-5 py-2 sm:px-7 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] shrink-0">Дараах</button>
+              <button onClick={() => { setIdx((v) => v + 1); setShowStudyFeedback(false); }} className="flex-1 sm:flex-none sm:ml-auto rounded-full bg-indigo-600 px-5 py-2 sm:py-1.5 text-[13px] font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] sm:min-h-[36px] shrink-0">Дараах</button>
             )}
             </div>
           </div>
@@ -1446,6 +1505,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
   }
 
   // result
+  const isMainExam = examTag === "Үндсэн шалгалт";
   const pct = total ? Math.round((score / total) * 100) : 0;
   const ring = 2 * Math.PI * 54;
   const statusOf = (q: Question) => {
@@ -1567,7 +1627,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
               </button>
               {open && (
                 <div className="px-3 pb-3 sm:px-4 sm:pb-4">
-                  <p className="text-[10px] sm:text-xs text-zinc-500 break-words">{q.category}{q.subCategory ? ` · ${q.subCategory}` : ""} {unknown ? "· хариултгүй" : ""} {st === "unanswered" ? "· хариулаагүй" : ""}</p>
+                  <p className="text-[10px] sm:text-xs text-zinc-500 break-words">{!isMainExam && <>{q.category}{q.subCategory ? ` · ${q.subCategory}` : ""} </>}{unknown ? "· хариултгүй" : ""} {st === "unanswered" ? "· хариулаагүй" : ""}</p>
                   <div className="mt-2 grid gap-1.5 sm:gap-2 min-w-0">
                     {(optionOrder[q.id] ?? q.options.map((_, oi) => oi)).map((oi, di) => (
                       <div key={oi} className={`rounded-lg sm:rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm flex gap-1.5 sm:gap-2 min-w-0 overflow-hidden ${!unknown && oi === c ? "border-emerald-500 bg-emerald-100 dark:bg-emerald-400/10" : ""} ${oi === a && !ok && !unknown ? "border-rose-500 bg-rose-100 dark:bg-rose-400/10" : "bg-white dark:bg-white/5"}`}>
