@@ -236,7 +236,11 @@ export default function QuizClient({ index }: { index: IndexData }) {
   const [pendingDeleteExam, setPendingDeleteExam] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [setupTab, setSetupTab] = useState<"exam" | "saved" | "mistakes">("exam");
+  // custom exam builder («Шалгалт угсрах» tab): per-pair picks + mode + open sections
+  const [customSel, setCustomSel] = useState<Record<string, number>>({});
+  const [customMode, setCustomMode] = useState<Mode>("exam");
+  const [customOpen, setCustomOpen] = useState<Record<number, boolean>>({});
+  const [setupTab, setSetupTab] = useState<"exam" | "saved" | "mistakes" | "custom">("exam");
   const [savedPage, setSavedPage] = useState(1);
   const [mistakePage, setMistakePage] = useState(1);
   const [navOpen, setNavOpen] = useState(false);
@@ -535,6 +539,22 @@ export default function QuizClient({ index }: { index: IndexData }) {
     start({ tag: "Их алддаг", ids, n: ids.length, m: "exam", mins: ids.length });
   };
 
+  // custom assembled exam — explicit per-pair picks via the ids path
+  const startCustomExam = () => {
+    const entries = Object.entries(customSel).filter(([, n]) => n > 0);
+    if (entries.length === 0) return;
+    const ids: string[] = [];
+    for (const [key, n] of entries) {
+      const sep = key.indexOf("");
+      const mi = Number(key.slice(0, sep));
+      const si = Number(key.slice(sep + 1));
+      const rows = baseRows.filter((r) => r[1] === mi && r[2] === si && r[3] === 1);
+      ids.push(...shuffle(rows).slice(0, Math.min(n, rows.length)).map((r) => r[0]));
+    }
+    if (ids.length === 0) return;
+    start({ tag: "Угсарсан шалгалт", ids, n: ids.length, m: customMode, mins: customMode === "exam" ? ids.length : 0 });
+  };
+
   // subcategory-only section: load saved attempts (DB if authed + local guest history)
   useEffect(() => {
     if (state !== "setup") return;
@@ -568,6 +588,94 @@ export default function QuizClient({ index }: { index: IndexData }) {
     });
     return out.sort((a, b) => collator.compare(a.main, b.main) || collator.compare(a.sub, b.sub));
   }, [index, collator]);
+
+  // ---- custom exam builder («Шалгалт угсрах» tab): answered-only counts over access-filtered rows ----
+  const customPairs = useMemo(() => {
+    const answered = new Map<string, number>();
+    for (const r of baseRows) {
+      if (r[3] !== 1) continue;
+      const key = `${r[1]}${r[2]}`;
+      answered.set(key, (answered.get(key) ?? 0) + 1);
+    }
+    const out: Array<{ mi: number; si: number; key: string; main: string; sub: string; count: number }> = [];
+    index.mains.forEach((m, mi) => {
+      m.subs.forEach((s, si) => {
+        const key = `${mi}${si}`;
+        const n = answered.get(key) ?? 0;
+        if (n > 0) out.push({ mi, si, key, main: m.name, sub: s.name, count: n });
+      });
+    });
+    return out.sort((a, b) => collator.compare(a.main, b.main) || collator.compare(a.sub, b.sub));
+  }, [index, baseRows, collator]);
+  const customTotal = useMemo(() => Object.values(customSel).reduce((a, b) => a + (b > 0 ? b : 0), 0), [customSel]);
+  const customAvail = useMemo(() => customPairs.reduce((a, p) => a + p.count, 0), [customPairs]);
+  // smart bundle 1: merge small banks (<10 answered) within each main
+  const smallBundles = useMemo(() => {
+    const byMain = new Map<number, typeof customPairs>();
+    for (const p of customPairs) {
+      if (p.count >= 10) continue;
+      const g = byMain.get(p.mi) ?? [];
+      g.push(p);
+      byMain.set(p.mi, g);
+    }
+    return [...byMain.values()]
+      .filter((g) => g.length >= 2)
+      .map((pairs) => ({
+        title: `${pairs[0].main} — цөөн сорилготой`,
+        desc: `10-аас цөөн сорилготой ${pairs.length} дэд ангиллыг нэгтгэсэн`,
+        kind: "Цөөн сорилготой",
+        pairs,
+        total: pairs.reduce((a, p) => a + p.count, 0),
+      }));
+  }, [customPairs]);
+  // smart bundle 2: identical subcategory names across different mains
+  const sameNameBundles = useMemo(() => {
+    const bySub = new Map<string, typeof customPairs>();
+    for (const p of customPairs) {
+      const g = bySub.get(p.sub) ?? [];
+      g.push(p);
+      bySub.set(p.sub, g);
+    }
+    return [...bySub.entries()]
+      .filter(([, ps]) => new Set(ps.map((p) => p.mi)).size >= 2)
+      .map(([sub, pairs]) => ({
+        title: sub,
+        desc: `${new Set(pairs.map((p) => p.mi)).size} үндсэн ангилалд давтагдсан`,
+        kind: "Ижил нэртэй",
+        pairs,
+        total: pairs.reduce((a, p) => a + p.count, 0),
+      }));
+  }, [customPairs]);
+  const customByMain = useMemo(() => {
+    const map = new Map<number, { main: string; pairs: typeof customPairs; sel: number; avail: number }>();
+    for (const p of customPairs) {
+      const g = map.get(p.mi) ?? { main: p.main, pairs: [], sel: 0, avail: 0 };
+      g.pairs.push(p);
+      g.sel += Math.max(customSel[p.key] ?? 0, 0);
+      g.avail += p.count;
+      map.set(p.mi, g);
+    }
+    return [...map.entries()].sort((a, b) => collator.compare(a[1].main, b[1].main));
+  }, [customPairs, customSel, collator]);
+  const addPairsFull = useCallback((pairs: Array<{ key: string; count: number }>) => {
+    setCustomSel((prev) => {
+      const next = { ...prev };
+      for (const p of pairs) next[p.key] = p.count;
+      return next;
+    });
+  }, []);
+  const togglePair = useCallback((key: string, max: number) => {
+    setCustomSel((prev) => ({ ...prev, [key]: (prev[key] ?? 0) > 0 ? 0 : max }));
+  }, []);
+  const bumpPair = useCallback((key: string, d: number, max: number) => {
+    setCustomSel((prev) => {
+      const v = Math.max(prev[key] ?? 0, 0);
+      return { ...prev, [key]: Math.max(0, Math.min(v + d, max)) };
+    });
+  }, []);
+  const setPairFull = useCallback((key: string, max: number) => {
+    setCustomSel((prev) => ({ ...prev, [key]: max }));
+  }, []);
 
   const subPair = subPick === "" ? null : (subPairs[Number(subPick)] ?? null);
 
@@ -814,20 +922,25 @@ export default function QuizClient({ index }: { index: IndexData }) {
         </div>
       </div>
       <div className="sticky top-0 sm:top-[61px] z-20 -mx-3 bg-white/90 px-3 py-2 backdrop-blur-xl dark:bg-[#07070c]/85 sm:mx-0 sm:rounded-2xl sm:border sm:border-zinc-200 sm:bg-white/95 sm:px-2 sm:py-2 sm:dark:border-white/10 sm:dark:bg-[#0c0c14]/90">
-        <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 p-1 dark:border-white/10 dark:bg-white/5">
-          <button onClick={() => setSetupTab("exam")} className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${setupTab === "exam" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"}`}>
+        <div className="flex items-center gap-0.5 sm:gap-1 rounded-full border border-zinc-200 bg-zinc-50 p-0.5 sm:p-1 dark:border-white/10 dark:bg-white/5">
+          <button onClick={() => setSetupTab("exam")} className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3.5 py-1.5 text-[11px] min-w-0 sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${setupTab === "exam" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"}`}>
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M9.5 15.5v-7l6 3.5-6 3.5Z" /></svg>
-            Шалгалт
+            <span className="truncate">Шалгалт</span>
           </button>
-          <button onClick={() => setSetupTab("saved")} className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${setupTab === "saved" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"}`}>
+          <button onClick={() => setSetupTab("saved")} className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3.5 py-1.5 text-[11px] min-w-0 sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${setupTab === "saved" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"}`}>
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="6" y="4" width="4" height="16" rx="1.5" /><rect x="14" y="4" width="4" height="16" rx="1.5" /></svg>
-            Хадгалсан
-            {Object.keys(savedExams).length > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold tabular-nums ${setupTab === "saved" ? "bg-white/25" : "bg-zinc-200 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{Object.keys(savedExams).length}</span>}
+            <span className="truncate">Хадгалсан</span>
+            {Object.keys(savedExams).length > 0 && <span className={`rounded-full px-1.5 hidden py-0.5 text-[9px] sm:inline-flex sm:text-[10px] font-bold tabular-nums ${setupTab === "saved" ? "bg-white/25" : "bg-zinc-200 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{Object.keys(savedExams).length}</span>}
           </button>
-          <button onClick={() => setSetupTab("mistakes")} className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${setupTab === "mistakes" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"}`}>
+          <button onClick={() => setSetupTab("mistakes")} className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3.5 py-1.5 text-[11px] min-w-0 sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${setupTab === "mistakes" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"}`}>
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></svg>
-            Их алддаг
-            {mistakeList.length > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold tabular-nums ${setupTab === "mistakes" ? "bg-white/25" : "bg-zinc-200 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{mistakeList.length}</span>}
+            <span className="truncate">Их алддаг</span>
+            {mistakeList.length > 0 && <span className={`rounded-full px-1.5 hidden py-0.5 text-[9px] sm:inline-flex sm:text-[10px] font-bold tabular-nums ${setupTab === "mistakes" ? "bg-white/25" : "bg-zinc-200 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{mistakeList.length}</span>}
+          </button>
+          <button onClick={() => setSetupTab("custom")} className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3.5 py-1.5 text-[11px] min-w-0 sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${setupTab === "custom" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"}`}>
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
+            <span className="truncate">Угсрах</span>
+            {customTotal > 0 && <span className={`rounded-full px-1.5 hidden py-0.5 text-[9px] sm:inline-flex sm:text-[10px] font-bold tabular-nums ${setupTab === "custom" ? "bg-white/25" : "bg-zinc-200 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"}`}>{customTotal}</span>}
           </button>
         </div>
       </div>
@@ -915,6 +1028,120 @@ export default function QuizClient({ index }: { index: IndexData }) {
           </button>
         </div>
       )}
+      </>)}
+
+      {setupTab === "custom" && (
+      <>
+      <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="font-semibold text-[14px] sm:text-base">Шалгалт угсрах</h2>
+            <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500">Ангиллуудаас сорилгын тоогоо сонгож өөрийн шалгалтаа угсарна уу.</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 rounded-full border border-zinc-200 p-1 dark:border-white/15">
+            {(["exam", "study"] as Mode[]).map((mm) => (
+              <button key={mm} onClick={() => setCustomMode(mm)} className={`rounded-full px-3.5 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] transition-colors ${customMode === mm ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"}`}>
+                {mm === "exam" ? "Шалгалт" : "Сургалт"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-white/5 min-w-0">
+            <p className="text-[12px] sm:text-sm font-semibold tabular-nums">{customTotal}</p>
+            <p className="mt-0.5 truncate text-[10px] sm:text-[11px] text-zinc-500">Сонгосон</p>
+          </div>
+          <div className="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-white/5 min-w-0">
+            <p className="text-[12px] sm:text-sm font-semibold tabular-nums">{customAvail}</p>
+            <p className="mt-0.5 truncate text-[10px] sm:text-[11px] text-zinc-500">Нийт сан</p>
+          </div>
+          <div className="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-white/5 min-w-0">
+            <p className="truncate text-[12px] sm:text-sm font-semibold">{customMode === "exam" ? `${customTotal} мин` : "Хязгааргүй"}</p>
+            <p className="mt-0.5 truncate text-[10px] sm:text-[11px] text-zinc-500">{customMode === "exam" ? "1 мин/сорилго" : "Хугацаа"}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <button onClick={startCustomExam} disabled={customTotal === 0} className="flex-1 rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-40 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
+            Эхлэх — {customTotal} сорилго →
+          </button>
+          {customTotal > 0 && <button onClick={() => setCustomSel({})} className="shrink-0 rounded-full border border-zinc-200 px-4 py-2.5 text-[12px] sm:text-sm dark:border-white/15 min-h-[40px]">Цэвэрлэх</button>}
+        </div>
+        {!fullAccess && <p className="mt-2.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Үнэгүй эрхээр зөвхөн «{FREE_CATEGORY}» ангиллаас угсарна.</p>}
+      </div>
+
+      {(smallBundles.length > 0 || sameNameBundles.length > 0) && (
+      <div className="mt-4 min-w-0">
+        <h3 className="font-semibold text-[13px] sm:text-sm">Ухаалаг багцууд</h3>
+        <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500">Цөөн сорилготой болон ижил нэртэй ангиллуудыг нэгтгэсэн бэлэн багц — нэг товшилтоор нэмнэ.</p>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2 items-start min-w-0">
+          {[...sameNameBundles, ...smallBundles].map((b) => (
+            <div key={`${b.kind}:${b.title}`} className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.04] min-w-0">
+              <div className="flex items-start justify-between gap-2 min-w-0">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-[13px] sm:text-sm">{b.title}</p>
+                  <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500">{b.desc}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">{b.kind}</span>
+              </div>
+              <div className="mt-2.5 flex items-center justify-between gap-2">
+                <span className="text-[11px] sm:text-xs tabular-nums text-zinc-500">{b.pairs.length} ангилал · {b.total} сорилго</span>
+                <button onClick={() => addPairsFull(b.pairs)} className="shrink-0 rounded-full bg-indigo-600 px-4 py-1.5 text-[11px] sm:text-xs font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[32px]">+ Нэмэх</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      )}
+
+      <div className="mt-4 min-w-0">
+        <h3 className="font-semibold text-[13px] sm:text-sm">Ангиллаар сонгох</h3>
+        <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500">Ангилал бүрээс хэдэн сорилго авахаа тохируулна уу. Тоон дээр дарвал бүгдийг авна.</p>
+        {customByMain.length === 0 ? (
+          <div className="mt-2 rounded-xl sm:rounded-2xl border border-dashed border-zinc-200 bg-white p-6 text-center text-[12px] sm:text-sm text-zinc-500 dark:border-white/15 dark:bg-white/[0.04]">
+            Сонгох ангилал алга.
+          </div>
+        ) : (
+        <div className="mt-2 grid gap-3 min-w-0">
+          {customByMain.map(([mi, g]) => {
+            const open = customOpen[mi] ?? mi === customByMain[0]?.[0];
+            return (
+            <div key={mi} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-white/[0.04] min-w-0">
+              <div className="flex items-center gap-1.5 p-2.5 sm:p-3">
+                <button onClick={() => setCustomOpen((p) => ({ ...p, [mi]: !open }))} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-2 text-left min-h-[36px] px-1">
+                  <span className="min-w-0 flex-1 truncate font-semibold text-[13px] sm:text-sm">{g.main}</span>
+                  <span className="shrink-0 text-[11px] sm:text-xs tabular-nums text-zinc-500">{g.sel}/{g.avail}</span>
+                  <svg viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+                <button onClick={() => addPairsFull(g.pairs)} className="shrink-0 rounded-full border border-zinc-200 px-3.5 py-1.5 text-[11px] sm:text-xs dark:border-white/15 min-h-[32px]">Бүгд</button>
+              </div>
+              {open && (
+              <div className="border-t border-zinc-200 dark:border-white/10">
+                {g.pairs.map((p) => {
+                  const v = Math.max(customSel[p.key] ?? 0, 0);
+                  const on = v > 0;
+                  return (
+                  <div key={p.key} className="flex items-center gap-2 border-b border-zinc-100 px-3 py-2 last:border-b-0 dark:border-white/5">
+                    <button role="checkbox" aria-checked={on} aria-label={p.sub} onClick={() => togglePair(p.key, p.count)} className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors ${on ? "border-indigo-600 bg-indigo-600 text-white" : "border-zinc-300 dark:border-white/20"}`}>
+                      {on && <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 13l4 4L19 7" /></svg>}
+                    </button>
+                    <span className="min-w-0 flex-1 truncate text-[12px] sm:text-sm">{p.sub}</span>
+                    <span className="shrink-0 text-[10px] sm:text-[11px] tabular-nums text-zinc-400">/{p.count}</span>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <button onClick={() => bumpPair(p.key, -1, p.count)} disabled={v <= 0} aria-label="Хасах" className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-[14px] disabled:opacity-30 dark:border-white/15">−</button>
+                      <button onClick={() => setPairFull(p.key, p.count)} title="Бүгдийг авах" className="w-9 text-center text-[12px] sm:text-[13px] font-semibold tabular-nums min-h-[32px]">{v}</button>
+                      <button onClick={() => bumpPair(p.key, 1, p.count)} disabled={v >= p.count} aria-label="Нэмэх" className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-[14px] disabled:opacity-30 dark:border-white/15">+</button>
+                    </div>
+                  </div>
+                  );
+                })}
+              </div>
+              )}
+            </div>
+            );
+          })}
+        </div>
+        )}
+      </div>
       </>)}
 
       {/* paywall notice (paid category / paid save action) */}
