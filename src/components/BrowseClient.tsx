@@ -75,6 +75,8 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const [view, setView] = useState<View>("list");
   const [gridCols, setGridCols] = useState<number>(2);
   const [cardIdx, setCardIdx] = useState(0);
+  // card-view question navigator modal (mirrors the exam "Сорилгууд" palette)
+  const [cardNavOpen, setCardNavOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [isPhone, setIsPhone] = useState(false);
   const [focusView, setFocusView] = useState(false);
@@ -347,6 +349,14 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const onSub = (v: string) => { setSubCategory(v); setPage(1); setCardIdx(0); };
   const onStatus = (v: Status) => { setStatus(v); setPage(1); setCardIdx(0); };
   const onQtype = (v: "case" | "knowledge") => { setQtype((p) => (p === v ? "all" : v)); setPage(1); setCardIdx(0); };
+
+  // card-view question navigator: close on Escape (mirrors exam nav)
+  useEffect(() => {
+    if (!cardNavOpen) return;
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") setCardNavOpen(false); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [cardNavOpen]);
 
   // ---- saving ----
   const persistAnswer = async (id: string, index: number | null) => {
@@ -881,10 +891,62 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
       <div ref={viewsRef} className="space-y-2">
         <div className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-2 py-2 dark:border-white/10 dark:bg-white/[0.04]">
           <button onClick={() => goCard(-1)} disabled={filtered.length <= 1} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">← Өмнөх</button>
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
           <span className="text-[11px] sm:text-xs text-zinc-500">{filtered.length === 0 ? "0 / 0" : `${safeCardIdx + 1} / ${filtered.length}`}</span>
+          <button onClick={() => setCardNavOpen(true)} disabled={filtered.length <= 1} aria-label="Асуултудын жагсаалт" title="Асуултуудын жагсаалт" className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-600 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-indigo-500/15 dark:hover:border-indigo-400/40 dark:hover:text-indigo-200">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <rect x="4" y="4" width="7" height="7" rx="1.5" />
+              <rect x="13" y="4" width="7" height="7" rx="1.5" />
+              <rect x="4" y="13" width="7" height="7" rx="1.5" />
+              <rect x="13" y="13" width="7" height="7" rx="1.5" />
+            </svg>
+          </button>
+          </div>
           <button onClick={() => goCard(1)} disabled={filtered.length <= 1} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">Дараах →</button>
         </div>
         {cardItem ? renderItem(cardItem, safeCardIdx + 1) : filtered.length > 0 ? <SkeletonRow /> : <p className="text-center py-12 text-zinc-500 text-sm">Илэрц олдсонгүй.</p>}
+
+        {/* card-view question navigator: jump to any question (mirrors exam Сорилгууд modal) */}
+        {cardNavOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <button aria-label="close" onClick={() => setCardNavOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60" />
+            <div className="relative w-full max-w-md sm:max-w-lg rounded-2xl bg-white p-4 sm:p-6 shadow-xl dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl motion-safe:animate-[bellIn_160ms_ease-out]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="font-semibold text-[14px] sm:text-base">Асуултууд</h3>
+                  <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-300 tabular-nums">{filtered.length === 0 ? "0 / 0" : `${safeCardIdx + 1} / ${filtered.length}`}</span>
+                </div>
+                <button onClick={() => setCardNavOpen(false)} aria-label="Хаах" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[13px] text-zinc-500 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">✕</button>
+              </div>
+              <div className="mt-3 sm:mt-4 max-h-[58vh] overflow-y-auto overscroll-contain pr-0.5">
+                <div className="grid grid-cols-5 sm:grid-cols-8 gap-1.5 sm:gap-2">
+                  {filtered.map((row, i) => {
+                    const isMine = statusOfRow(row) === "mine";
+                    const isCurrent = i === safeCardIdx;
+                    return (
+                      <button
+                        key={row[0]}
+                        onClick={() => { setCardIdx(i); setCardNavOpen(false); window.scrollTo({ top: 0 }); }}
+                        aria-label={`Асуулт ${i + 1}`}
+                        className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[12px] sm:text-[13px] font-semibold tabular-nums border transition-colors min-w-0 ${
+                          isMine
+                            ? "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-400 dark:bg-emerald-500/90 dark:border-emerald-400/50 dark:hover:bg-emerald-400"
+                            : "bg-transparent border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/10"
+                        } ${isCurrent ? "ring-2 ring-indigo-500 ring-offset-1 dark:ring-indigo-400 dark:ring-offset-transparent" : ""}`}
+                      >
+                        {i + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-zinc-100 pt-3 text-[10px] sm:text-[11px] text-zinc-500 dark:border-white/10 dark:text-zinc-400">
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Миний хариулт</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-indigo-500 ring-1 ring-indigo-300 dark:ring-indigo-400/40" /> Одоогийн</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       )}
 

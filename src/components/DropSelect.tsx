@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type DropOption = { value: string; label: string };
 
@@ -25,6 +25,16 @@ export default function DropSelect({
 }) {
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.value === value);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // When the panel opens, jump straight to the current selection (e.g. 1.30)
+  // instead of starting at the top — manual scrollTop so the page never moves.
+  useEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const sel = panel.querySelector<HTMLElement>("[data-current='true']");
+    if (sel) panel.scrollTop = Math.max(0, sel.offsetTop - panel.clientHeight / 2 + sel.clientHeight / 2);
+  }, [open]);
   return (
     <div className="relative w-full min-w-0">
       <button
@@ -40,12 +50,13 @@ export default function DropSelect({
       {open && !disabled && (
         <>
           <button aria-label="close" onClick={() => setOpen(false)} className="fixed inset-0 z-10 cursor-default bg-transparent" />
-          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg sm:rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:bg-[#0c0c14]/95 dark:border-white/10 dark:backdrop-blur-xl">
+          <div ref={panelRef} className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg sm:rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:bg-[#0c0c14]/95 dark:border-white/10 dark:backdrop-blur-xl">
             {options.map((o) => (
               <button
                 key={o.value}
                 type="button"
                 title={o.label}
+                data-current={o.value === value ? "true" : undefined}
                 onClick={() => { onChange(o.value); setOpen(false); }}
                 className={`block w-full truncate px-3 py-2 text-left text-[12px] sm:text-[13px] hover:bg-zinc-100 dark:hover:bg-white/10 ${o.value === value ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200 font-medium" : ""}`}
               >
