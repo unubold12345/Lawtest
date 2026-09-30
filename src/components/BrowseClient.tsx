@@ -12,6 +12,7 @@ import { FREE_CATEGORY } from "@/lib/access";
 import QuestionDiscussion from "@/components/QuestionDiscussion";
 import QuestionNote from "@/components/QuestionNote";
 import QuestionReport from "@/components/QuestionReport";
+import QuestionEditor from "@/components/QuestionEditor";
 import DropSelect from "@/components/DropSelect";
 
 const PAGE_SIZE = 20;
@@ -79,6 +80,8 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   // admin-marked this session: index rows are a server snapshot, so r[5] only
   // flips after reload — track fresh marks locally for live progress
   const [markedIds, setMarkedIds] = useState<Set<string>>(new Set());
+  // admin full-edit modal (same editor as the admin page) — null when closed
+  const [editItem, setEditItem] = useState<Question | null>(null);
   const [view, setView] = useState<View>(() => {
     const v = searchParams.get("view");
     return v === "card" || v === "grid" ? v : "list";
@@ -714,6 +717,14 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
                 onChange={(id, has) => setNotedIds((prev) => { const n = new Set(prev); if (has) n.add(id); else n.delete(id); return n; })}
               />
               <QuestionReport questionId={item.id} />
+              {isAdmin && (
+                <button
+                  onClick={() => setEditItem(item)}
+                  className="rounded-full border border-violet-200 px-3 py-1.5 text-[11px] sm:text-xs font-medium text-violet-700 hover:bg-violet-50 dark:border-violet-400/30 dark:text-violet-300 dark:hover:bg-violet-400/10 min-h-[36px]"
+                >
+                  ✎ Засах
+                </button>
+              )}
             </div>
           </div>
           </div>
@@ -1102,6 +1113,25 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           </div>
         );
       })()}
+
+      {/* admin full-edit modal — same editor as the admin page */}
+      {editItem && (
+        <QuestionEditor
+          questionId={editItem.id}
+          initial={editItem}
+          onClose={() => setEditItem(null)}
+          onSaved={(updated) => {
+            mergeItems([{
+              ...editItem,
+              question: updated.question,
+              options: updated.options,
+              answer: updated.answer,
+              explanation: updated.explanation,
+              lawRef: updated.lawRef,
+            }]);
+          }}
+        />
+      )}
     </div>
   );
 }
