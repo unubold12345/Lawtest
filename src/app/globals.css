@@ -122,3 +122,11 @@ html.lexlab-paid .browse-locked-banner {
   }
 }
 
+/* countdown digit tick */
+@keyframes tickIn {
+  from {
+    opacity: 0.35;
+    transform: translateY(3px);
+  }
+}
+

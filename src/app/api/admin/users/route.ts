@@ -15,9 +15,43 @@ export async function GET(req: Request) {
     where,
     orderBy: { createdAt: "desc" },
     take,
-    select: { id: true, phone: true, email: true, role: true, paidAt: true, createdAt: true, _count: { select: { attempts: true, comments: true } } },
+    select: {
+      id: true,
+      phone: true,
+      email: true,
+      role: true,
+      paidAt: true,
+      createdAt: true,
+      _count: { select: { attempts: true, comments: true, savedAnswers: true, notes: true, mistakes: true } },
+      attempts: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true, score: true, total: true, elapsed: true } },
+      visits: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
+    },
   });
-  return NextResponse.json({ users });
+  const rows = users.map((u) => {
+    const last = u.attempts[0] || null;
+    const lastVisit = u.visits[0]?.createdAt || null;
+    const lastAttempt = last?.createdAt || null;
+    const lastSeen =
+      lastAttempt && lastVisit
+        ? lastAttempt > lastVisit
+          ? lastAttempt
+          : lastVisit
+        : lastAttempt || lastVisit;
+    return {
+      id: u.id,
+      phone: u.phone,
+      email: u.email,
+      role: u.role,
+      paidAt: u.paidAt,
+      createdAt: u.createdAt,
+      _count: u._count,
+      lastAttemptAt: lastAttempt,
+      lastSeen,
+      lastScore: last ? { score: last.score, total: last.total } : null,
+      lastElapsed: last?.elapsed ?? null,
+    };
+  });
+  return NextResponse.json({ users: rows });
 }
 
 export async function PATCH(req: Request) {

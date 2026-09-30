@@ -4,6 +4,8 @@ import { loadQuestions } from "@/lib/questions";
 import Link from "next/link";
 import HomeCategories from "@/components/HomeCategories";
 import HomeBanner from "@/components/HomeBanner";
+import HomeHero from "@/components/HomeHero";
+import StatCounter from "@/components/StatCounter";
 import { EXAM, examPhase } from "@/lib/exam";
 import HomePlanPromo from "@/components/HomePlanPromo";
 
@@ -43,56 +45,51 @@ export default async function Home() {
   const mainCount = mains.length;
   const subCount = mains.reduce((a, m) => a + m.subs.length, 0);
   const topMains = [...mains].sort((a, b) => b.total - a.total).slice(0, 3);
+  const maxTop = topMains[0]?.total ?? 1;
   const phase = examPhase();
+  const examStartEpoch = Date.parse(EXAM.examStartKey + "T00:00:00+08:00");
+  const initialRemainingMs = Math.max(0, examStartEpoch - Date.now());
 
   return (
     <div className="mx-auto max-w-6xl px-2 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-8">
       <HomeBanner />
-      {/* EXAM INFO (auto-hides after the exam; signup link hides after reg closes) */}
+
       {phase !== "done" && (
-      <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3.5 sm:p-5 dark:border-indigo-400/20 dark:bg-white/[0.03] dark:bg-gradient-to-br dark:from-indigo-500/[0.14] dark:via-white/[0.02] dark:to-violet-500/[0.10]">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-6">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] sm:text-xs font-medium uppercase tracking-[0.14em] text-zinc-500 dark:text-indigo-300/90">
-              {EXAM.label}
-            </p>
-            <p className="mt-1 font-bold text-[17px] sm:text-2xl tracking-tight">
-              {EXAM.dates}
-            </p>
-            <p className="mt-0.5 text-[11px] sm:text-sm text-zinc-500 dark:text-zinc-400">
-              {phase === "open" ? EXAM.regOpenText : EXAM.regClosedText}
-            </p>
-          </div>
-          {phase === "open" && (
-          <a
-            href={EXAM.signupUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full bg-indigo-600 px-5 py-2.5 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 transition-colors dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[38px]"
-          >
-            {EXAM.signupLabel} <span aria-hidden>→</span>
-          </a>
-          )}
-        </div>
-      </div>
+        <HomeHero
+          total={total}
+          examStartEpoch={examStartEpoch}
+          initialRemainingMs={initialRemainingMs}
+          examDates={EXAM.dates}
+          showSignup={phase === "open"}
+          signupUrl={EXAM.signupUrl}
+          signupLabel={EXAM.signupLabel}
+        />
       )}
 
       {/* STATS */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-4">
-        <div className="rounded-lg sm:rounded-xl border border-zinc-200 bg-white p-2.5 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] text-center">
-          <p className="text-[17px] sm:text-2xl font-bold leading-none text-indigo-600 dark:text-indigo-300">{total}</p>
+        <div className="group relative overflow-hidden rounded-lg sm:rounded-xl border border-zinc-200 bg-white p-2.5 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] text-center transition-colors hover:border-indigo-300 dark:hover:border-indigo-400/40">
+          <p className="text-[17px] sm:text-2xl font-bold leading-none text-indigo-600 dark:text-indigo-300">
+            <StatCounter value={total} />
+          </p>
           <p className="text-[10px] sm:text-sm text-zinc-500 mt-0.5">Нийт сорилго</p>
         </div>
-        <div className="rounded-lg sm:rounded-xl border border-zinc-200 bg-white p-2.5 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] text-center">
-          <p className="text-[17px] sm:text-2xl font-bold leading-none text-violet-600 dark:text-violet-300">{mainCount}</p>
+        <div className="group relative overflow-hidden rounded-lg sm:rounded-xl border border-zinc-200 bg-white p-2.5 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] text-center transition-colors hover:border-violet-300 dark:hover:border-violet-400/40">
+          <p className="text-[17px] sm:text-2xl font-bold leading-none text-violet-600 dark:text-violet-300">
+            <StatCounter value={mainCount} />
+          </p>
           <p className="text-[10px] sm:text-sm text-zinc-500 mt-0.5">Үндсэн ангилал</p>
         </div>
-        <div className="rounded-lg sm:rounded-xl border border-zinc-200 bg-white p-2.5 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] text-center">
-          <p className="text-[17px] sm:text-2xl font-bold leading-none text-sky-600 dark:text-sky-300">{subCount}</p>
+        <div className="group relative overflow-hidden rounded-lg sm:rounded-xl border border-zinc-200 bg-white p-2.5 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] text-center transition-colors hover:border-sky-300 dark:hover:border-sky-400/40">
+          <p className="text-[17px] sm:text-2xl font-bold leading-none text-sky-600 dark:text-sky-300">
+            <StatCounter value={subCount} />
+          </p>
           <p className="text-[10px] sm:text-sm text-zinc-500 mt-0.5">Дэд ангилал</p>
         </div>
-        <div className="rounded-lg sm:rounded-xl border border-zinc-200 bg-white p-2.5 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] text-center">
-          <p className="text-[17px] sm:text-2xl font-bold leading-none text-emerald-600 dark:text-emerald-300">2</p>
+        <div className="group relative overflow-hidden rounded-lg sm:rounded-xl border border-zinc-200 bg-white p-2.5 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] text-center transition-colors hover:border-emerald-300 dark:hover:border-emerald-400/40">
+          <p className="text-[17px] sm:text-2xl font-bold leading-none text-emerald-600 dark:text-emerald-300">
+            <StatCounter value={2} />
+          </p>
           <p className="text-[10px] sm:text-sm text-zinc-500 mt-0.5">Шалгалт + Сургалт</p>
         </div>
       </div>
@@ -103,21 +100,39 @@ export default async function Home() {
           <div className="flex items-end justify-between gap-2">
             <div>
               <h2 className="font-semibold text-[13px] sm:text-lg">Их сорилготой ангилал</h2>
+              <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500">Хамгийн олон сорилготой гурван ангилал</p>
             </div>
             <Link href="/browse" className="shrink-0 text-[11px] sm:text-sm text-zinc-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-300">
               Бүгд →
             </Link>
           </div>
-          <div className="mt-2 sm:mt-4 grid grid-cols-3 gap-1.5 sm:gap-3">
-            {topMains.map((m) => (
+          <div className="mt-2 sm:mt-4 grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-3">
+            {topMains.map((m, i) => (
               <Link
                 key={m.name}
                 href={`/browse?cat=${encodeURIComponent(m.name)}`}
-                className="rounded-lg sm:rounded-xl bg-zinc-50 border border-zinc-200 p-2.5 sm:p-4 text-center hover:bg-zinc-100 hover:border-zinc-300 dark:bg-white/[0.04] dark:border-white/10 dark:hover:bg-indigo-500/10 dark:hover:border-indigo-400/40 transition-colors"
+                className="group rounded-lg sm:rounded-xl bg-zinc-50 border border-zinc-200 p-3 sm:p-4 hover:bg-zinc-100 hover:border-zinc-300 dark:bg-white/[0.04] dark:border-white/10 dark:hover:bg-indigo-500/10 dark:hover:border-indigo-400/40 transition-colors"
               >
-                <p className="font-bold text-[15px] sm:text-2xl leading-none">{m.total}</p>
-                <p className="mt-1 text-[10px] sm:text-sm font-medium leading-tight line-clamp-2">{m.name}</p>
-                <p className="mt-0.5 text-[10px] sm:text-xs text-zinc-500">{m.subs.length} дэд</p>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[11px] sm:text-xs font-semibold text-zinc-400 dark:text-zinc-500 tabular-nums">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-zinc-500">{m.subs.length} дэд</span>
+                </div>
+                <p className="mt-1 font-bold text-[20px] sm:text-3xl leading-none">
+                  <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent dark:from-indigo-300 dark:to-violet-300">
+                    {m.total.toLocaleString("mn-MN")}
+                  </span>
+                </p>
+                <p className="mt-1.5 text-[12px] sm:text-sm font-medium leading-tight line-clamp-2">
+                  {m.name}
+                </p>
+                <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
+                    style={{ width: `${Math.round((m.total / maxTop) * 100)}%` }}
+                  />
+                </div>
               </Link>
             ))}
           </div>

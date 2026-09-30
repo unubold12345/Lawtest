@@ -48,16 +48,23 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const canSave = isAuthed && fullAccess;
   const searchRef = useRef<HTMLInputElement>(null);
   const viewsRef = useRef<HTMLDivElement>(null);
+  const focusSearchRef = useRef(false);
 
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(() => searchParams.get("q") ?? "");
   const [mainCategory, setMainCategory] = useState<string>(() => searchParams.get("cat") || "all");
   const [subCategory, setSubCategory] = useState<string>(() => searchParams.get("sub") || "all");
-  const [status, setStatus] = useState<Status>("all");
+  const [status, setStatus] = useState<Status>(() => {
+    const s = searchParams.get("status");
+    return s === "mine" || s === "noted" || s === "answered" || s === "unanswered" ? s : "all";
+  });
   const [qtype, setQtype] = useState<QTypeFilter>(() => {
     const t = searchParams.get("type");
     return t === "case" || t === "knowledge" ? t : "all";
   });
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => {
+    const p = parseInt(searchParams.get("page") || "1", 10);
+    return Number.isFinite(p) && p > 1 ? p : 1;
+  });
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
   const [myDb, setMyDb] = useState<Record<string, number>>({});
@@ -72,11 +79,15 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   // admin-marked this session: index rows are a server snapshot, so r[5] only
   // flips after reload — track fresh marks locally for live progress
   const [markedIds, setMarkedIds] = useState<Set<string>>(new Set());
-  const [view, setView] = useState<View>("list");
+  const [view, setView] = useState<View>(() => {
+    const v = searchParams.get("view");
+    return v === "card" || v === "grid" ? v : "list";
+  });
   const [gridCols, setGridCols] = useState<number>(2);
   const [cardIdx, setCardIdx] = useState(0);
   // card-view question navigator modal (mirrors the exam "Сорилгууд" palette)
   const [cardNavOpen, setCardNavOpen] = useState(false);
+  const [navRange, setNavRange] = useState(0);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [isPhone, setIsPhone] = useState(false);
   const [focusView, setFocusView] = useState(false);
@@ -205,8 +216,11 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   // row-level helpers (index rows): [id, mainIdx, subIdx, hasAnswer, isCase, adminAdded]
   // r[5]=1 = admin added the answer where the file had none — counts as answered
   // for progress (the question has an official answer now, it just stays listed here)
-  const statusOfRow = (r: IndexRow): "answered" | "unanswered" | "mine" =>
-    r[3] === 1 || r[5] === 1 || markedIds.has(r[0]) ? "answered" : isAuthed && typeof myDb[r[0]] === "number" ? "mine" : "unanswered";
+  const statusOfRow = (r: IndexRow): "answered" | "unanswered" | "mine" => {
+    if (r[3] === 1 && r[5] === 0) return "answered";
+    if (isAuthed && typeof myDb[r[0]] === "number") return "mine";
+    return r[3] === 1 || markedIds.has(r[0]) ? "answered" : "unanswered";
+  };
   const notedOfRow = (r: IndexRow): boolean => isAuthed && notedIds.has(r[0]);
 
   const filteredNoType = useMemo(() => {
@@ -309,9 +323,9 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
 
   // text search runs server-side against the light index (question/options/category/subcategory)
   useEffect(() => {
+    const seq = ++searchSeq.current;
     const s = q.trim();
     if (!s) { setSearchIds(null); return; }
-    const seq = ++searchSeq.current;
     const t = window.setTimeout(() => {
       fetch(`/api/questions?filter=1&q=${encodeURIComponent(s)}`)
         .then((r) => (r.ok ? r.json() : null))
@@ -455,7 +469,11 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
       if (typing || pending || pendingClear) return;
       if (e.key === "/") {
         e.preventDefault();
-        searchRef.current?.focus();
+        if (controlsOpen) searchRef.current?.focus();
+        else {
+          focusSearchRef.current = true;
+          setControlsOpen(true);
+        }
         return;
       }
       if (view === "card") {
@@ -494,7 +512,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId, pagedRows, myDb, isAuthed, pending, pendingClear, view, filtered, gridCols, isPhone]);
+  }, [activeId, pagedRows, myDb, isAuthed, pending, pendingClear, view, filtered, gridCols, isPhone, controlsOpen]);
 
   // entering accordion mode (list view, grid ≥2 cols): keep at most one card open
   useEffect(() => {
@@ -507,16 +525,25 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     });
   }, [accordion, activeId]);
 
-  // quiz link preserves current view (prep flow)
-  const quizHref = (() => {
+  useEffect(() => {
+    if (controlsOpen && focusSearchRef.current) {
+      focusSearchRef.current = false;
+      searchRef.current?.focus();
+    }
+  }, [controlsOpen]);
+
+  useEffect(() => {
     const sp = new URLSearchParams();
-    if (mainCategory !== "all") sp.set("main", mainCategory);
+    if (mainCategory !== "all") sp.set("cat", mainCategory);
     if (subCategory !== "all") sp.set("sub", subCategory);
     if (q.trim()) sp.set("q", q.trim());
     if (qtype !== "all") sp.set("type", qtype);
+    if (status !== "all") sp.set("status", status);
+    if (view !== "list") sp.set("view", view);
+    if (safePage > 1) sp.set("page", String(safePage));
     const s = sp.toString();
-    return s ? `/quiz?${s}` : "/quiz";
-  })();
+    window.history.replaceState(null, "", `${window.location.pathname}${s ? `?${s}` : ""}`);
+  }, [mainCategory, subCategory, q, qtype, status, view, safePage]);
 
   const pageWindow = useMemo(() => {
     const win = new Set<number>([1, totalPages, safePage - 1, safePage, safePage + 1]);
@@ -561,7 +588,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           <span className={`shrink-0 pt-0.5 text-[13px] sm:text-sm ${st === "unanswered" ? "text-zinc-300 dark:text-zinc-600" : st === "mine" ? "text-emerald-600 dark:text-emerald-400" : "text-indigo-600 dark:text-indigo-300"} ${st === "mine" ? "font-bold" : ""}`}>{mark}</span>
           <span className="min-w-0 flex-1">
             <span className={`block leading-snug break-words [overflow-wrap:anywhere] ${isOpen ? "text-[13px] sm:text-[15px] font-medium" : "text-[12px] sm:text-sm line-clamp-2"}`}>{item.question}</span>
-            <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] text-zinc-400">{item.category}{item.subCategory ? ` · ${item.subCategory}` : ""}{!locked && eff !== null ? ` · ${LETTERS[eff]}` : isUnansweredPool && mySaved !== null ? ` · ${LETTERS[mySaved]}` : ""}{!locked && notedIds.has(item.id) ? " · ✎" : ""}</span>
+            <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] text-zinc-400">{item.category}{item.subCategory ? ` · ${item.subCategory}` : ""}{!locked && eff !== null ? ` · ${LETTERS[eff]}` : isUnansweredPool && mySaved !== null ? ` · ${LETTERS[mySaved]}` : ""}{notedIds.has(item.id) ? " · ✎" : ""}</span>
           </span>
           <span className="shrink-0 pt-1 text-[10px] text-zinc-400">{isOpen ? "▴" : "▾"}</span>
         </button>
@@ -584,7 +611,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setRevealed((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
-                  className="rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] sm:text-xs font-medium hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"
+                  className="rounded-full border border-zinc-200 px-2.5 py-1.5 text-[11px] sm:text-xs font-medium hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]"
                 >
                   {isRevealed ? "Нуух" : "Зөв хариулт харах"}
                 </button>
@@ -698,7 +725,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   return (
     <div className="space-y-3 sm:space-y-4 px-3 sm:px-0">
       {/* controls (collapsible) */}
-      <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="sticky top-0 sm:top-[61px] z-20 -mx-3 bg-white/90 px-3 py-2 backdrop-blur-xl dark:bg-[#07070c]/85 sm:mx-0 sm:rounded-2xl sm:border sm:border-zinc-200 sm:bg-white/95 sm:px-2 sm:py-2 sm:dark:border-white/10 sm:dark:bg-[#0c0c14]/90">
         <button
           onClick={() => setControlsOpen((o) => !o)}
           aria-expanded={controlsOpen}
@@ -718,8 +745,9 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           </span>
           <span className="shrink-0 text-zinc-500" aria-hidden>{controlsOpen ? "▾" : "▸"}</span>
         </button>
-        {controlsOpen && (
-        <div className="space-y-2 sm:space-y-3 pt-2">
+      </div>
+      {controlsOpen && (
+      <div className="space-y-2 sm:space-y-3 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-white/[0.04]">
         <input
           ref={searchRef}
           value={q}
@@ -761,7 +789,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
               onClick={() => onQtype(t.id)}
               aria-pressed={qtype === t.id}
               title={t.hint}
-              className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] ${qtype === t.id ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+              className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium min-h-[36px] ${qtype === t.id ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
             >
               {t.label} · {t.n}
             </button>
@@ -772,7 +800,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
             <button
               key={p.id}
               onClick={() => onStatus(p.id)}
-              className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium min-h-[32px] sm:min-h-[36px] ${status === p.id ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : `border-zinc-200 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 ${p.id === "mine" ? "text-emerald-600 dark:text-emerald-400" : p.id === "noted" ? "text-violet-600 dark:text-violet-300" : p.id === "answered" ? "text-indigo-600 dark:text-indigo-300" : p.id === "unanswered" ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-700 dark:text-zinc-300"}`}`}
+              className={`rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium min-h-[36px] ${status === p.id ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : `border-zinc-200 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 ${p.id === "mine" ? "text-emerald-600 dark:text-emerald-400" : p.id === "noted" ? "text-violet-600 dark:text-violet-300" : p.id === "answered" ? "text-indigo-600 dark:text-indigo-300" : p.id === "unanswered" ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-700 dark:text-zinc-300"}`}`}
             >
               {p.label} · {p.n}
             </button>
@@ -780,7 +808,6 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         </div>
         </div>
         )}
-      </div>
 
       {!lockedMain && lockedCount > 0 && (
         <div className="browse-locked-banner rounded-xl sm:rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-400/30 dark:bg-amber-400/10 flex flex-col sm:flex-row sm:items-center gap-2">
@@ -793,7 +820,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         </div>
       )}
 
-      {/* readiness + practice */}
+      {/* readiness (unanswered pool only) */}
       {lockedMain ? (
         sessionPending ? null : (
         <div className="rounded-xl sm:rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8 text-center dark:border-amber-400/30 dark:bg-amber-400/10">
@@ -807,7 +834,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           </Link>
         </div>
         )
-      ) : (
+      ) : pool === "unanswered" ? (
       <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[12px] sm:text-sm font-medium">Шалгалтад бэлэн: {readyPct}%</p>
@@ -816,14 +843,8 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         <div className="mt-2 h-2 rounded-full bg-zinc-200 dark:bg-white/10 overflow-hidden">
           <div className="h-full rounded-full bg-zinc-900 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 transition-all" style={{ width: `${readyPct}%` }} />
         </div>
-        <Link
-          href={quizHref}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-indigo-600 px-5 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px] sm:min-h-[44px]"
-        >
-          Энэ шүүлтүүрээр шалгалт өгөх → <span className="opacity-70">({filteredBase.length})</span>
-        </Link>
       </div>
-      )}
+      ) : null}
 
       {/* view switcher — above the list */}
       {!lockedMain && (
@@ -836,7 +857,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
                 aria-label={o.label}
                 aria-pressed={view === o.v}
                 title={o.label}
-                className={`inline-flex h-8 w-11 items-center justify-center rounded-full transition-colors ${view === o.v ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-500 hover:bg-white hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100"}`}
+                className={`inline-flex h-9 w-11 items-center justify-center rounded-full transition-colors ${view === o.v ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-500 hover:bg-white hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100"}`}
               >
                 {o.v === "list" ? (
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
@@ -866,7 +887,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
                   key={n}
                   onClick={() => setGridCols(n)}
                   aria-label={`${n} багана`}
-                  className={`h-8 w-8 rounded-full border text-[12px] sm:text-sm font-medium ${gridCols === n ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+                  className={`h-9 w-9 rounded-full border text-[12px] sm:text-sm font-medium ${gridCols === n ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
                 >
                   {n}
                 </button>
@@ -893,7 +914,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           <button onClick={() => goCard(-1)} disabled={filtered.length <= 1} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">← Өмнөх</button>
           <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
           <span className="text-[11px] sm:text-xs text-zinc-500">{filtered.length === 0 ? "0 / 0" : `${safeCardIdx + 1} / ${filtered.length}`}</span>
-          <button onClick={() => setCardNavOpen(true)} disabled={filtered.length <= 1} aria-label="Асуултудын жагсаалт" title="Асуултуудын жагсаалт" className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-600 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-indigo-500/15 dark:hover:border-indigo-400/40 dark:hover:text-indigo-200">
+          <button onClick={() => { setNavRange(Math.floor(safeCardIdx / 100) * 100); setCardNavOpen(true); }} disabled={filtered.length <= 1} aria-label="Асуултуудын жагсаалт" title="Асуултуудын жагсаалт" className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-600 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-indigo-500/15 dark:hover:border-indigo-400/40 dark:hover:text-indigo-200">
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
               <rect x="4" y="4" width="7" height="7" rx="1.5" />
               <rect x="13" y="4" width="7" height="7" rx="1.5" />
@@ -918,9 +939,23 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
                 </div>
                 <button onClick={() => setCardNavOpen(false)} aria-label="Хаах" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[13px] text-zinc-500 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">✕</button>
               </div>
+              {filtered.length > 100 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {Array.from({ length: Math.ceil(filtered.length / 100) }, (_, k) => k * 100).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setNavRange(s)}
+                      className={`rounded-full border px-2.5 py-1.5 text-[11px] font-medium tabular-nums min-h-[36px] ${navRange === s ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+                    >
+                      {s + 1}–{Math.min(s + 100, filtered.length)}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="mt-3 sm:mt-4 max-h-[58vh] overflow-y-auto overscroll-contain pr-0.5">
                 <div className="grid grid-cols-5 sm:grid-cols-8 gap-1.5 sm:gap-2">
-                  {filtered.map((row, i) => {
+                  {(filtered.length > 100 ? filtered.slice(navRange, navRange + 100) : filtered).map((row, j) => {
+                    const i = filtered.length > 100 ? navRange + j : j;
                     const isMine = statusOfRow(row) === "mine";
                     const isCurrent = i === safeCardIdx;
                     return (
@@ -989,7 +1024,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           {pageWindow.map((n, i, arr) => (
             <span key={n} className="flex items-center gap-1.5 sm:gap-2">
               {i > 0 && arr[i - 1] !== n - 1 && <span className="text-zinc-400 text-xs">…</span>}
-              <button onClick={() => setPage(n)} className={`h-9 w-9 rounded-full text-[12px] sm:text-sm border ${n === safePage ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"}`}>{n}</button>
+              <button onClick={() => setPage(n)} aria-current={n === safePage ? "page" : undefined} className={`h-9 w-9 rounded-full text-[12px] sm:text-sm border ${n === safePage ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"}`}>{n}</button>
             </span>
           ))}
           <button disabled={safePage === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">→</button>

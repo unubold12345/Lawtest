@@ -19,7 +19,17 @@ type Stats = {
   recentAttempts?: RecentAttempt[];
 };
 
-type UserRow = { id: string; phone: string | null; email: string; role: string; paidAt: string | null; createdAt: string; _count: { attempts: number; comments: number } };
+type UserRow = { id: string; phone: string | null; email: string; role: string; paidAt: string | null; createdAt: string; _count: { attempts: number; comments: number; savedAnswers?: number; notes?: number; mistakes?: number }; lastAttemptAt: string | null; lastSeen: string | null; lastScore: { score: number; total: number } | null; lastElapsed: number | null };
+
+type DayViews = { day: string; views: number; uniques: number };
+type DayCount = { day: string; count: number };
+type Analytics = {
+  visits: { total30d: number; unique30d: number; todayViews: number; todayUniques: number; perDay: DayViews[]; topPages: { path: string; views: number }[]; guestViews: number; memberViews: number };
+  users: { total: number; paid: number; newToday: number; new7d: number; newPerDay: DayCount[] };
+  engagement: { dau: number; wau: number; mau: number; attemptsPerDay: DayCount[]; buckets: { active7d: number; singleTry: number; dormant: number; idle30d: number }; avgAttempts: number; paidRate: number; totalAttempts: number };
+};
+
+type UserFilter = "all" | "active" | "single" | "dormant" | "paid";
 
 type PaymentRow = { id: string; status: string; createdAt: string; decidedAt: string | null; user: { id: string; name: string | null; phone: string | null; email: string; paidAt: string | null } };
 
@@ -153,6 +163,54 @@ function Pager({ page, pageSize, total, onChange }: { page: number; pageSize: nu
           )
         )}
         <button type="button" onClick={() => onChange(cur + 1)} disabled={cur === pages} aria-label="Дараах хуудас" className={`${btn} ${idle} disabled:opacity-40`}>›</button>
+      </div>
+    </div>
+  );
+}
+
+function fmtAgo(iso: string | null): string {
+  if (!iso) return "—";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 0) return "—";
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return "саяхан";
+  if (m < 60) return `${m} мин өмнө`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} цаг өмнө`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d} хоногийн өмнө`;
+  return new Date(iso).toLocaleDateString("mn-MN");
+}
+
+function MiniTile({ value, label, sub }: { value: string | number; label: string; sub?: string }) {
+  return (
+    <div className="rounded-xl bg-zinc-50 px-3 py-2.5 dark:bg-white/5">
+      <p className="text-lg font-bold leading-none tabular-nums">{value}</p>
+      <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">{label}</p>
+      {!!sub && <p className="text-[10px] text-zinc-400 dark:text-zinc-500">{sub}</p>}
+    </div>
+  );
+}
+
+function Bars({ points, emptyHint }: { points: { label: string; value: number }[]; emptyHint: string }) {
+  const max = Math.max(1, ...points.map((p) => p.value));
+  const total = points.reduce((s, p) => s + p.value, 0);
+  if (total === 0) return <p className="py-6 text-center text-xs text-zinc-500">{emptyHint}</p>;
+  return (
+    <div>
+      <div className="flex h-24 items-end gap-[3px]" role="img" aria-label={emptyHint}>
+        {points.map((p) => (
+          <div
+            key={p.label}
+            title={`${p.label} · ${p.value}`}
+            className={`min-w-0 flex-1 rounded-sm ${p.value > 0 ? "bg-gradient-to-t from-indigo-500 to-violet-500" : "bg-zinc-200 dark:bg-white/10"}`}
+            style={{ height: p.value > 0 ? `${Math.max(6, Math.round((p.value / max) * 100))}%` : "3px" }}
+          />
+        ))}
+      </div>
+      <div className="mt-1 flex justify-between text-[10px] text-zinc-400 dark:text-zinc-500">
+        <span>{points[0]?.label.slice(5)}</span>
+        <span>{points[points.length - 1]?.label.slice(5)}</span>
       </div>
     </div>
   );
@@ -432,6 +490,8 @@ export default function AdminClient() {
   const [annUserQ, setAnnUserQ] = useState("");
   const [annPicked, setAnnPicked] = useState<string[]>([]);
   const [annUserMap, setAnnUserMap] = useState<Record<string, string>>({});
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [userFilter, setUserFilter] = useState<UserFilter>("all");
 
   const fetchStats = async () => {
     const r = await fetch("/api/admin/stats");
@@ -474,6 +534,11 @@ export default function AdminClient() {
     const d = await r.json();
     setAnnouncements(d.announcements || []);
   };
+  const fetchAnalytics = async () => {
+    const r = await fetch("/api/admin/analytics");
+    if (!r.ok) throw new Error("analytics failed");
+    setAnalytics(await r.json());
+  };
   const fetchAnnUsers = async (search = annUserQ) => {
     const r = await fetch(`/api/admin/users?q=${encodeURIComponent(search)}`);
     if (!r.ok) throw new Error("users failed");
@@ -491,6 +556,7 @@ export default function AdminClient() {
       try {
         setLoading(true);
         await Promise.all([fetchStats(), fetchUsers(""), fetchAttempts(), fetchReports("OPEN"), fetchPayments("PENDING")]);
+        fetchAnalytics().catch(() => {});
       } catch (e: any) {
         setErr(e.message || "Алдаа");
       } finally {
@@ -520,6 +586,7 @@ export default function AdminClient() {
     setNavOpen(false);
     if (id === "reports") fetchReports();
     if (id === "payments") fetchPayments();
+    if (id === "overview" && !analytics) fetchAnalytics().catch(() => {});
     if (id === "announcements") {
       fetchAnnouncements();
       fetchAnnUsers();
@@ -620,6 +687,15 @@ export default function AdminClient() {
     </nav>
   );
 
+  const SEVEN_D = 7 * 24 * 60 * 60 * 1000;
+  const filteredUsers = users.filter((u) => {
+    if (userFilter === "paid") return !!u.paidAt;
+    if (userFilter === "dormant") return u._count.attempts === 0;
+    if (userFilter === "single") return u._count.attempts === 1;
+    if (userFilter === "active") return !!u.lastSeen && Date.now() - new Date(u.lastSeen).getTime() < SEVEN_D;
+    return true;
+  });
+
   return (
     <div className="mx-auto max-w-7xl px-3 sm:px-6 py-6 sm:py-8">
       {/* mobile top bar */}
@@ -700,6 +776,89 @@ export default function AdminClient() {
                 <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:bg-white/[0.04] dark:border-white/10"><p className="text-2xl font-bold">{stats.otps}</p><p className="text-xs text-zinc-500">OTP</p></div>
               </div>
 
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-semibold text-sm">Хандалт — зочид ба гишүүд</h3>
+                  <span className="text-[11px] text-zinc-500">сүүлийн 30 хоног</span>
+                </div>
+                {!analytics ? (
+                  <p className="py-6 text-center text-xs text-zinc-500">Ачаалж байна… (шинэ хяналт дөнгөж суусан бол эхний хандалтаар тоо гарна)</p>
+                ) : (
+                  <>
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <MiniTile value={analytics.visits.todayViews} label="Өнөөдөр үзэлт" sub={`${analytics.visits.todayUniques} зочин`} />
+                      <MiniTile value={analytics.visits.total30d} label="Нийт үзэлт" sub="30 хоног" />
+                      <MiniTile value={analytics.visits.unique30d} label="Өвөрмөц зочин" sub="30 хоног" />
+                      <MiniTile
+                        value={analytics.visits.total30d > 0 ? `${Math.round((analytics.visits.guestViews / analytics.visits.total30d) * 100)}%` : "—"}
+                        label="Зочдын хувь"
+                        sub={`${analytics.visits.guestViews} зочин · ${analytics.visits.memberViews} гишүүн`}
+                      />
+                    </div>
+                    <div className="mt-3">
+                      <Bars points={analytics.visits.perDay.map((d) => ({ label: d.day, value: d.views }))} emptyHint="Хандалт бүртгэгдээгүй байна" />
+                    </div>
+                    {analytics.visits.total30d > 0 && (
+                      <>
+                        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
+                            style={{ width: `${Math.round((analytics.visits.guestViews / analytics.visits.total30d) * 100)}%` }}
+                            title={`Зочин ${analytics.visits.guestViews} · Гишүүн ${analytics.visits.memberViews}`}
+                          />
+                        </div>
+                        <p className="mt-1 text-[11px] text-zinc-500">🟧 Зочин (нэвтрээгүй) · 🟪 Гишүүн (нэвтэрсэн)</p>
+                      </>
+                    )}
+                    {analytics.visits.topPages.length > 0 && (
+                      <div className="mt-3 grid grid-cols-1 gap-1.5">
+                        {analytics.visits.topPages.map((p) => (
+                          <div key={p.path} className="flex items-center justify-between gap-2 rounded-xl bg-zinc-50 px-3 py-1.5 dark:bg-white/5">
+                            <span className="min-w-0 truncate font-mono text-xs">{p.path}</span>
+                            <b className="shrink-0 text-xs tabular-nums">{p.views}</b>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-semibold text-sm">Идэвх — оролдож байна уу, орхив уу</h3>
+                  <span className="text-[11px] text-zinc-500">шалгалтын оролдлогоор</span>
+                </div>
+                {!analytics ? (
+                  <p className="py-6 text-center text-xs text-zinc-500">Ачаалж байна…</p>
+                ) : (
+                  <>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <MiniTile value={analytics.engagement.dau} label="Өнөөдөр идэвхтэй" sub="DAU" />
+                      <MiniTile value={analytics.engagement.wau} label="7 хоногт" sub="WAU" />
+                      <MiniTile value={analytics.engagement.mau} label="30 хоногт" sub="MAU" />
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <MiniTile value={analytics.engagement.buckets.active7d} label="Идэвхтэй 7х" sub="шалгалт өгсөн" />
+                      <MiniTile value={analytics.engagement.buckets.singleTry} label="1 удаа оролдсон" sub="орхиж магадгүй" />
+                      <MiniTile value={analytics.engagement.buckets.dormant} label="Огт шалгалт өгөөгүй" sub="зүгээр бүртгүүлсэн" />
+                      <MiniTile value={analytics.engagement.buckets.idle30d} label="30+ хоног сул" sub="эргэж ирээгүй" />
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Өдөр тутмын шалгалт</p>
+                      <Bars points={analytics.engagement.attemptsPerDay.map((d) => ({ label: d.day, value: d.count }))} emptyHint="Оролдлого бүртгэгдээгүй байна" />
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Өдөр тутмын бүртгэл</p>
+                      <Bars points={analytics.users.newPerDay.map((d) => ({ label: d.day, value: d.count }))} emptyHint="Бүртгэл бүртгэгдээгүй байна" />
+                    </div>
+                    <p className="mt-2 text-[11px] text-zinc-500">
+                      Нэг хэрэглэгчид дунджаар {analytics.engagement.avgAttempts} шалгалт · Төлбөртэй {analytics.engagement.paidRate}% · Өнөөдөр +{analytics.users.newToday} · 7 хоногт +{analytics.users.new7d}
+                    </p>
+                  </>
+                )}
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
                   <div className="flex items-center justify-between gap-2">
@@ -765,16 +924,28 @@ export default function AdminClient() {
                 <input value={q} onChange={(e)=>setQ(e.target.value)} onKeyDown={(e)=>{ if(e.key==='Enter') fetchUsers(); }} placeholder="Хайх: утас / имэйл" className="flex-1 rounded-xl border border-zinc-200 px-4 py-3 sm:py-2.5 text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[44px]" />
                 <button onClick={()=>fetchUsers()} className="rounded-full bg-indigo-600 px-5 py-3 sm:py-2.5 text-sm text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[44px]">Хайх</button>
               </div>
+              <div className="mt-2.5 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {(["all", "active", "single", "dormant", "paid"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setUserFilter(f)}
+                    className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] sm:text-xs min-h-[32px] ${userFilter === f ? "bg-indigo-600 text-white border-transparent dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 dark:border-white/15"}`}
+                  >
+                    {f === "all" ? `Бүгд · ${users.length}` : f === "active" ? "Идэвхтэй 7х" : f === "single" ? "1 удаа оролдсон" : f === "dormant" ? "Огт идэвхгүй" : "Төлбөртэй"}
+                  </button>
+                ))}
+              </div>
+              {userFilter !== "all" && <p className="mt-1.5 text-[11px] text-zinc-500">{filteredUsers.length} хэрэглэгч</p>}
               <div className="mt-4 hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead><tr className="text-zinc-500 text-xs"><th className="text-left py-2">Утас / Имэйл</th><th className="text-left py-2">Role</th><th className="text-left py-2">Бүртгүүлсэн</th><th className="text-left py-2">Шалгалт / Сэтгэгдэл</th><th className="text-right py-2">Үйлдэл</th></tr></thead>
+                  <thead><tr className="text-zinc-500 text-xs"><th className="text-left py-2">Утас / Имэйл</th><th className="text-left py-2">Role</th><th className="text-left py-2">Сүүлийн идэвх</th><th className="text-left py-2">Шалгалт</th><th className="text-right py-2">Үйлдэл</th></tr></thead>
                   <tbody>
-                    {users.map(u=>(
+                    {filteredUsers.map(u=>(
                       <tr key={u.id} className="border-t border-zinc-200 dark:border-white/10">
-                        <td className="py-2"><div className="font-mono text-xs">{u.phone || "—"}</div><div className="text-xs text-zinc-500 truncate max-w-[220px]">{u.email}</div></td>
+                        <td className="py-2"><div className="font-mono text-xs">{u.phone || "—"}</div><div className="text-xs text-zinc-500 truncate max-w-[220px]">{u.email}</div><div className="text-[11px] text-zinc-400">Бүртгүүлсэн: {new Date(u.createdAt).toLocaleDateString("mn-MN")}</div></td>
                         <td className="py-2"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${u.role==='ADMIN' ? 'bg-violet-100 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300' : 'bg-zinc-100 dark:bg-white/5'}`}>{u.role}</span>{u.paidAt && <span className="ml-1 rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">💰 Эрхтэй</span>}</td>
-                        <td className="py-2 text-xs text-zinc-500">{new Date(u.createdAt).toLocaleDateString("mn-MN")}</td>
-                        <td className="py-2 text-xs">{u._count.attempts} / {u._count.comments}</td>
+                        <td className="py-2 text-xs" title={u.lastSeen ? new Date(u.lastSeen).toLocaleString("mn-MN") : "Идэвх бүртгэгдээгүй"}>{fmtAgo(u.lastSeen)}</td>
+                        <td className="py-2 text-xs"><b>{u._count.attempts}</b> шалгалт{u.lastScore ? <span className="text-zinc-500"> · сүүлд {u.lastScore.score}/{u.lastScore.total}</span> : <span className="text-zinc-400"> · —</span>}</td>
                         <td className="py-2 text-right flex gap-1 justify-end">
                           <button onClick={()=>togglePaid(u)} className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">{u.paidAt ? 'Эрх хаах' : 'Эрх нээх'}</button>
                           <button onClick={()=>toggleRole(u)} className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">{u.role==='ADMIN' ? 'USER болгох' : 'ADMIN болгох'}</button>
@@ -786,11 +957,11 @@ export default function AdminClient() {
                 </table>
               </div>
               <div className="mt-4 grid gap-2 sm:hidden">
-                {users.map(u=>(
+                {filteredUsers.map(u=>(
                   <div key={u.id} className="rounded-xl border border-zinc-200 p-3 dark:border-white/10">
                     <div className="flex justify-between gap-2"><span className="font-mono text-xs truncate">{u.phone || u.email}</span><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${u.role==='ADMIN'?'bg-violet-100 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300':'bg-zinc-100 dark:bg-white/5'}`}>{u.role}{u.paidAt ? ' · 💰' : ''}</span></div>
                     <p className="text-xs text-zinc-500 break-all">{u.email}</p>
-                    <p className="text-xs text-zinc-500 mt-1">{new Date(u.createdAt).toLocaleDateString("mn-MN")} · {u._count.attempts} шалгалт · {u._count.comments} сэтгэгдэл</p>
+                    <p className="text-xs text-zinc-500 mt-1">Сүүлд: {fmtAgo(u.lastSeen)} · {u._count.attempts} шалгалт{u.lastScore ? ` · сүүлд ${u.lastScore.score}/${u.lastScore.total}` : ""}</p>
                     <div className="mt-2 flex gap-2">
                       <button onClick={()=>togglePaid(u)} className="flex-1 rounded-full border border-zinc-200 py-2 text-xs dark:border-white/15 min-h-[40px]">{u.paidAt ? 'Эрх хаах' : 'Эрх нээх'}</button>
                       <button onClick={()=>toggleRole(u)} className="flex-1 rounded-full border border-zinc-200 py-2 text-xs dark:border-white/15 min-h-[40px]">{u.role==='ADMIN' ? 'USER болгох' : 'ADMIN болгох'}</button>
@@ -798,7 +969,7 @@ export default function AdminClient() {
                     </div>
                   </div>
                 ))}
-                {users.length===0 && <p className="text-sm text-zinc-500 text-center py-6">Хэрэглэгч алга</p>}
+                {filteredUsers.length===0 && <p className="text-sm text-zinc-500 text-center py-6">Хэрэглэгч алга</p>}
               </div>
             </div>
           )}

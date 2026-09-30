@@ -56,7 +56,7 @@ export default function QuestionReport({ questionId }: { questionId: string }) {
     return (
       <button
         onClick={() => { setOpen(true); setDone(false); setErr(""); }}
-        className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] sm:text-xs font-medium hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"
+        className="rounded-full border border-zinc-200 px-3 py-1.5 text-[11px] sm:text-xs font-medium hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]"
       >
         ⚑ Алдаа мэдээлэх
       </button>

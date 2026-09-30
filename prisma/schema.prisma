@@ -37,6 +37,7 @@ model User {
   savedExams    SavedExam[]
   paymentRequests PaymentRequest[]
   otps          Otp[]
+  visits        PageView[]
   announcements      Announcement[] @relation("AnnouncementAuthor")
   receivedAnnouncements Announcement[] @relation("AnnouncementRecipients")
   announcementReads  AnnouncementRead[]
@@ -204,6 +205,21 @@ model PaymentRequest {
 
   @@index([status, createdAt])
   @@index([userId])
+}
+
+// Anonymous page-view tracking (guests + members; no IP/PII stored)
+model PageView {
+  id        String   @id @default(cuid())
+  path      String
+  sessionId String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([sessionId, createdAt])
+  @@index([path, createdAt])
+  @@index([userId, createdAt])
 }
 
 model QuestionOverride {

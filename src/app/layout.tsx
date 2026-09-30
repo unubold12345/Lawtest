@@ -5,6 +5,7 @@ import SessionProvider from "@/components/SessionProvider";
 import Header from "@/components/Header";
 import PaidFlag from "@/components/PaidFlag";
 import IosHardNav from "@/components/IosHardNav";
+import VisitTracker from "@/components/VisitTracker";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin", "cyrillic"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SessionProvider>
           <PaidFlag />
           <IosHardNav />
+          <VisitTracker />
           <Header />
           <main className="flex-1 w-full min-w-0 overflow-x-clip">{children}</main>
           <footer className="border-t border-zinc-200/80 px-2 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pt-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-center dark:border-white/10">
