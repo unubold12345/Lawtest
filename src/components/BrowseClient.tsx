@@ -80,6 +80,9 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   // admin-marked this session: index rows are a server snapshot, so r[5] only
   // flips after reload — track fresh marks locally for live progress
   const [markedIds, setMarkedIds] = useState<Set<string>>(new Set());
+  // admin-cleared this session: r[3] stays 1 in the stale index row, so keep
+  // the undone ids locally until reload puts the question back to unanswered
+  const [unmarkedIds, setUnmarkedIds] = useState<Set<string>>(new Set());
   // admin full-edit modal (same editor as the admin page) — null when closed
   const [editItem, setEditItem] = useState<Question | null>(null);
   const [view, setView] = useState<View>(() => {
@@ -222,6 +225,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const statusOfRow = (r: IndexRow): "answered" | "unanswered" | "mine" => {
     if (r[3] === 1 && r[5] === 0) return "answered";
     if (isAuthed && typeof myDb[r[0]] === "number") return "mine";
+    if (unmarkedIds.has(r[0])) return "unanswered";
     return r[3] === 1 || markedIds.has(r[0]) ? "answered" : "unanswered";
   };
   const notedOfRow = (r: IndexRow): boolean => isAuthed && notedIds.has(r[0]);
@@ -260,14 +264,14 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     });
     return { answered, unanswered, mine, noted, total: filteredBase.length };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredBase, myDb, notedIds, isAuthed, markedIds]);
+  }, [filteredBase, myDb, notedIds, isAuthed, markedIds, unmarkedIds]);
 
   const filtered = useMemo(() => {
     if (status === "all") return filteredBase;
     if (status === "noted") return filteredBase.filter((r) => notedOfRow(r));
     return filteredBase.filter((r) => statusOfRow(r) === status);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredBase, status, myDb, notedIds, isAuthed, markedIds]);
+  }, [filteredBase, status, myDb, notedIds, isAuthed, markedIds, unmarkedIds]);
 
   const readyPct = statusCounts.total === 0 ? 0 : Math.round(((statusCounts.answered + statusCounts.mine) / statusCounts.total) * 100);
 
@@ -431,7 +435,42 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
       }
       mergeItems([{ ...item, answer: index }]);
       setMarkedIds((prev) => new Set(prev).add(item.id));
+      setUnmarkedIds((prev) => { const n = new Set(prev); n.delete(item.id); return n; });
       flashSaved(item.id, `✓ ${LETTERS[index]} зөв хариулт болголоо`);
+    } catch {
+      flashSaved(item.id, "Сүлжээний алдаа", true);
+    } finally {
+      setMarking(null);
+    }
+  };
+
+  // admin on the unanswered pool: undo a marking — PATCH answer:null so the
+  // question returns to the unanswered state (file writes stay best-effort)
+  const unmarkOfficial = async (item: Question) => {
+    if (marking) return;
+    setMarking(item.id);
+    try {
+      const r = await fetch("/api/admin/questions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: item.id,
+          question: item.question,
+          options: item.options,
+          answer: null,
+          explanation: item.explanation ?? "",
+          lawRef: item.lawRef ?? "",
+        }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        flashSaved(item.id, d.error || "Хадгалж чадсангүй", true);
+        return;
+      }
+      mergeItems([{ ...item, answer: null }]);
+      setMarkedIds((prev) => { const n = new Set(prev); n.delete(item.id); return n; });
+      setUnmarkedIds((prev) => new Set(prev).add(item.id));
+      flashSaved(item.id, "Хариулт арилгагдлаа — хариултгүй төлөвт буцлаа");
     } catch {
       flashSaved(item.id, "Сүлжээний алдаа", true);
     } finally {
@@ -607,7 +646,18 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
             </div>
 
             {adminView && (
-              <p className="mt-2 text-[10px] sm:text-[11px] text-amber-600 dark:text-amber-400">Админ: сонголт дээр дарахад зөв хариулт болж хадгалагдана — бүх хэрэглэгчид харагдана.</p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <p className="text-[10px] sm:text-[11px] text-amber-600 dark:text-amber-400">Админ: сонголт дээр дарахад зөв хариулт болж хадгалагдана — бүх хэрэглэгчид харагдана.</p>
+                {typeof item.answer === "number" && (
+                  <button
+                    onClick={() => unmarkOfficial(item)}
+                    disabled={marking === item.id}
+                    className="rounded-full border border-rose-200 px-3 py-1.5 text-[11px] sm:text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-400/30 dark:text-rose-400 dark:hover:bg-rose-400/10 min-h-[36px]"
+                  >
+                    Хариултыг арилгах
+                  </button>
+                )}
+              </div>
             )}
 
             {locked && eff !== null && (
