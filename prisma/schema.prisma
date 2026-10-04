@@ -257,3 +257,14 @@ model AnnouncementRead {
   @@id([userId, announcementId])
   @@index([announcementId])
 }
+
+// Admin "fixed" marks per data file (category folder + subcategory filename),
+// shown green in the browse dropdowns for admins only.
+model CategoryFix {
+  id          String   @id @default(cuid())
+  category    String
+  subCategory String   @default("")
+  fixedAt     DateTime @default(now())
+
+  @@unique([category, subCategory])
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export type DropOption = { value: string; label: string };
+export type DropOption = { value: string; label: string; green?: boolean };
 
 // Custom dropdown modeled on the quiz setup "Дэд ангилал сонгох…" picker:
 // the panel is clipped to the trigger width (absolute left-0 right-0) with
@@ -44,7 +44,10 @@ export default function DropSelect({
         onClick={() => setOpen((v) => !v)}
         className={`flex w-full max-w-full min-w-0 items-center justify-between gap-2 disabled:cursor-not-allowed disabled:opacity-50 ${buttonClassName}`}
       >
-        <span className="truncate text-left">{current ? current.label : ""}</span>
+        <span className={`truncate text-left ${current?.green ? "font-medium text-emerald-600 dark:text-emerald-400" : ""}`}>
+          {current?.green && <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle" aria-hidden />}
+          {current ? current.label : ""}
+        </span>
         <span className="shrink-0 text-xs text-zinc-400">{open ? "▴" : "▾"}</span>
       </button>
       {open && !disabled && (
@@ -58,8 +61,9 @@ export default function DropSelect({
                 title={o.label}
                 data-current={o.value === value ? "true" : undefined}
                 onClick={() => { onChange(o.value); setOpen(false); }}
-                className={`block w-full truncate px-3 py-2 text-left text-[12px] sm:text-[13px] hover:bg-zinc-100 dark:hover:bg-white/10 ${o.value === value ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200 font-medium" : ""}`}
+                className={`block w-full truncate px-3 py-2 text-left text-[12px] sm:text-[13px] hover:bg-zinc-100 dark:hover:bg-white/10 ${o.value === value ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200 font-medium" : o.green ? "font-medium text-emerald-600 dark:text-emerald-400" : ""}`}
               >
+                {o.green && <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle" aria-hidden />}
                 {o.label}
               </button>
             ))}

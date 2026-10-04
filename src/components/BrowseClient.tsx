@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
-import { indexMainName, indexSubName, type IndexData, type IndexRow, type QuestionPool } from "@/lib/questionIndex";
+import { indexMainName, indexSubName, type IndexData, type IndexMain, type IndexRow, type QuestionPool } from "@/lib/questionIndex";
+import { fixKey } from "@/lib/categoryFix";
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
 import { optionOrder } from "@/lib/optionOrder";
 import { fileHasAnswer } from "@/lib/answerOverrides";
@@ -16,6 +17,9 @@ import QuestionEditor from "@/components/QuestionEditor";
 import DropSelect from "@/components/DropSelect";
 
 const PAGE_SIZE = 20;
+// card view: fetch questions ahead in blocks of this size (window = 3 blocks)
+// so sequential Емнөх/Дараах navigation doesn't hit the network on every step
+const CARD_PREFETCH = 30;
 const LETTERS = ["A", "B", "C", "D", "E"];
 
 type Status = "all" | "answered" | "unanswered" | "mine" | "noted";
@@ -91,6 +95,8 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   });
   const [gridCols, setGridCols] = useState<number>(2);
   const [cardIdx, setCardIdx] = useState(0);
+  // admin-only "Зассан" marks per data file, shown as green category options
+  const [fixedKeys, setFixedKeys] = useState<Set<string>>(new Set());
   // card-view question navigator modal (mirrors the exam "Сорилгууд" palette)
   const [cardNavOpen, setCardNavOpen] = useState(false);
   const [navRange, setNavRange] = useState(0);
@@ -138,6 +144,23 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     }
     return m;
   }, [index, poolRows]);
+  // mains contributing each sub name to the current pool — the green mark in the
+  // merged «Бүх дэд» list must only require fixes for files present on this page
+  const poolSubOwners = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const r of poolRows) {
+      const main = indexMainName(index, r);
+      const sub = indexSubName(index, r);
+      if (!main || !sub) continue;
+      let set = m.get(sub);
+      if (!set) {
+        set = new Set();
+        m.set(sub, set);
+      }
+      set.add(main);
+    }
+    return m;
+  }, [index, poolRows]);
   const poolFreeTotal = useMemo(() => poolRows.filter((r) => indexMainName(index, r) === FREE_CATEGORY).length, [index, poolRows]);
   const lockedCount = fullAccess ? 0 : poolRows.length - poolFreeTotal;
 
@@ -166,6 +189,43 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     return index.allSubs.filter((s) => (poolSubCounts.get(s.name) ?? 0) > 0).map((s) => s.name);
   }, [index, mainCategory, poolSubCounts]);
   const subCountFor = (name: string): number => poolSubCounts.get(name) ?? 0;
+
+  // admin view: a sub is green when its file is marked «Зассан»; in the merged
+  // «Бүх дэд» list only when every main holding that sub name is fixed
+  const subFullyFixed = (name: string): boolean => {
+    if (!isAdmin || fixedKeys.size === 0) return false;
+    if (mainCategory !== "all") return fixedKeys.has(fixKey(mainCategory, name));
+    const owners = poolSubOwners.get(name);
+    if (!owners || owners.size === 0) return false;
+    for (const m of owners) if (!fixedKeys.has(fixKey(m, name))) return false;
+    return true;
+  };
+  const mainFullyFixed = (m: IndexMain): boolean => {
+    if (!isAdmin || fixedKeys.size === 0) return false;
+    const subQ = m.subs.reduce((n, s) => n + s.count, 0);
+    // sub-less (flat file) questions live under the main's own key
+    if (m.count > subQ && !fixedKeys.has(fixKey(m.name, ""))) return false;
+    if (m.subs.length === 0) return fixedKeys.has(fixKey(m.name, ""));
+    return m.subs.every((s) => fixedKeys.has(fixKey(m.name, s.name)));
+  };
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setFixedKeys(new Set());
+      return;
+    }
+    let alive = true;
+    fetch("/api/admin/category-fixes")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive || !d || !Array.isArray(d.fixes)) return;
+        setFixedKeys(new Set((d.fixes as { category: string; subCategory: string }[]).map((f) => fixKey(f.category, f.subCategory))));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [isAdmin]);
 
   // guard against invalid ?cat= / ?sub= from links
   useEffect(() => {
@@ -312,8 +372,17 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     return () => { cancelled = true; };
   }, [isAuthed]);
 
-  // fetch full questions for the visible page (and the card item) by id
-  const needIds = [...new Set([...pagedIds, ...(view === "card" && cardRow ? [cardRow[0]] : [])])];
+  // fetch full questions for the visible page (and, in card view, the current
+  // prefetch block) by id — the first page is preloaded server-side, so before
+  // this only the first 20 card steps were instant and every later step fetched
+  // a single question, flashing a skeleton that collapsed page height
+  const cardFetchIds = useMemo(() => {
+    if (view !== "card" || filtered.length === 0) return [];
+    const start = Math.floor(safeCardIdx / CARD_PREFETCH) * CARD_PREFETCH;
+    const end = Math.min(filtered.length, start + CARD_PREFETCH * 3);
+    return filtered.slice(start, end).map((r) => r[0]);
+  }, [view, filtered, safeCardIdx]);
+  const needIds = [...new Set([...pagedIds, ...cardFetchIds])];
   const needIdsKey = needIds.join("\u0001");
   useEffect(() => {
     const missing = needIds.filter((id) => id && !itemsRef.current[id]);
@@ -364,6 +433,15 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     setExpanded((p) => (p[cardItem.id] ? p : { ...p, [cardItem.id]: true }));
     setActiveId(cardItem.id);
   }
+
+  // card view: keep the previous card mounted (dimmed, non-interactive) while the
+  // next question is being fetched — swapping to the short skeleton collapsed the
+  // document height, and the browser clamped the scroll position back to the top
+  const [lastCard, setLastCard] = useState<{ idx: number; item: Question } | null>(null);
+  useEffect(() => {
+    if (view === "card" && cardItem) setLastCard({ idx: safeCardIdx, item: cardItem });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, cardItem?.id]);
 
   const onSearch = (v: string) => { setQ(v); setPage(1); setCardIdx(0); };
   const onMain = (v: string) => { setMainCategory(v); setSubCategory("all"); setPage(1); setCardIdx(0); };
@@ -806,9 +884,9 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           </span>
           <span className="shrink-0 text-zinc-500" aria-hidden>{controlsOpen ? "▾" : "▸"}</span>
         </button>
-      </div>
-      {controlsOpen && (
-      <div className="space-y-2 sm:space-y-3 rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-white/[0.04]">
+
+        {controlsOpen && (
+        <div className="mt-2 space-y-2 rounded-xl border border-zinc-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.04] sm:mt-3 sm:space-y-3 sm:rounded-none sm:border-x-0 sm:border-b-0 sm:bg-transparent sm:p-0 sm:pt-3 sm:dark:bg-transparent">
         <input
           ref={searchRef}
           value={q}
@@ -824,7 +902,10 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
             buttonClassName="rounded-lg sm:rounded-full border border-zinc-200 px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[44px]"
             options={[
               { value: "all", label: `Бүх үндсэн (${poolRows.length})` },
-              ...mainCategories.map((c) => ({ value: c, label: `${c} (${poolMainCounts.get(c) ?? 0})` })),
+              ...mainCategories.map((c) => {
+                const m = index.mains.find((x) => x.name === c);
+                return { value: c, label: `${c} (${poolMainCounts.get(c) ?? 0})`, green: !!m && mainFullyFixed(m) };
+              }),
             ]}
           />
           <DropSelect
@@ -835,7 +916,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
             disabled={mainCategory === "all" && subCategories.length === 0}
             options={[
               { value: "all", label: `Бүх дэд (${filteredBase.length})` },
-              ...subCategories.map((c) => ({ value: c, label: `${c} (${subCountFor(c)})` })),
+              ...subCategories.map((c) => ({ value: c, label: `${c} (${subCountFor(c)})`, green: subFullyFixed(c) })),
             ]}
           />
         </div>
@@ -869,6 +950,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
         </div>
         </div>
         )}
+      </div>
 
       {!lockedMain && lockedCount > 0 && (
         <div className="browse-locked-banner rounded-xl sm:rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-400/30 dark:bg-amber-400/10 flex flex-col sm:flex-row sm:items-center gap-2">
@@ -986,7 +1068,17 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           </div>
           <button onClick={() => goCard(1)} disabled={filtered.length <= 1} className="rounded-full border border-zinc-200 px-4 py-2 text-[12px] sm:text-sm disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">Дараах →</button>
         </div>
-        {cardItem ? renderItem(cardItem, safeCardIdx + 1) : filtered.length > 0 ? <SkeletonRow /> : <p className="text-center py-12 text-zinc-500 text-sm">Илэрц олдсонгүй.</p>}
+        {cardItem ? (
+          renderItem(cardItem, safeCardIdx + 1)
+        ) : lastCard ? (
+          <div aria-busy="true" className="pointer-events-none opacity-40">
+            {renderItem(lastCard.item, lastCard.idx + 1)}
+          </div>
+        ) : filtered.length > 0 ? (
+          <SkeletonRow />
+        ) : (
+          <p className="text-center py-12 text-zinc-500 text-sm">Илэрц олдсонгүй.</p>
+        )}
 
         {/* card-view question navigator: jump to any question (mirrors exam Сорилгууд modal) */}
         {cardNavOpen && (

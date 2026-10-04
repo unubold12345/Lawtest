@@ -4,13 +4,14 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
 import QuestionEditor, { AutoGrowTextarea } from "@/components/QuestionEditor";
+import { fixKey, pairFromRel } from "@/lib/categoryFix";
 
 type ErrorRow = { id: string; file: string; category: string; subCategory: string; question: string; optionsCount: number; answer: number | null; reason: string };
 type RecentUser = { id: string; phone: string | null; email: string; role: string; createdAt: string };
 type RecentAttempt = { id: string; category: string; mode: string; score: number; total: number; createdAt: string; user: { phone: string | null; email: string } | null };
 
 type Stats = {
-  questions: { total: number; byMain: Record<string, number>; sources: { file: string; count: number }[]; errors: ErrorRow[] };
+  questions: { total: number; byMain: Record<string, number>; sources: { file: string; count: number }[]; errors: ErrorRow[]; fixes?: { category: string; subCategory: string }[] };
   users: number;
   attempts: number;
   comments: number;
@@ -251,11 +252,41 @@ export default function AdminClient() {
   const [annUserMap, setAnnUserMap] = useState<Record<string, string>>({});
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [userFilter, setUserFilter] = useState<UserFilter>("all");
+  const [fixedKeys, setFixedKeys] = useState<Set<string>>(new Set());
 
   const fetchStats = async () => {
     const r = await fetch("/api/admin/stats");
     if (!r.ok) throw new Error((await r.json()).error || "stats failed");
-    setStats(await r.json());
+    const d = (await r.json()) as Stats;
+    setStats(d);
+    setFixedKeys(new Set((d.questions.fixes ?? []).map((f) => fixKey(f.category, f.subCategory))));
+  };
+
+  const toggleFix = async (file: string) => {
+    const { category, subCategory } = pairFromRel(file);
+    const k = fixKey(category, subCategory);
+    const next = !fixedKeys.has(k);
+    setFixedKeys((prev) => {
+      const s = new Set(prev);
+      if (next) s.add(k);
+      else s.delete(k);
+      return s;
+    });
+    try {
+      const r = await fetch("/api/admin/category-fixes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category, subCategory, fixed: next }),
+      });
+      if (!r.ok) throw new Error();
+    } catch {
+      setFixedKeys((prev) => {
+        const s = new Set(prev);
+        if (next) s.delete(k);
+        else s.add(k);
+        return s;
+      });
+    }
   };
   const fetchUsers = async (search = q) => {
     const r = await fetch(`/api/admin/users?q=${encodeURIComponent(search)}`);
@@ -772,10 +803,30 @@ export default function AdminClient() {
             )}
             <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">Нийт {stats.questions.total} сорилго. Жагсаалтыг дэлгэрэнгүй харах бол <Link href="/browse" className="underline">Бүх сорилго</Link> руу орно уу. Доор файл тус бүрээр харуулав.</p>
+              {fixedKeys.size > 0 && (
+                <p className="mt-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">Зассан: {fixedKeys.size} файл — админд /browse шүүлтүүрт ногооноор харагдана.</p>
+              )}
               <div className="mt-3 space-y-2">
-                {srcRows.map(s=>(
-                  <div key={s.file} className="flex justify-between gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-white/10"><span className="break-all">{s.file}</span><b className="shrink-0">{s.count}</b></div>
-                ))}
+                {srcRows.map(s=>{
+                  const { category, subCategory } = pairFromRel(s.file);
+                  const fixed = fixedKeys.has(fixKey(category, subCategory));
+                  return (
+                  <div key={s.file} className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm ${fixed ? "border-emerald-300 bg-emerald-50/60 dark:border-emerald-400/30 dark:bg-emerald-400/10" : "border-zinc-200 dark:border-white/10"}`}>
+                    <span className={`min-w-0 break-all ${fixed ? "text-emerald-700 dark:text-emerald-300" : ""}`}>{s.file}</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <b className="tabular-nums">{s.count}</b>
+                      <button
+                        onClick={() => toggleFix(s.file)}
+                        aria-pressed={fixed}
+                        title={fixed ? "Зассан тэмдэглэгээг авах" : "Зассан гэж тэмдэглэх"}
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium min-h-[36px] ${fixed ? "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-400/30 dark:bg-emerald-500/20 dark:text-emerald-200" : "border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+                      >
+                        {fixed ? "✓ Зассан" : "Зассан"}
+                      </button>
+                    </div>
+                  </div>
+                  );
+                })}
               </div>
               <Pager page={srcSafe} pageSize={SRC_PAGE_SIZE} total={sourcesSorted.length} onChange={setSrcPage} />
             </div>

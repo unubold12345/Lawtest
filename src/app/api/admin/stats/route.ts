@@ -14,12 +14,13 @@ export async function GET() {
     byMain.set(cat, (byMain.get(cat) || 0) + 1);
   }
 
-  const [users, attempts, comments, saved, otps] = await Promise.all([
+  const [users, attempts, comments, saved, otps, fixes] = await Promise.all([
     prisma.user.count(),
     prisma.attempt.count(),
     prisma.comment.count(),
     prisma.savedAnswer.count(),
     prisma.otp.count(),
+    prisma.categoryFix.findMany({ select: { category: true, subCategory: true }, orderBy: { category: "asc" } }),
   ]);
 
   const recentUsers = await prisma.user.findMany({ orderBy: { createdAt: "desc" }, take: 5, select: { id: true, phone: true, email: true, role: true, createdAt: true } });
@@ -55,7 +56,7 @@ export async function GET() {
     .filter((r) => r !== null);
 
   return NextResponse.json({
-    questions: { total: questions.length, byMain: Object.fromEntries(byMain), sources, errors },
+    questions: { total: questions.length, byMain: Object.fromEntries(byMain), sources, errors, fixes },
     users,
     attempts,
     comments,
