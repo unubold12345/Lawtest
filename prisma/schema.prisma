@@ -35,6 +35,7 @@ model User {
   mistakes      Mistake[]
   savedAnswers  SavedAnswer[]
   savedExams    SavedExam[]
+  studyCards    StudyCard[]
   paymentRequests PaymentRequest[]
   otps          Otp[]
   visits        PageView[]
@@ -164,6 +165,26 @@ model SavedAnswer {
 
   @@unique([userId, questionId])
   @@index([questionId])
+}
+
+// Per-question study progress for the /study page (Сорилго v2).
+// One row per user+question once it has been answered in a study session.
+model StudyCard {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId String
+  attempts   Int      @default(0)
+  correct    Int      @default(0)
+  streak     Int      @default(0) // consecutive correct answers (resets on wrong)
+  lastOk     Boolean  @default(false)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, questionId])
+  @@index([userId, lastSeenAt])
+  @@index([userId, lastOk])
 }
 
 model Otp {

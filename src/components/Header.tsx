@@ -23,7 +23,7 @@ export default function Header() {
   // session not resolved yet — show invisible placeholders instead of flashing guest UI
   const authPending = !user && status === "loading";
   const pathname = usePathname();
-  const browseActive = pathname === "/browse" || pathname === "/browse/unanswered";
+  const browseActive = pathname === "/browse" || pathname === "/browse/unanswered" || pathname === "/v2";
   const [open, setOpen] = useState(false);
   const [browseOpen, setBrowseOpen] = useState(false);
   const [mobileBrowse, setMobileBrowse] = useState(false);
@@ -97,6 +97,7 @@ export default function Header() {
                 <div className="w-52 rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-white/10 dark:bg-[#0b0b12]">
                   <Link href="/browse" prefetch={false} onClick={() => setBrowseOpen(false)} className={menuCls("/browse")}>Хариулттай сорилго</Link>
                   <Link href="/browse/unanswered" prefetch={false} onClick={() => setBrowseOpen(false)} className={menuCls("/browse/unanswered")}>Хариултгүй сорилго</Link>
+                  <Link href="/v2" prefetch={false} onClick={() => setBrowseOpen(false)} className={menuCls("/v2")}>v2(beta)</Link>
                 </div>
               </div>
             </div>
@@ -200,6 +201,9 @@ export default function Header() {
                 </Link>
                 <Link href="/browse/unanswered" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/browse/unanswered", true)}>
                   Хариултгүй сорилго
+                </Link>
+                <Link href="/v2" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/v2", true)}>
+                  v2(beta)
                 </Link>
               </div>
             )}
