@@ -221,7 +221,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
     return () => { cancelled = true; };
   }, [isAuthed]);
   const [subPick, setSubPick] = useState("");
-  const [subDropOpen, setSubDropOpen] = useState(false);
   const [histAttempts, setHistAttempts] = useState<Array<{ category: string; score: number; total: number }>>([]);
   const [mode, setMode] = useState<Mode>("exam");
   const [runMode, setRunMode] = useState<Mode>("exam");
@@ -1247,6 +1246,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
               value={mainCategory}
               onChange={(v) => { setMainCategory(v); setSubCategory("all"); }}
               ariaLabel="Үндсэн ангилал"
+              sheetOnMobile
               buttonClassName="rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]"
               options={[
                 { value: "all", label: `Бүх үндсэн (${examCountRows(baseRows)})` },
@@ -1268,6 +1268,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
               value={subCategory}
               onChange={(v) => setSubCategory(v)}
               ariaLabel="Дэд ангилал"
+              sheetOnMobile
               buttonClassName="rounded-lg sm:rounded-xl border border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[36px] sm:min-h-[48px]"
               options={[
                 { value: "all", label: `Бүх дэд (${examCountRows(labelMainRows)})` },
@@ -1359,29 +1360,23 @@ export default function QuizClient({ index }: { index: IndexData }) {
 
         <div className="mt-3 sm:mt-4 grid gap-1.5 sm:gap-2 min-w-0">
           <span className="text-[12px] sm:text-sm font-medium">Дэд ангилал</span>
-          <div className="relative min-w-0">
-            <button type="button" onClick={() => setSubDropOpen((v) => !v)} className="flex w-full max-w-full min-w-0 items-center justify-between gap-2 rounded-lg sm:rounded-xl border border-zinc-200 bg-white px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] min-h-[36px] sm:min-h-[48px]">
-              <span className="truncate text-left">{subPair ? `${subPair.main} / ${subPair.sub} (${subPair.count})` : "Дэд ангилал сонгох…"}</span>
-              <span className="shrink-0 text-xs text-zinc-400">{subDropOpen ? "▴" : "▾"}</span>
-            </button>
-            {subDropOpen && (
-              <>
-                <button aria-label="close" onClick={() => setSubDropOpen(false)} className="fixed inset-0 z-10 cursor-default bg-transparent" />
-                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg sm:rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:bg-[#0c0c14]/95 dark:border-white/10 dark:backdrop-blur-xl">
-                  {mainCategories.filter((m) => subPairs.some((p) => p.main === m)).map((m) => (
-                    <div key={m}>
-                      <p className="truncate px-3 pt-2 pb-0.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{m}</p>
-                      {subPairs.map((p, i) => p.main === m ? (
-                        <button key={i} type="button" title={`${p.sub} (${p.count})`} onClick={() => { setSubPick(String(i)); setSubDropOpen(false); }} className={`block w-full truncate px-3 py-2 text-left text-[12px] sm:text-[13px] hover:bg-zinc-100 dark:hover:bg-white/10 ${subPick === String(i) ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200 font-medium" : ""}`}>
-                          {savedExams[`${p.main} / ${p.sub}`] ? "⏸ " : ""}{p.sub} ({p.count})
-                        </button>
-                      ) : null)}
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          <DropSelect
+            value={subPick}
+            onChange={(v) => setSubPick(v)}
+            ariaLabel="Дэд ангилал"
+            placeholder="Дэд ангилал сонгох…"
+            sheetOnMobile
+            buttonClassName="rounded-lg sm:rounded-xl border border-zinc-200 bg-white px-3 py-2 sm:px-4 sm:py-3 text-[13px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[48px]"
+            options={subPairs.map((p, i) => {
+              const paused = !!savedExams[`${p.main} / ${p.sub}`];
+              return {
+                value: String(i),
+                label: `${paused ? "⏸ " : ""}${p.sub} (${p.count})`,
+                triggerLabel: `${p.main} / ${p.sub} (${p.count})`,
+                group: p.main,
+              };
+            })}
+          />
         </div>
 
         {subPair && (subPair.main !== FREE_CATEGORY && !fullAccess ? (

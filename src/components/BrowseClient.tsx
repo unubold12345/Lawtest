@@ -89,6 +89,12 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
   const [unmarkedIds, setUnmarkedIds] = useState<Set<string>>(new Set());
   // admin full-edit modal (same editor as the admin page) — null when closed
   const [editItem, setEditItem] = useState<Question | null>(null);
+  // admin card view: book-page photos for the current question (local dev only)
+  const [imgManifest, setImgManifest] = useState<{ dir: string; images: string[] } | null>(null);
+  const [imgOpen, setImgOpen] = useState(false);
+  const [imgIdx, setImgIdx] = useState(0);
+  const [imgRot, setImgRot] = useState(0);
+  const imgCacheRef = useRef<Record<string, { dir: string; images: string[] } | null>>({});
   const [view, setView] = useState<View>(() => {
     const v = searchParams.get("view");
     return v === "card" || v === "grid" ? v : "list";
@@ -348,6 +354,20 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     if (filtered.length === 0) return;
     setCardIdx((i) => (i + dir + filtered.length) % filtered.length);
   };
+  // page photos for the card question, keyed by category+sub
+  const cardImageKey =
+    cardItem?.category && cardItem.subCategory ? `${cardItem.category}\u0001${cardItem.subCategory}` : "";
+  // data has no per-question page map, so spread this sub's questions
+  // evenly across its photos — the viewer has prev/next to correct the drift
+  const imgIdxFor = (item: Question, count: number): number => {
+    if (count <= 1) return 0;
+    const sameSub = poolRows.filter(
+      (r) => indexMainName(index, r) === item.category && indexSubName(index, r) === item.subCategory
+    );
+    const rank = sameSub.findIndex((r) => r[0] === item.id);
+    if (rank < 0 || sameSub.length <= 1) return 0;
+    return Math.min(count - 1, Math.max(0, Math.round((rank * (count - 1)) / (sameSub.length - 1))));
+  };
   const gridColsClass =
     gridCols === 1 ? "grid-cols-1"
     : gridCols === 3 ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
@@ -396,6 +416,58 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [needIdsKey]);
+
+  // admin card view: page photos of the current question's sub (cached per sub)
+  useEffect(() => {
+    if (!isAdmin || view !== "card" || !cardImageKey) {
+      setImgManifest(null);
+      return;
+    }
+    const cached = imgCacheRef.current[cardImageKey];
+    if (cached !== undefined) {
+      setImgManifest(cached);
+      return;
+    }
+    let cancelled = false;
+    const [category, sub] = cardImageKey.split("\u0001");
+    fetch(`/api/question-images?category=${encodeURIComponent(category)}&sub=${encodeURIComponent(sub)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const val =
+          d && Array.isArray(d.images) && d.images.length > 0
+            ? { dir: String(d.dir ?? ""), images: d.images as string[] }
+            : null;
+        imgCacheRef.current[cardImageKey] = val;
+        if (!cancelled) setImgManifest(val);
+      })
+      .catch(() => {
+        imgCacheRef.current[cardImageKey] = null;
+        if (!cancelled) setImgManifest(null);
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, view, cardImageKey]);
+
+  // jump to the estimated page when opening or when the question changes
+  useEffect(() => {
+    if (!imgOpen || !imgManifest || !cardItem) return;
+    setImgIdx(imgIdxFor(cardItem, imgManifest.images.length));
+    setImgRot(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imgOpen, imgManifest, cardItem?.id]);
+
+  // capture phase so the browse arrow-key question shortcuts don't fire while open
+  useEffect(() => {
+    if (!imgOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      const stop = () => { e.preventDefault(); e.stopImmediatePropagation(); };
+      if (e.key === "Escape") { stop(); setImgOpen(false); }
+      else if (e.key === "ArrowRight" || e.key === "ArrowDown") { stop(); setImgIdx((i) => Math.min((imgManifest?.images.length ?? 1) - 1, i + 1)); }
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { stop(); setImgIdx((i) => Math.max(0, i - 1)); }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [imgOpen, imgManifest]);
 
   // text search runs server-side against the light index (question/options/category/subcategory)
   useEffect(() => {
@@ -845,6 +917,14 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
                 onChange={(id, has) => setNotedIds((prev) => { const n = new Set(prev); if (has) n.add(id); else n.delete(id); return n; })}
               />
               <QuestionReport questionId={item.id} />
+              {isAdmin && view === "card" && imgManifest && imgManifest.images.length > 0 && (
+                <button
+                  onClick={() => setImgOpen(true)}
+                  className="rounded-full border border-sky-200 px-3 py-1.5 text-[11px] sm:text-xs font-medium text-sky-700 hover:bg-sky-50 dark:border-sky-400/30 dark:text-sky-300 dark:hover:bg-sky-400/10 min-h-[36px]"
+                >
+                  Хуудас харах
+                </button>
+              )}
               {isAdmin && (
                 <button
                   onClick={() => setEditItem(item)}
@@ -899,6 +979,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
             value={mainCategory}
             onChange={onMain}
             ariaLabel="Үндсэн ангилал"
+            sheetOnMobile
             buttonClassName="rounded-lg sm:rounded-full border border-zinc-200 px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[44px]"
             options={[
               { value: "all", label: `Бүх үндсэн (${poolRows.length})` },
@@ -912,6 +993,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
             value={subCategory}
             onChange={onSub}
             ariaLabel="Дэд ангилал"
+            sheetOnMobile
             buttonClassName="rounded-lg sm:rounded-full border border-zinc-200 px-2 py-2 sm:px-4 sm:py-2 text-[12px] sm:text-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px] sm:min-h-[44px]"
             disabled={mainCategory === "all" && subCategories.length === 0}
             options={[
@@ -1255,6 +1337,74 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           </div>
         );
       })()}
+
+      {/* admin page-photo viewer — photos live in testimages/, local dev only */}
+      {isAdmin && imgOpen && imgManifest && cardItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
+          <button aria-label="close" onClick={() => setImgOpen(false)} className="absolute inset-0 bg-black/50 backdrop-blur-sm dark:bg-black/70" />
+          <div className="relative flex h-[94vh] w-full max-w-5xl flex-col rounded-2xl bg-white p-3 shadow-xl sm:p-4 dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="truncate text-[13px] sm:text-base font-semibold">Хуудасны зураг — {cardItem.subCategory}</h3>
+                <p className="truncate text-[10px] sm:text-xs text-zinc-500">{cardItem.category} · {cardItem.id} · {safeCardIdx + 1} / {filtered.length}</p>
+              </div>
+              <button onClick={() => setImgOpen(false)} aria-label="Хаах" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[13px] text-zinc-500 hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">✕</button>
+            </div>
+
+            <div className="relative mt-2 min-h-0 flex-1 overflow-hidden rounded-xl bg-zinc-100 dark:bg-black/40">
+              <img
+                src={`/api/question-images?category=${encodeURIComponent(cardItem.category ?? "")}&sub=${encodeURIComponent(cardItem.subCategory ?? "")}&file=${encodeURIComponent(imgManifest.images[Math.min(imgIdx, imgManifest.images.length - 1)])}`}
+                alt={`Хуудас ${imgIdx + 1}`}
+                className="h-full w-full object-contain transition-transform duration-200"
+                style={{ transform: `rotate(${imgRot}deg)` }}
+              />
+              <button
+                onClick={() => setImgIdx((i) => Math.max(0, i - 1))}
+                disabled={imgIdx <= 0}
+                aria-label="Өмнөх хуудас"
+                className="absolute left-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur hover:bg-black/70 disabled:opacity-30"
+              >
+                ←
+              </button>
+              <button
+                onClick={() => setImgIdx((i) => Math.min(imgManifest.images.length - 1, i + 1))}
+                disabled={imgIdx >= imgManifest.images.length - 1}
+                aria-label="Дараах хуудас"
+                className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur hover:bg-black/70 disabled:opacity-30"
+              >
+                →
+              </button>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <button onClick={() => setImgRot((r) => r - 90)} className="rounded-full border border-zinc-200 px-3 py-1.5 text-[11px] sm:text-xs hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">⟲ 90°</button>
+              <button onClick={() => setImgRot((r) => r + 90)} className="rounded-full border border-zinc-200 px-3 py-1.5 text-[11px] sm:text-xs hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">⟳ 90°</button>
+              <span className="text-[11px] sm:text-xs tabular-nums text-zinc-500">Хуудас {imgIdx + 1} / {imgManifest.images.length}</span>
+              <span className="ml-auto flex flex-wrap items-center gap-1.5">
+                <button onClick={() => goCard(-1)} disabled={filtered.length <= 1} className="rounded-full border border-zinc-200 px-3 py-1.5 text-[11px] sm:text-xs disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">← Өмнөх асуулт</button>
+                <button onClick={() => goCard(1)} disabled={filtered.length <= 1} className="rounded-full border border-zinc-200 px-3 py-1.5 text-[11px] sm:text-xs disabled:opacity-40 hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5 min-h-[36px]">Дараах асуулт →</button>
+              </span>
+            </div>
+
+            <p className="mt-1.5 line-clamp-2 text-[11px] sm:text-xs text-zinc-600 dark:text-zinc-400">{cardItem.question}</p>
+
+            <div className="mt-2 overflow-x-auto">
+              <div className="flex gap-1">
+                {imgManifest.images.map((f, i) => (
+                  <button
+                    key={f}
+                    onClick={() => setImgIdx(i)}
+                    aria-label={`Хуудас ${i + 1}`}
+                    className={`h-7 w-7 shrink-0 rounded-md border text-[11px] tabular-nums ${i === imgIdx ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* admin full-edit modal — same editor as the admin page */}
       {editItem && (
