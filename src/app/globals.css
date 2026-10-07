@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss" source("..");
 
 /* class-based dark mode — toggled via .dark on <html> */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -130,3 +130,20 @@ html.lexlab-paid .browse-locked-banner {
   }
 }
 
+/* study dashboard entrance + ambient motion */
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes orbFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(10px, 14px, 0) scale(1.08);
+  }
+}

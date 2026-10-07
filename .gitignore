@@ -17,6 +17,10 @@
 # /data/questions.json
 # /data/*.txt
 
+# local-only working dirs — never committed (also keeps file scanners like Tailwind from crawling them)
+/Temp/
+/testimages/
+
 # next.js
 /.next/
 /out/
