@@ -503,6 +503,19 @@ export default function StudyClient({ index }: { index: IndexData }) {
       .filter((o) => o.n > 0);
   }, [index, studyableOf]);
 
+  const adminNeeded = useMemo(() => {
+    const total = new Map<number, number>();
+    const official = new Map<number, number>();
+    for (const r of index.rows) {
+      if (r[1] < 0) continue;
+      total.set(r[1], (total.get(r[1]) ?? 0) + 1);
+      if (r[3] === 1 || r[5] === 1) official.set(r[1], (official.get(r[1]) ?? 0) + 1);
+    }
+    const out = new Set<number>();
+    for (const [mi, n] of total) if ((official.get(mi) ?? 0) < n) out.add(mi);
+    return out;
+  }, [index]);
+
   const subOptions = useMemo(() => {
     const counts = new Map<string, number>();
     const mi = todoMain === "all" ? -1 : index.mains.findIndex((m) => m.name === todoMain);
@@ -1088,7 +1101,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
           </section>
 
           {/* ── to-do list ── */}
-          <section className="relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5 lg:col-span-2 motion-safe:animate-[fadeUp_450ms_ease-out_80ms_both]">
+          <section className="relative z-30 rounded-3xl border border-zinc-200/80 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5 lg:col-span-2 motion-safe:animate-[fadeUp_450ms_ease-out_80ms_both]">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-[15px] font-bold tracking-tight sm:text-lg">Хийх зүйлс</h2>
@@ -1174,10 +1187,20 @@ export default function StudyClient({ index }: { index: IndexData }) {
                   buttonClassName="rounded-xl border border-zinc-200 px-3 py-2 text-[12.5px] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 min-h-[36px]"
                   options={[
                     { value: "all", label: `Бүх ангилал (${preCounts.total})` },
-                    ...mainOptions.map((o) => ({
-                      value: o.name,
-                      label: `${!fullAccess && o.name !== FREE_CATEGORY ? "🔒 " : ""}${o.name} (${o.n})`,
-                    })),
+                    ...mainOptions
+                      .filter((o) => !adminNeeded.has(o.mi))
+                      .map((o) => ({
+                        value: o.name,
+                        group: "Хариулт өгөгдсөн",
+                        label: `${!fullAccess && o.name !== FREE_CATEGORY ? "🔒 " : ""}${o.name} (${o.n})`,
+                      })),
+                    ...mainOptions
+                      .filter((o) => adminNeeded.has(o.mi))
+                      .map((o) => ({
+                        value: o.name,
+                        group: "Хариулт өгөгдөөгүй",
+                        label: `${!fullAccess && o.name !== FREE_CATEGORY ? "🔒 " : ""}${o.name} (${o.n})`,
+                      })),
                   ]}
                 />
                 <DropSelect
@@ -1231,7 +1254,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
                       className={`group flex items-center gap-2 rounded-2xl border p-2 transition-all duration-200 sm:p-2.5 ${
                         t.done
                           ? "border-zinc-200/60 bg-zinc-50/40 opacity-70 dark:border-white/5 dark:bg-white/[0.02]"
-                          : "border-zinc-200/80 bg-zinc-50/70 hover:border-indigo-200 hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-indigo-400/30"
+                          : "border-zinc-200/80 bg-zinc-50/70 hover:border-indigo-200 hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-indigo-400/30 dark:hover:bg-white/[0.06] dark:hover:shadow-none"
                       }`}
                     >
                       <button

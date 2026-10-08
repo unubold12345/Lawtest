@@ -21,6 +21,7 @@ export default function DropSelect({
   ariaLabel,
   sheetOnMobile,
   placeholder,
+  inline,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -30,6 +31,7 @@ export default function DropSelect({
   ariaLabel?: string;
   sheetOnMobile?: boolean;
   placeholder?: string;
+  inline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -97,7 +99,7 @@ export default function DropSelect({
       {open && !disabled && !sheetMode && (
         <>
           <button aria-label="close" onClick={() => setOpen(false)} className="fixed inset-0 z-10 cursor-default bg-transparent" />
-          <div ref={panelRef} className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg sm:rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:bg-[#0c0c14]/95 dark:border-white/10 dark:backdrop-blur-xl">
+          <div ref={panelRef} className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg sm:rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:bg-[#0c0c14] dark:border-white/10">
             {options.map((o, i) => (
               <Fragment key={o.value}>
                 {o.group && o.group !== options[i - 1]?.group && (
@@ -108,7 +110,7 @@ export default function DropSelect({
                   title={o.label}
                   data-current={o.value === value ? "true" : undefined}
                   onClick={() => { onChange(o.value); setOpen(false); }}
-                  className={`block w-full truncate px-3 py-2 text-left text-[12px] sm:text-[13px] hover:bg-zinc-100 dark:hover:bg-white/10 ${o.value === value ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200 font-medium" : o.green ? "font-medium text-emerald-600 dark:text-emerald-400" : ""}`}
+                  className={`block w-full truncate px-3 py-2 text-left text-[12px] sm:text-[13px] hover:bg-zinc-100 dark:hover:bg-white/[0.06] ${o.value === value ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200 font-medium" : o.green ? "font-medium text-emerald-600 dark:text-emerald-400" : ""}`}
                 >
                   {o.green && <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle" aria-hidden />}
                   {o.label}
