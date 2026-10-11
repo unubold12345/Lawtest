@@ -1771,6 +1771,13 @@ export default function StudyClient({ index }: { index: IndexData }) {
     const row = rowById.get(current.id);
     const isCase = row ? row[4] === 1 : false;
     const mySavedOnly = c !== null && typeof savedAnswers[current.id] === "number" && fileAnswer(current) === null;
+    // subCategory chip: «1.3-А16 Ашигт малтмалын тухай хууль» (question number from id suffix qNNN)
+    const qNumRaw = current.id.match(/_q(\d+)$/)?.[1];
+    const subNumMatch = current.subCategory?.match(/^(\d+(?:\.\d+)*)\s+(.*)$/);
+    const subLabel =
+      qNumRaw && subNumMatch
+        ? `${subNumMatch[1]}-А${parseInt(qNumRaw, 10)} ${subNumMatch[2]}`
+        : current.subCategory;
     return (
       <div className="mx-auto max-w-3xl w-full space-y-3 sm:space-y-4 min-w-0 px-3 sm:px-0 max-sm:min-h-[calc(100dvh-12rem)] max-sm:flex max-sm:flex-col max-sm:justify-center">
         {/* top bar */}
@@ -1789,10 +1796,13 @@ export default function StudyClient({ index }: { index: IndexData }) {
               <span className="mx-0.5 opacity-40">/</span>
               {runTotal}
             </span>
-            <span className="shrink-0 inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] sm:text-xs font-semibold tabular-nums text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
-              ✓ {okCount}
-            </span>
-            {sessionStreak > 1 && (
+            {/* live correct count + streak — only when immediate feedback is on; exam-like mode must not leak correctness */}
+            {run.immediate && (
+              <span className="shrink-0 inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] sm:text-xs font-semibold tabular-nums text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
+                ✓ {okCount}
+              </span>
+            )}
+            {run.immediate && sessionStreak > 1 && (
               <span className="shrink-0 inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] sm:text-xs font-semibold tabular-nums text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
                 🔥 {sessionStreak}
               </span>
@@ -1843,7 +1853,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
             )}
             {current.subCategory && (
               <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium text-zinc-600 dark:bg-white/5 dark:text-zinc-400 max-w-[34%] truncate">
-                {current.subCategory}
+                {subLabel}
               </span>
             )}
             {isAuthed && (
@@ -2035,9 +2045,9 @@ export default function StudyClient({ index }: { index: IndexData }) {
                         aria-label={`Сорилго ${i + 1}`}
                         className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[12px] sm:text-[13px] font-semibold tabular-nums border transition-colors min-w-0 ${
                           isAnswered
-                            ? cellOk
-                              ? "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-400 dark:bg-emerald-500/90 dark:border-emerald-400/50"
-                              : "bg-rose-500 border-rose-500 text-white hover:bg-rose-400 dark:bg-rose-500/90 dark:border-rose-400/50"
+                            ? run.immediate && !cellOk
+                              ? "bg-rose-500 border-rose-500 text-white hover:bg-rose-400 dark:bg-rose-500/90 dark:border-rose-400/50"
+                              : "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-400 dark:bg-emerald-500/90 dark:border-emerald-400/50"
                             : "bg-transparent border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/10"
                         } ${isCurrent ? "ring-2 ring-indigo-500 ring-offset-1 dark:ring-indigo-400 dark:ring-offset-transparent" : ""}`}
                       >
@@ -2048,12 +2058,20 @@ export default function StudyClient({ index }: { index: IndexData }) {
                 </div>
               </div>
               <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-zinc-100 pt-3 text-[10px] sm:text-[11px] text-zinc-500 dark:border-white/10 dark:text-zinc-400">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Зөв
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-rose-500" /> Буруу
-                </span>
+                {run.immediate ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Зөв
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-rose-500" /> Буруу
+                    </span>
+                  </>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Хариулсан
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-sm border border-indigo-500 ring-1 ring-indigo-300 dark:ring-indigo-400/40" /> Одоогийн
                 </span>
