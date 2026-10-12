@@ -31,6 +31,16 @@ type Analytics = {
   engagement: { dau: number; wau: number; mau: number; attemptsPerDay: DayCount[]; buckets: { active7d: number; singleTry: number; dormant: number; idle30d: number }; avgAttempts: number; paidRate: number; totalAttempts: number };
 };
 
+type ActivityRow = { phone: string; state: string; mode: string | null; label: string | null; idx: number; total: number; answered: number; updatedAt: string };
+type ActivityFeedRow = { id: string; phone: string; type: string; mode: string | null; label: string | null; total: number; score: number | null; createdAt: string };
+type V2Activity = {
+  now: string;
+  active: ActivityRow[];
+  recent: ActivityRow[];
+  today: { v2Views: number; v2Uniques: number; v2Members: number; activeUsers24h: number; started: number; finished: number; studyStarted: number; examStarted: number; yStarted: number; yFinished: number; yViews: number };
+  feed: ActivityFeedRow[];
+};
+
 type UserFilter = "all" | "active" | "single" | "dormant" | "paid";
 
 type PaymentRow = { id: string; status: string; createdAt: string; decidedAt: string | null; user: { id: string; name: string | null; phone: string | null; email: string; paidAt: string | null } };
@@ -39,7 +49,7 @@ type ReportRow = { id: string; questionId: string; type: string; message: string
 
 type AnnouncementRow = { id: string; body: string; createdAt: string; readCount: number; recipientCount: number };
 
-type TabId = "overview" | "users" | "questions" | "attempts" | "reports" | "payments" | "announcements";
+type TabId = "overview" | "activity" | "users" | "questions" | "attempts" | "reports" | "payments" | "announcements";
 
 const REPORT_TYPES: Record<string, string> = {
   WRONG_ANSWER: "Зөв хариулт буруу",
@@ -50,6 +60,7 @@ const REPORT_TYPES: Record<string, string> = {
 
 const SECTIONS: { id: TabId; label: string; desc: string }[] = [
   { id: "overview", label: "Тойм", desc: "Ерөнхий үзүүлэлт, сүүлийн идэвх" },
+  { id: "activity", label: "Идэвх", desc: "v2 хуудсан дахь шууд хэрэглэгчийн идэвх" },
   { id: "users", label: "Хэрэглэгчид", desc: "Эрх, төлбөртэй хандалт удирдах" },
   { id: "payments", label: "Төлбөр", desc: "Төлбөрийн хүсэлтүүдийг баталгаажуулах" },
   { id: "attempts", label: "Оролдлогууд", desc: "Хэрэглэгчдийн шалгалтын үр дүн" },
@@ -65,6 +76,11 @@ const ICONS: Record<TabId, ReactNode> = {
       <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" />
       <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" />
       <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" />
+    </svg>
+  ),
+  activity: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M3 12h4l2.5-7 4 14 2.5-7H21" />
     </svg>
   ),
   users: (
@@ -272,6 +288,7 @@ export default function AdminClient() {
   const [annPicked, setAnnPicked] = useState<string[]>([]);
   const [annUserMap, setAnnUserMap] = useState<Record<string, string>>({});
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [activity, setActivity] = useState<V2Activity | null>(null);
   const [userFilter, setUserFilter] = useState<UserFilter>("all");
   const [fixedKeys, setFixedKeys] = useState<Set<string>>(new Set());
 
@@ -350,6 +367,11 @@ export default function AdminClient() {
     if (!r.ok) throw new Error("analytics failed");
     setAnalytics(await r.json());
   };
+  const fetchActivity = async () => {
+    const r = await fetch("/api/admin/v2-activity");
+    if (!r.ok) throw new Error("activity failed");
+    setActivity(await r.json());
+  };
   const fetchAnnUsers = async (search = annUserQ) => {
     const r = await fetch(`/api/admin/users?q=${encodeURIComponent(search)}`);
     if (!r.ok) throw new Error("users failed");
@@ -391,6 +413,13 @@ export default function AdminClient() {
     })();
     return () => { alive = false; };
   }, [reports]);
+
+  useEffect(() => {
+    if (tab !== "activity") return;
+    fetchActivity().catch(() => {});
+    const t = setInterval(() => fetchActivity().catch(() => {}), 20000);
+    return () => clearInterval(t);
+  }, [tab]);
 
   const select = (id: TabId) => {
     setTab(id);
@@ -494,6 +523,7 @@ export default function AdminClient() {
   const srcRows = sourcesSorted.slice((srcSafe - 1) * SRC_PAGE_SIZE, srcSafe * SRC_PAGE_SIZE);
   const navMeta: Record<TabId, { badge: number; tone: "amber" | "rose" }> = {
     overview: { badge: 0, tone: "rose" },
+    activity: { badge: 0, tone: "rose" },
     users: { badge: 0, tone: "rose" },
     payments: { badge: pendingPayments, tone: "amber" },
     attempts: { badge: 0, tone: "rose" },
@@ -737,6 +767,104 @@ export default function AdminClient() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "activity" && (
+            <div className="grid grid-cols-1 gap-4 lg:mt-4">
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    </span>
+                    <h3 className="text-sm font-semibold">Одоо v2 дотор</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="hidden text-[11px] text-zinc-500 sm:inline">20с тутам шинэчлэгдэнэ</span>
+                    <button onClick={() => fetchActivity().catch(() => {})} className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] font-medium hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[32px]">Сэргээх</button>
+                  </div>
+                </div>
+                {!activity ? (
+                  <p className="py-6 text-center text-xs text-zinc-500">Ачаалж байна…</p>
+                ) : activity.active.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-zinc-500">Одоогоор хэн ч v2 хуудсан дээр ажиллахгүй байна</p>
+                ) : (
+                  <div className="mt-3 grid grid-cols-1 gap-2">
+                    {activity.active.map((a, i) => (
+                      <div key={`${a.phone}-${i}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-emerald-50/60 px-3 py-2 dark:bg-emerald-400/[0.07]">
+                        <span className="font-mono text-xs">{a.phone}</span>
+                        {a.state === "run" ? (
+                          <>
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${a.mode === "exam" ? "bg-violet-100 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300" : "bg-indigo-100 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-300"}`}>
+                              {a.mode === "exam" ? "Шалгалт" : "Сургалт"}
+                            </span>
+                            {a.label && <span className="max-w-[220px] min-w-0 truncate text-[11px] text-zinc-600 dark:text-zinc-300">{a.label}</span>}
+                            <span className="text-[11px] text-zinc-500 tabular-nums">{a.total > 0 ? `${a.idx + 1}/${a.total} · ` : ""}{a.answered} хариулсан</span>
+                          </>
+                        ) : (
+                          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-white/5 dark:text-zinc-300">Сорилго төв</span>
+                        )}
+                        <span className="ml-auto text-[11px] text-zinc-400">{fmtAgo(a.updatedAt)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <MiniTile value={activity?.today.v2Views ?? "—"} label="Өнөөдөр v2 үзэлт" sub={activity ? `${activity.today.v2Uniques} unique · өчигдөр ${activity.today.yViews}` : undefined} />
+                <MiniTile value={activity?.today.activeUsers24h ?? "—"} label="Гишүүн идэвхтэй" sub="сүүлийн 24 цаг" />
+                <MiniTile value={activity?.today.started ?? "—"} label="Сорилт эхэлсэн" sub={activity ? `Сургалт ${activity.today.studyStarted} · Шалгалт ${activity.today.examStarted} · өчигдөр ${activity.today.yStarted}` : undefined} />
+                <MiniTile value={activity?.today.finished ?? "—"} label="Дуусгасан" sub={activity ? `өчигдөр ${activity.today.yFinished}` : undefined} />
+              </div>
+
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
+                <h3 className="text-sm font-semibold">Өнөөдрийн үйл явдал</h3>
+                {!activity ? (
+                  <p className="py-6 text-center text-xs text-zinc-500">Ачаалж байна…</p>
+                ) : activity.feed.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-zinc-500">Өнөөдөр бүртгэгдсэн үйл явдал алга</p>
+                ) : (
+                  <div className="mt-3 grid grid-cols-1 gap-1.5">
+                    {activity.feed.map((e) => (
+                      <div key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-xl bg-zinc-50 px-3 py-1.5 dark:bg-white/5">
+                        <span className="w-10 shrink-0 text-[11px] text-zinc-400 tabular-nums">{new Date(e.createdAt).toLocaleTimeString("mn-MN", { hour: "2-digit", minute: "2-digit" })}</span>
+                        <span className="font-mono text-xs">{e.phone}</span>
+                        <span className={`text-[11px] font-medium ${e.type === "run_finish" ? "text-emerald-600 dark:text-emerald-300" : "text-indigo-600 dark:text-indigo-300"}`}>
+                          {e.type === "run_finish" ? "Дуусгасан" : "Эхлүүлсэн"}
+                        </span>
+                        <span className="text-[11px] text-zinc-500">{e.mode === "exam" ? "Шалгалт" : "Сургалт"}{e.label ? ` · ${e.label}` : ""}</span>
+                        <span className="ml-auto text-[11px] text-zinc-400 tabular-nums">
+                          {e.type === "run_finish" ? `${e.score ?? 0}/${e.total}` : `${e.total} асуулт`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold">Сүүлийн 24 цагт v2-д</h3>
+                  <span className="text-[11px] text-zinc-500">{activity?.recent.length ?? 0} гишүүн</span>
+                </div>
+                {!activity ? (
+                  <p className="py-6 text-center text-xs text-zinc-500">Ачаалж байна…</p>
+                ) : activity.recent.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-zinc-500">Сүүлийн 24 цагт идэвх алга</p>
+                ) : (
+                  <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {activity.recent.slice(0, 20).map((a, i) => (
+                      <div key={`${a.phone}-${i}`} className="flex items-center justify-between gap-2 rounded-xl bg-zinc-50 px-3 py-1.5 dark:bg-white/5">
+                        <span className="min-w-0 truncate font-mono text-xs">{a.phone}</span>
+                        <span className="shrink-0 text-[11px] text-zinc-500">{a.state === "run" ? (a.mode === "exam" ? "Шалгалт" : "Сургалт") : "Төв"} · {fmtAgo(a.updatedAt)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

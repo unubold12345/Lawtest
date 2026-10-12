@@ -37,6 +37,8 @@ model User {
   savedExams    SavedExam[]
   studyCards    StudyCard[]
   studyTodos    StudyTodo[]
+  studyPresence StudyPresence?
+  studyEvents   StudyEvent[]
   paymentRequests PaymentRequest[]
   otps          Otp[]
   visits        PageView[]
@@ -203,6 +205,39 @@ model StudyTodo {
   updatedAt DateTime @updatedAt
 
   @@index([userId, date])
+  @@index([userId, createdAt])
+}
+
+// Live /v2 activity for the admin "Идэвх" tab: one row per logged-in user,
+// upserted by a client heartbeat while they use the Сорилго төв hub.
+model StudyPresence {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state     String // "hub" | "run"
+  mode      String? // "study" | "exam"
+  label     String? // scope (main / subcategory name)
+  idx       Int      @default(0)
+  total     Int      @default(0)
+  answered  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+// /v2 milestones (run started / finished) powering the admin activity stats.
+model StudyEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // "run_start" | "run_finish"
+  mode      String? // "study" | "exam"
+  label     String?
+  total     Int      @default(0)
+  score     Int?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
   @@index([userId, createdAt])
 }
 

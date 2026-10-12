@@ -155,6 +155,48 @@ function ActivityBars({ days }: { days: number[] }) {
 }
 
 
+type ActivityPayload = {
+  state: "hub" | "run";
+  mode?: "study" | "exam";
+  label?: string;
+  idx?: number;
+  total?: number;
+  answered?: number;
+  event?: "run_start" | "run_finish";
+  score?: number;
+};
+
+// fire-and-forget presence/event beacon for the admin "Идэвх" tab
+function postActivity(payload: ActivityPayload) {
+  try {
+    fetch("/api/study/activity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    /* best-effort */
+  }
+}
+
+function runScopeLabel(rec: { main: string; sub: string }): string {
+  if (rec.sub !== "all") return rec.sub;
+  if (rec.main !== "all") return rec.main;
+  return "Бүх сэдэв";
+}
+
+function runActivityPayload(rec: StudySession): ActivityPayload {
+  return {
+    state: "run",
+    mode: rec.immediate ? "study" : "exam",
+    label: runScopeLabel(rec),
+    idx: rec.idx,
+    total: rec.ids.length,
+    answered: Object.keys(rec.answers).length,
+  };
+}
+
 export default function StudyClient({ index }: { index: IndexData }) {
   const { data: session, status: sessionStatus } = useSession();
   const isAuthed = !!session?.user;
@@ -311,6 +353,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
   const [elapsed, setElapsed] = useState(0);
   const elapsedRef = useRef(0);
   const runRef = useRef<StudySession | null>(null);
+  const viewRef = useRef<StudyView>("home");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [exitConfirm, setExitConfirm] = useState(false);
   const [paywallNote, setPaywallNote] = useState(false);
@@ -331,7 +374,18 @@ export default function StudyClient({ index }: { index: IndexData }) {
 
   useEffect(() => {
     runRef.current = run;
-  }, [run]);
+    viewRef.current = view;
+  }, [run, view]);
+
+  // live presence for the admin activity tab (logged-in only, best-effort)
+  useEffect(() => {
+    if (!userId) return;
+    const send = () =>
+      postActivity(viewRef.current === "run" && runRef.current ? runActivityPayload(runRef.current) : { state: "hub" });
+    send();
+    const t = setInterval(send, 30000);
+    return () => clearInterval(t);
+  }, [userId]);
 
   useEffect(() => {
     if (sessionStatus === "loading") return;
@@ -837,6 +891,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
       setExpanded({});
       setView("run");
       writeStudySession(rec, uid);
+      if (uid) postActivity({ ...runActivityPayload(rec), event: "run_start" });
       window.scrollTo({ top: 0 });
     },
     []
@@ -923,6 +978,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
     setExitConfirm(false);
     setPaletteOpen(false);
     setRun(null);
+    if (userId) postActivity({ state: "hub" });
     setView("home");
     window.scrollTo({ top: 0 });
   };
@@ -989,6 +1045,15 @@ export default function StudyClient({ index }: { index: IndexData }) {
     }
     clearStudySession(userId);
     markDay(userId);
+    if (userId)
+      postActivity({
+        state: "hub",
+        mode: run.immediate ? "study" : "exam",
+        label: runScopeLabel(run),
+        total: run.ids.length,
+        score: results.filter((r) => r.ok).length,
+        event: "run_finish",
+      });
     setReviewFilter("missed");
     setExpanded({});
     setPaletteOpen(false);
