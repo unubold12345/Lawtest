@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
@@ -184,6 +184,26 @@ function fmtAgo(iso: string | null): string {
   return new Date(iso).toLocaleDateString("mn-MN");
 }
 
+function fmtDur(sec?: number | null): string {
+  if (!sec || sec <= 0) return "—";
+  if (sec < 60) return `${sec}с`;
+  const m = Math.round(sec / 60);
+  if (m < 60) return `${m} мин`;
+  const h = Math.floor(m / 60);
+  return m % 60 ? `${h}ц ${m % 60}м` : `${h} цаг`;
+}
+
+function dayTitle(key: string): string {
+  const [y, mo, d] = key.split("-").map(Number);
+  const dt = new Date(y, mo - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((today.getTime() - dt.getTime()) / 86400000);
+  if (diff === 0) return "Өнөөдөр";
+  if (diff === 1) return "Өчигдөр";
+  return dt.toLocaleDateString("mn-MN", dt.getFullYear() === now.getFullYear() ? { month: "long", day: "numeric" } : { year: "numeric", month: "long", day: "numeric" });
+}
+
 function MiniTile({ value, label, sub }: { value: string | number; label: string; sub?: string }) {
   return (
     <div className="rounded-xl bg-zinc-50 px-3 py-2.5 dark:bg-white/5">
@@ -226,6 +246,7 @@ export default function AdminClient() {
   const [attempts, setAttempts] = useState<any[]>([]);
   const [attemptsTotal, setAttemptsTotal] = useState(0);
   const [attemptsPage, setAttemptsPage] = useState(1);
+  const [attemptsPageSize, setAttemptsPageSize] = useState(PAGE_SIZE);
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [reportsTotal, setReportsTotal] = useState(0);
   const [reportsPage, setReportsPage] = useState(1);
@@ -289,13 +310,13 @@ export default function AdminClient() {
     }
   };
   const fetchUsers = async (search = q) => {
-    const r = await fetch(`/api/admin/users?q=${encodeURIComponent(search)}`);
+    const r = await fetch(`/api/admin/users?q=${encodeURIComponent(search)}&take=100`);
     if (!r.ok) throw new Error("users failed");
     const d = await r.json();
     setUsers(d.users);
   };
-  const fetchAttempts = async (p = attemptsPage) => {
-    const r = await fetch(`/api/admin/attempts?page=${p}&pageSize=${PAGE_SIZE}`);
+  const fetchAttempts = async (p = attemptsPage, ps = attemptsPageSize) => {
+    const r = await fetch(`/api/admin/attempts?page=${p}&pageSize=${ps}`);
     if (!r.ok) throw new Error("attempts failed");
     const d = await r.json();
     setAttempts(d.attempts);
@@ -447,6 +468,18 @@ export default function AdminClient() {
     if (!r.ok) { const d = await r.json(); alert(d.error || "Устгаж чадсангүй"); return; }
     setUsers((prev) => prev.filter((x) => x.id !== u.id));
   };
+
+  const dayGroups = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const a of attempts) {
+      const d = new Date(a.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const arr = m.get(key);
+      if (arr) arr.push(a);
+      else m.set(key, [a]);
+    }
+    return Array.from(m.entries()).map(([key, items]) => ({ key, title: dayTitle(key), items }));
+  }, [attempts]);
 
   if (loading) return <div className="mx-auto max-w-7xl px-3 sm:px-6 py-8"><p className="text-sm text-zinc-500">Ачаалж байна…</p></div>;
   if (err) return <div className="mx-auto max-w-7xl px-3 sm:px-6 py-8"><p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2 dark:bg-rose-400/10 dark:border-rose-400/30 dark:text-rose-400">{err}</p></div>;
@@ -726,36 +759,43 @@ export default function AdminClient() {
                 ))}
               </div>
               {userFilter !== "all" && <p className="mt-1.5 text-[11px] text-zinc-500">{filteredUsers.length} хэрэглэгч</p>}
-              <div className="mt-4 hidden sm:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="text-zinc-500 text-xs"><th className="text-left py-2">Утас / Имэйл</th><th className="text-left py-2">Role</th><th className="text-left py-2">Сүүлийн идэвх</th><th className="text-left py-2">Шалгалт</th><th className="text-right py-2">Үйлдэл</th></tr></thead>
-                  <tbody>
-                    {filteredUsers.map(u=>(
-                      <tr key={u.id} className="border-t border-zinc-200 dark:border-white/10">
-                        <td className="py-2"><div className="font-mono text-xs">{u.phone || "—"}</div><div className="text-xs text-zinc-500 truncate max-w-[220px]">{u.email}</div><div className="text-[11px] text-zinc-400">Бүртгүүлсэн: {new Date(u.createdAt).toLocaleDateString("mn-MN")}</div></td>
-                        <td className="py-2"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${u.role==='ADMIN' ? 'bg-violet-100 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300' : 'bg-zinc-100 dark:bg-white/5'}`}>{u.role}</span>{u.paidAt && <span className="ml-1 rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">💰 Эрхтэй</span>}</td>
-                        <td className="py-2 text-xs" title={u.lastSeen ? new Date(u.lastSeen).toLocaleString("mn-MN") : "Идэвх бүртгэгдээгүй"}>{fmtAgo(u.lastSeen)}</td>
-                        <td className="py-2 text-xs"><b>{u._count.attempts}</b> шалгалт{u.lastScore ? <span className="text-zinc-500"> · сүүлд {u.lastScore.score}/{u.lastScore.total}</span> : <span className="text-zinc-400"> · —</span>}</td>
-                        <td className="py-2 text-right flex gap-1 justify-end">
-                          <button onClick={()=>togglePaid(u)} className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">{u.paidAt ? 'Эрх хаах' : 'Эрх нээх'}</button>
-                          <button onClick={()=>toggleRole(u)} className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">{u.role==='ADMIN' ? 'USER болгох' : 'ADMIN болгох'}</button>
-                          <button onClick={()=>delUser(u)} className="rounded-full border border-rose-200 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 dark:border-rose-400/30 dark:text-rose-400 dark:hover:bg-rose-400/10">Устгах</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-4 grid gap-2 sm:hidden">
+              <div className="mt-4 grid gap-2">
                 {filteredUsers.map(u=>(
-                  <div key={u.id} className="rounded-xl border border-zinc-200 p-3 dark:border-white/10">
-                    <div className="flex justify-between gap-2"><span className="font-mono text-xs truncate">{u.phone || u.email}</span><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${u.role==='ADMIN'?'bg-violet-100 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300':'bg-zinc-100 dark:bg-white/5'}`}>{u.role}{u.paidAt ? ' · 💰' : ''}</span></div>
-                    <p className="text-xs text-zinc-500 break-all">{u.email}</p>
-                    <p className="text-xs text-zinc-500 mt-1">Сүүлд: {fmtAgo(u.lastSeen)} · {u._count.attempts} шалгалт{u.lastScore ? ` · сүүлд ${u.lastScore.score}/${u.lastScore.total}` : ""}</p>
-                    <div className="mt-2 flex gap-2">
-                      <button onClick={()=>togglePaid(u)} className="flex-1 rounded-full border border-zinc-200 py-2 text-xs dark:border-white/15 min-h-[40px]">{u.paidAt ? 'Эрх хаах' : 'Эрх нээх'}</button>
-                      <button onClick={()=>toggleRole(u)} className="flex-1 rounded-full border border-zinc-200 py-2 text-xs dark:border-white/15 min-h-[40px]">{u.role==='ADMIN' ? 'USER болгох' : 'ADMIN болгох'}</button>
-                      <button onClick={()=>delUser(u)} className="rounded-full border border-rose-200 px-4 py-2 text-xs text-rose-600 min-h-[40px] dark:border-rose-400/30 dark:text-rose-400">Устгах</button>
+                  <div key={u.id} className="rounded-xl border border-zinc-200 p-3 transition hover:bg-zinc-50/70 sm:p-3.5 dark:border-white/10 dark:hover:bg-white/[0.03]">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                      <div className="flex min-w-0 items-center gap-3 lg:w-[300px] lg:shrink-0 xl:w-[340px]">
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${u.paidAt ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300" : "bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-300"}`}>
+                          {u.phone ? u.phone.replace(/[^0-9]/g, "").slice(-2) : (u.email[0] || "?").toUpperCase()}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="truncate font-mono text-[13px] font-semibold">{u.phone || u.email}</p>
+                            {u.role === "ADMIN" && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-400/15 dark:text-violet-300">ADMIN</span>}
+                            {u.paidAt && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">💰 Эрхтэй</span>}
+                          </div>
+                          <p className="truncate text-xs text-zinc-500">{u.email}</p>
+                          <p className="text-[11px] text-zinc-400">Бүртгүүлсэн: {new Date(u.createdAt).toLocaleDateString("mn-MN")}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 lg:flex-1">
+                        <div className="rounded-lg bg-zinc-50 px-2.5 py-1.5 dark:bg-white/5">
+                          <p className="text-[10px] uppercase tracking-wide text-zinc-400">Шалгалт</p>
+                          <p className="text-[13px] font-semibold tabular-nums">{u._count.attempts}</p>
+                        </div>
+                        <div className="rounded-lg bg-zinc-50 px-2.5 py-1.5 dark:bg-white/5">
+                          <p className="text-[10px] uppercase tracking-wide text-zinc-400">Сүүлийн оноо</p>
+                          <p className="text-[13px] font-semibold tabular-nums">{u.lastScore ? `${u.lastScore.score}/${u.lastScore.total}` : "—"}</p>
+                        </div>
+                        <div className="rounded-lg bg-zinc-50 px-2.5 py-1.5 dark:bg-white/5" title={u.lastSeen ? new Date(u.lastSeen).toLocaleString("mn-MN") : "Идэвх бүртгэгдээгүй"}>
+                          <p className="text-[10px] uppercase tracking-wide text-zinc-400">Идэвх</p>
+                          <p className="truncate text-[13px] font-semibold">{fmtAgo(u.lastSeen)}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5 lg:flex lg:shrink-0">
+                        <button onClick={()=>togglePaid(u)} className="rounded-full border border-zinc-200 px-3 py-2 text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px] lg:min-h-[36px]">{u.paidAt ? 'Эрх хаах' : 'Эрх нээх'}</button>
+                        <button onClick={()=>toggleRole(u)} className="rounded-full border border-zinc-200 px-3 py-2 text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px] lg:min-h-[36px]">{u.role==='ADMIN' ? 'USER болгох' : 'ADMIN болгох'}</button>
+                        <button onClick={()=>delUser(u)} className="rounded-full border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 dark:border-rose-400/30 dark:text-rose-400 dark:hover:bg-rose-400/10 min-h-[40px] lg:min-h-[36px]">Устгах</button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -977,32 +1017,55 @@ export default function AdminClient() {
 
           {tab === "attempts" && (
             <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
-              <h3 className="font-semibold text-sm">Сүүлийн оролдлогууд</h3>
-              <div className="mt-3 overflow-x-auto hidden sm:block">
-                <table className="w-full text-sm">
-                  <thead><tr className="text-xs text-zinc-500"><th className="text-left py-2">Хэрэглэгч</th><th className="text-left py-2">Ангилал</th><th className="text-left py-2">Оноо</th><th className="text-left py-2">Огноо</th></tr></thead>
-                  <tbody>
-                    {attempts.map((a:any)=>(
-                      <tr key={a.id} className="border-t border-zinc-200 dark:border-white/10">
-                        <td className="py-2 font-mono text-xs">{a.user?.phone || a.user?.email}</td>
-                        <td className="py-2 text-xs">{a.category} · {a.mode}</td>
-                        <td className="py-2 text-xs">{a.score}/{a.total}</td>
-                        <td className="py-2 text-xs text-zinc-500">{new Date(a.createdAt).toLocaleString("mn-MN")}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold text-sm">Сүүлийн оролдлогууд<span className="ml-1.5 text-xs font-normal text-zinc-500">· нийт {attemptsTotal}</span></h3>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-zinc-400">Харуулах:</span>
+                  {[20, 50, 100].map((ps) => (
+                    <button
+                      key={ps}
+                      onClick={() => { setAttemptsPageSize(ps); fetchAttempts(1, ps); }}
+                      className={`rounded-full border px-3 py-1 text-[11px] font-medium min-h-[30px] ${attemptsPageSize === ps ? "border-transparent bg-indigo-600 text-white dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25" : "border-zinc-200 text-zinc-500 dark:border-white/15 dark:text-zinc-400"}`}
+                    >{ps}</button>
+                  ))}
+                </div>
               </div>
-              <div className="mt-3 grid gap-2 sm:hidden">
-                {attempts.map((a:any)=>(
-                  <div key={a.id} className="rounded-xl border border-zinc-200 p-3 text-sm dark:border-white/10">
-                    <div className="flex justify-between"><span className="font-mono text-xs">{a.user?.phone || a.user?.email}</span><b className="text-xs">{a.score}/{a.total}</b></div>
-                    <p className="text-xs text-zinc-500">{a.category} · {a.mode} · {new Date(a.createdAt).toLocaleString("mn-MN")}</p>
+              <div className="mt-3 grid gap-4">
+                {dayGroups.map((g) => (
+                  <div key={g.key}>
+                    <div className="flex items-center gap-2">
+                      <p className="shrink-0 text-xs font-semibold text-zinc-500 dark:text-zinc-400">{g.title}</p>
+                      <span className="shrink-0 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-white/10 dark:text-zinc-400">{g.items.length}</span>
+                      <div className="h-px flex-1 bg-zinc-200 dark:bg-white/10" />
+                    </div>
+                    <div className="mt-2 grid gap-1.5">
+                      {g.items.map((a:any)=>{
+                        const pct = a.total > 0 ? a.score / a.total : 0;
+                        const tone = pct >= 0.8 ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300" : pct >= 0.5 ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300" : "border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300";
+                        const parts = String(a.category || "").split(" · ");
+                        const scope = parts[0] === "all" ? "Бүх сэдэв" : parts[0];
+                        const rest = parts.slice(1).join(" · ");
+                        const t = new Date(a.createdAt);
+                        const time = `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+                        return (
+                          <div key={a.id} className="flex items-center gap-3 rounded-xl border border-zinc-200 px-3 py-2.5 transition hover:bg-zinc-50/70 dark:border-white/10 dark:hover:bg-white/[0.03]">
+                            <span title={`${Math.round(pct * 100)}%`} className={`flex h-9 w-14 shrink-0 items-center justify-center rounded-lg border text-[13px] font-bold tabular-nums ${tone}`}>{a.score}/{a.total}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-mono text-xs sm:text-[13px]">{a.user?.phone || a.user?.email || "—"}</p>
+                              <p className="truncate text-[11px] text-zinc-500">{scope}{rest ? ` · ${rest}` : ""}</p>
+                            </div>
+                            <span className="hidden shrink-0 rounded-full border border-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline-block dark:border-white/15 dark:text-zinc-400">{a.mode === "study" ? "Сургалт" : "Шалгалт"}</span>
+                            <span className="hidden shrink-0 text-[11px] text-zinc-400 tabular-nums sm:inline">⏱ {fmtDur(a.elapsed)}</span>
+                            <span className="shrink-0 text-[11px] text-zinc-400 tabular-nums">{time}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 ))}
                 {attempts.length===0 && <p className="text-sm text-zinc-500 text-center py-6">Оролдлого алга</p>}
               </div>
-              <Pager page={attemptsPage} pageSize={PAGE_SIZE} total={attemptsTotal} onChange={(p) => fetchAttempts(p)} />
+              <Pager page={attemptsPage} pageSize={attemptsPageSize} total={attemptsTotal} onChange={(p) => fetchAttempts(p)} />
             </div>
           )}
 
