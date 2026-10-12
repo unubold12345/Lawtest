@@ -10,6 +10,7 @@ import { indexSubName, type IndexData, type IndexRow } from "@/lib/questionIndex
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
 import QuestionNote from "@/components/QuestionNote";
 import QuestionReport from "@/components/QuestionReport";
+import QuestionEditor from "@/components/QuestionEditor";
 import {
   readStudySession,
   writeStudySession,
@@ -161,6 +162,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
   const fullAccess =
     (session?.user as unknown as { hasPaid?: boolean; role?: string } | undefined)?.hasPaid === true ||
     (session?.user as unknown as { role?: string } | undefined)?.role === "ADMIN";
+  const isAdmin = (session?.user as unknown as { role?: string } | undefined)?.role === "ADMIN";
   const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }), []);
 
   // ── question cache (ids fetched on demand, same pattern as quiz/browse) ──
@@ -312,6 +314,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [exitConfirm, setExitConfirm] = useState(false);
   const [paywallNote, setPaywallNote] = useState(false);
+  const [editQ, setEditQ] = useState<Question | null>(null);
 
   // ── to-do list inputs ──
   const [todos, setTodos] = useState<TodoItem[]>([]);
@@ -1965,6 +1968,14 @@ export default function StudyClient({ index }: { index: IndexData }) {
           <div className="mt-3 flex flex-wrap gap-1.5">
             <QuestionNote questionId={current.id} initialHas={notedIds.has(current.id)} onChange={notifyNote} />
             <QuestionReport questionId={current.id} />
+            {isAdmin && (
+              <button
+                onClick={() => setEditQ(current)}
+                className="rounded-full border border-violet-200 px-3 py-1.5 text-[11px] sm:text-xs font-medium text-violet-700 hover:bg-violet-50 dark:border-violet-400/30 dark:text-violet-300 dark:hover:bg-violet-400/10 min-h-[36px]"
+              >
+                ✎ Засах
+              </button>
+            )}
           </div>
 
           {/* nav */}
@@ -2108,6 +2119,36 @@ export default function StudyClient({ index }: { index: IndexData }) {
               </div>
             </div>
           </div>
+        )}
+
+        {/* admin question fix — same editor as browse/admin */}
+        {isAdmin && editQ && (
+          <QuestionEditor
+            questionId={editQ.id}
+            initial={editQ}
+            onClose={() => setEditQ(null)}
+            onSaved={(updated) => {
+              const lenChanged = updated.options.length !== editQ.options.length;
+              mergeItems([{
+                ...editQ,
+                question: updated.question,
+                options: updated.options,
+                answer: updated.answer,
+                explanation: updated.explanation,
+                lawRef: updated.lawRef,
+              }]);
+              if (lenChanged) {
+                setRun((prev) => {
+                  if (!prev) return prev;
+                  const order = { ...prev.order };
+                  delete order[editQ.id];
+                  const answers = { ...prev.answers };
+                  delete answers[editQ.id];
+                  return { ...prev, order, answers };
+                });
+              }
+            }}
+          />
         )}
       </div>
     );
