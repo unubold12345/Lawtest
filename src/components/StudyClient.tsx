@@ -643,21 +643,10 @@ export default function StudyClient({ index }: { index: IndexData }) {
     setWarm((w) => ({ ...w, i: w.ids.length > 0 ? (w.i + 1) % w.ids.length : 0, pick: null }));
   };
 
-  // ── to-do list (localStorage, per user) ──
+  // ── to-do list (DB per user, synced across devices; localStorage for guests) ──
   const todoKey = `lexlab-study-todos:${userId ?? "guest"}`;
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(todoKey);
-      const parsed: unknown = raw ? JSON.parse(raw) : [];
-      const today = dayKey(new Date());
-      setTodos(Array.isArray(parsed) ? (parsed as TodoItem[]).map((t) => ({ ...t, date: t.date || today })) : []);
-    } catch {
-      setTodos([]);
-    }
-  }, [todoKey]);
-  const persistTodos = useCallback(
+  const saveGuestTodos = useCallback(
     (next: TodoItem[]) => {
-      setTodos(next);
       try {
         window.localStorage.setItem(todoKey, JSON.stringify(next));
       } catch {
@@ -666,26 +655,152 @@ export default function StudyClient({ index }: { index: IndexData }) {
     },
     [todoKey]
   );
+  const fetchTodos = useCallback(async () => {
+    try {
+      const res = await fetch("/api/study/todos", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { todos?: TodoItem[] };
+      if (Array.isArray(data.todos)) setTodos(data.todos);
+    } catch {
+      /* offline */
+    }
+  }, []);
+  const syncTodo = useCallback(
+    async (url: string, init: RequestInit) => {
+      try {
+        const res = await fetch(url, init);
+        if (!res.ok) await fetchTodos();
+      } catch {
+        await fetchTodos();
+      }
+    },
+    [fetchTodos]
+  );
+  useEffect(() => {
+    let cancelled = false;
+    if (userId) {
+      const load = async () => {
+        // one-time migration of legacy localStorage items to the DB.
+        // Safety: an item leaves localStorage ONLY after the server confirms it (res.ok);
+        // anything that fails stays in localStorage (and stays visible below) and retries next load.
+        const leftovers: TodoItem[] = [];
+        try {
+          for (const key of [`lexlab-study-todos:guest`, `lexlab-study-todos:${userId}`]) {
+            const raw = window.localStorage.getItem(key);
+            const parsed: unknown = raw ? JSON.parse(raw) : [];
+            const items = Array.isArray(parsed) ? (parsed as TodoItem[]) : [];
+            if (items.length === 0) {
+              if (raw) window.localStorage.removeItem(key);
+              continue;
+            }
+            const today = dayKey(new Date());
+            const failed: TodoItem[] = [];
+            for (const t of items) {
+              let ok = false;
+              try {
+                const res = await fetch("/api/study/todos", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ...t, date: t.date || today }),
+                });
+                ok = res.ok;
+              } catch {
+                ok = false;
+              }
+              if (!ok) failed.push(t);
+            }
+            if (failed.length === 0) window.localStorage.removeItem(key);
+            else window.localStorage.setItem(key, JSON.stringify(failed));
+            leftovers.push(...failed);
+          }
+        } catch {
+          /* storage unavailable */
+        }
+        if (!cancelled) {
+          await fetchTodos();
+          if (leftovers.length > 0) {
+            const today = dayKey(new Date());
+            setTodos((prev) => {
+              const seen = new Set(prev.map((x) => x.id));
+              const extra = leftovers
+                .map((t) => ({ ...t, date: t.date || today }))
+                .filter((t) => !seen.has(t.id));
+              return extra.length > 0 ? [...extra, ...prev] : prev;
+            });
+          }
+        }
+      };
+      void load();
+    } else {
+      try {
+        const raw = window.localStorage.getItem(todoKey);
+        const parsed: unknown = raw ? JSON.parse(raw) : [];
+        const today = dayKey(new Date());
+        if (!cancelled) setTodos(Array.isArray(parsed) ? (parsed as TodoItem[]).map((t) => ({ ...t, date: t.date || today })) : []);
+      } catch {
+        if (!cancelled) setTodos([]);
+      }
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, todoKey, fetchTodos]);
   const addTodo = () => {
     const text = todoText.trim();
     const scoped = todoMain !== "all" || todoSub !== "all";
     if (!text && !scoped) return;
-    persistTodos([
-      {
-        id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-        text,
-        main: text ? "all" : todoMain,
-        sub: text ? "all" : todoSub,
-        done: false,
-        date: todoDate,
-      },
-      ...todos,
-    ]);
+    const item: TodoItem = {
+      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      text,
+      main: text ? "all" : todoMain,
+      sub: text ? "all" : todoSub,
+      done: false,
+      date: todoDate,
+    };
+    const next = [item, ...todos];
+    setTodos(next);
     setTodoText("");
+    if (userId) {
+      void syncTodo("/api/study/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+    } else {
+      saveGuestTodos(next);
+    }
   };
-  const toggleTodo = (id: string) => persistTodos(todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
-  const removeTodo = (id: string) => persistTodos(todos.filter((t) => t.id !== id));
-  const clearDoneTodos = () => persistTodos(todos.filter((t) => !(t.done && t.date === todoDate)));
+  const toggleTodo = (id: string) => {
+    const next = todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+    setTodos(next);
+    if (userId) {
+      void syncTodo("/api/study/todos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, done: next.find((t) => t.id === id)?.done === true }),
+      });
+    } else {
+      saveGuestTodos(next);
+    }
+  };
+  const removeTodo = (id: string) => {
+    const next = todos.filter((t) => t.id !== id);
+    setTodos(next);
+    if (userId) {
+      void syncTodo(`/api/study/todos?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    } else {
+      saveGuestTodos(next);
+    }
+  };
+  const clearDoneTodos = () => {
+    const next = todos.filter((t) => !(t.done && t.date === todoDate));
+    setTodos(next);
+    if (userId) {
+      void syncTodo(`/api/study/todos?doneDate=${encodeURIComponent(todoDate)}`, { method: "DELETE" });
+    } else {
+      saveGuestTodos(next);
+    }
+  };
 
   // ── category readiness (localStorage, per user) ──
   const readyKey = `lexlab-study-ready:${userId ?? "guest"}`;

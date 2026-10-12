@@ -36,6 +36,7 @@ model User {
   savedAnswers  SavedAnswer[]
   savedExams    SavedExam[]
   studyCards    StudyCard[]
+  studyTodos    StudyTodo[]
   paymentRequests PaymentRequest[]
   otps          Otp[]
   visits        PageView[]
@@ -185,6 +186,24 @@ model StudyCard {
   @@unique([userId, questionId])
   @@index([userId, lastSeenAt])
   @@index([userId, lastOk])
+}
+
+// Daily to-do items shown in the Сорилго төв hub (v2). One row per item,
+// synced across devices; guests keep a localStorage list instead.
+model StudyTodo {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String
+  main      String   @default("all")
+  sub       String   @default("all")
+  done      Boolean  @default(false)
+  date      String // local day key (YYYY-MM-DD)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+  @@index([userId, createdAt])
 }
 
 model Otp {
