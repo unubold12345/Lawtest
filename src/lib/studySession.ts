@@ -9,6 +9,7 @@ export type StudySession = {
   sub: string; // "all" | subcategory name
   type: StudyRunType;
   immediate: boolean;
+  noShuffle?: boolean; // true = questions/options stay in original order
   ids: string[];
   order: Record<string, number[]>; // option display order per question
   answers: Record<string, number>;

@@ -367,6 +367,14 @@ export default function StudyClient({ index }: { index: IndexData }) {
   const [todoText, setTodoText] = useState("");
   const [todoDate, setTodoDate] = useState(() => dayKey(new Date()));
   const [immediateOn, setImmediateOn] = useState(true);
+  const [noShuffle, setNoShuffle] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("lexlab_study_noshuffle") === "1";
+    } catch {
+      return false;
+    }
+  });
 
   // ── home / summary ui ──
   const [reviewFilter, setReviewFilter] = useState<"missed" | "all" | "correct">("missed");
@@ -376,6 +384,13 @@ export default function StudyClient({ index }: { index: IndexData }) {
     runRef.current = run;
     viewRef.current = view;
   }, [run, view]);
+
+  // persist the «Эх дараалал» preference across reloads
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("lexlab_study_noshuffle", noShuffle ? "1" : "0");
+    } catch {}
+  }, [noShuffle]);
 
   // live presence for the admin activity tab (logged-in only, best-effort)
   useEffect(() => {
@@ -418,7 +433,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
 
   // ── session assembly ──
   const buildRows = useCallback(
-    (main: string, sub: string, type: StudyRunType): IndexRow[] => {
+    (main: string, sub: string, type: StudyRunType, noShuffle?: boolean): IndexRow[] => {
       let rows = baseRows.filter(studyableOf);
       if (main !== "all") {
         const mi = index.mains.findIndex((m) => m.name === main);
@@ -438,6 +453,19 @@ export default function StudyClient({ index }: { index: IndexData }) {
       const isExamMissed = (r: IndexRow) => !cards[r[0]] && (mistakes[r[0]]?.wrongCount ?? 0) > 0;
       const byWrongDesc = (a: IndexRow, b: IndexRow) =>
         (mistakes[b[0]]?.wrongCount ?? 0) - (mistakes[a[0]]?.wrongCount ?? 0);
+      if (noShuffle) {
+        // original order: keep the file order of whichever set the type selects
+        switch (type) {
+          case "new":
+            return rows.filter((r) => !cards[r[0]]);
+          case "refresh":
+            return rows.filter((r) => cards[r[0]]);
+          case "missed":
+            return rows.filter((r) => isMissed(r) || isExamMissed(r));
+          default:
+            return rows;
+        }
+      }
       switch (type) {
         case "new":
           return shuffle(rows.filter((r) => !cards[r[0]]));
@@ -910,9 +938,9 @@ export default function StudyClient({ index }: { index: IndexData }) {
     }
     let picked: IndexRow[];
     if (o.picks && o.picks.length > 0) {
-      picked = o.picks.flatMap((p) => buildRows(main, p.sub, type).slice(0, Math.max(1, p.n)));
+      picked = o.picks.flatMap((p) => buildRows(main, p.sub, type, noShuffle).slice(0, Math.max(1, p.n)));
     } else {
-      const candidates = buildRows(main, sub, type);
+      const candidates = buildRows(main, sub, type, noShuffle);
       if (candidates.length === 0) return;
       const n = o.all ? candidates.length : (o.n ?? 20);
       picked = candidates.slice(0, Math.max(1, Math.min(n, candidates.length)));
@@ -924,7 +952,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
         if (qs.length === 0) return;
         const order: Record<string, number[]> = {};
         qs.forEach((q) => {
-          order[q.id] = shuffle(q.options.map((_, oi) => oi));
+          order[q.id] = noShuffle ? q.options.map((_, oi) => oi) : shuffle(q.options.map((_, oi) => oi));
         });
         beginRun(
           {
@@ -933,6 +961,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
             sub,
             type,
             immediate: immediateOn,
+            noShuffle,
             ids: qs.map((q) => q.id),
             order,
             answers: {},
@@ -1072,22 +1101,22 @@ export default function StudyClient({ index }: { index: IndexData }) {
       return a === undefined || a !== c;
     });
     if (missedIds.length === 0) return;
-    const ids = shuffle(missedIds);
+    const ids = run.noShuffle ? missedIds : shuffle(missedIds);
     const order: Record<string, number[]> = {};
     ids.forEach((id) => {
       const q = items[id];
-      if (q) order[id] = shuffle(q.options.map((_, oi) => oi));
+      if (q) order[id] = run.noShuffle ? q.options.map((_, oi) => oi) : shuffle(q.options.map((_, oi) => oi));
     });
     beginRun({ ...run, ids, order, answers: {}, idx: 0, elapsed: 0, startedAt: Date.now(), updatedAt: Date.now() }, userId);
   };
 
   const restartRun = () => {
     if (!run) return;
-    const ids = shuffle(run.ids);
+    const ids = run.noShuffle ? run.ids : shuffle(run.ids);
     const order: Record<string, number[]> = {};
     ids.forEach((id) => {
       const q = items[id];
-      if (q) order[id] = shuffle(q.options.map((_, oi) => oi));
+      if (q) order[id] = run.noShuffle ? q.options.map((_, oi) => oi) : shuffle(q.options.map((_, oi) => oi));
     });
     beginRun({ ...run, ids, order, answers: {}, idx: 0, elapsed: 0, startedAt: Date.now(), updatedAt: Date.now() }, userId);
   };
@@ -1278,6 +1307,24 @@ export default function StudyClient({ index }: { index: IndexData }) {
                     />
                   </span>
                   {immediateOn ? "Шууд шалгах" : "Төгсгөлд шалгах"}
+                </button>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={noShuffle}
+                  onClick={() => setNoShuffle((v) => !v)}
+                  title="Сорилго болон хариултууд холилдохгүй, эх дарааллаараа гарах"
+                  className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-2 text-[11px] font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5 sm:text-xs"
+                >
+                  <span
+                    className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${noShuffle ? "bg-indigo-600 dark:bg-indigo-500" : "bg-zinc-300 dark:bg-white/20"}`}
+                    aria-hidden
+                  >
+                    <span
+                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${noShuffle ? "left-[14px]" : "left-0.5"}`}
+                    />
+                  </span>
+                  {noShuffle ? "Эх дараалал" : "Холилдсон"}
                 </button>
               </div>
             </div>
@@ -1954,8 +2001,8 @@ export default function StudyClient({ index }: { index: IndexData }) {
     const row = rowById.get(current.id);
     const isCase = row ? row[4] === 1 : false;
     const mySavedOnly = c !== null && typeof savedAnswers[current.id] === "number" && fileAnswer(current) === null;
-    // subCategory chip: «1.3-А16 Ашигт малтмалын тухай хууль» (question number from id suffix qNNN)
-    const qNumRaw = current.id.match(/_q(\d+)$/)?.[1];
+    // subCategory chip: «1.3-А16 Ашигт малтмалын тухай хууль» (question number from id suffix qNNN; unprefixed ids are plain qNNN)
+    const qNumRaw = current.id.match(/(?:^|_)q(\d+)$/)?.[1];
     const subNumMatch = current.subCategory?.match(/^(\d+(?:\.\d+)*)\s+(.*)$/);
     const subLabel =
       qNumRaw && subNumMatch
