@@ -47,7 +47,7 @@ type PaymentRow = { id: string; status: string; createdAt: string; decidedAt: st
 
 type ReportRow = { id: string; questionId: string; type: string; message: string; status: string; createdAt: string; user: { id: string; name: string | null; email: string; phone: string | null } };
 
-type AnnouncementRow = { id: string; body: string; createdAt: string; readCount: number; recipientCount: number };
+type AnnouncementRow = { id: string; body: string; broadcast?: boolean; createdAt: string; readCount: number; recipientCount: number };
 
 type TabId = "overview" | "activity" | "users" | "questions" | "attempts" | "reports" | "payments" | "announcements";
 
@@ -1135,7 +1135,7 @@ export default function AdminClient() {
                       <p className="text-[13px] leading-snug break-words whitespace-pre-wrap">{a.body}</p>
                       <button onClick={() => delAnnouncement(a.id)} className="shrink-0 rounded-full border border-rose-200 px-4 py-1.5 text-[11px] sm:text-xs text-rose-600 dark:border-rose-400/30 dark:text-rose-400 min-h-[32px]">Устгах</button>
                     </div>
-                    <p className="mt-1 text-[11px] text-zinc-500">{new Date(a.createdAt).toLocaleString("mn-MN")} · {a.recipientCount > 0 ? `${a.recipientCount} хэрэглэгчид` : "Бүх хэрэглэгч"} · {a.readCount} уншсан</p>
+                    <p className="mt-1 text-[11px] text-zinc-500">{new Date(a.createdAt).toLocaleString("mn-MN")} · {a.broadcast ? "Бүх хэрэглэгч" : `${a.recipientCount} хэрэглэгчид`} · {a.readCount} уншсан</p>
                   </div>
                 ))}
                 {announcements.length === 0 && <p className="text-sm text-zinc-500 text-center py-6">Мэдэгдэл алга</p>}

@@ -10,6 +10,7 @@ import { passwordProblem } from "@/lib/password";
 export async function POST(req: Request) {
   let step = "body";
   try {
+    let otpId: string | null = null;
     if (!rateLimit(`register-phone:${clientIp(req)}`, 10, 60 * 60 * 1000)) {
       return NextResponse.json({ error: "Хэт олон оролдлого — түр хүлээнэ үү" }, { status: 429 });
     }
@@ -29,29 +30,28 @@ export async function POST(req: Request) {
       }
     } else {
       if (!code || String(code).length !== 6) return NextResponse.json({ error: "Код 6 оронтой" }, { status: 400 });
-      // OTP must be verified recently (register purpose)
+      // The submitted code must match on every register — a verified OTP row
+      // alone is not proof from this caller. Grace window keeps the two-step
+      // flow (verify → set-password) working.
       const otp = await prisma.otp.findFirst({
-        where: { phone, purpose: "register", verified: true, expiresAt: { gt: new Date(Date.now() - 10 * 60 * 1000) } },
+        where: {
+          phone,
+          purpose: "register",
+          OR: [
+            { verified: true, expiresAt: { gt: new Date(Date.now() - 10 * 60 * 1000) } },
+            { verified: false, expiresAt: { gt: new Date() } },
+          ],
+        },
         orderBy: { createdAt: "desc" },
       });
-      // also allow if code matches an unverified but valid OTP (verify now)
-      let verified = !!otp;
-      if (!verified) {
-        const pending = await prisma.otp.findFirst({ where: { phone, purpose: "register", verified: false, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } });
-        if (pending) {
-          if (pending.attempts >= OTP_MAX_ATTEMPTS) {
-            return NextResponse.json({ error: "Хэт олон оролдлого — кодоо дахин авна уу" }, { status: 429 });
-          }
-          const ok = await verifyCode(String(code), pending.codeHash);
-          if (ok) {
-            await prisma.otp.update({ where: { id: pending.id }, data: { verified: true } });
-            verified = true;
-          } else {
-            await prisma.otp.update({ where: { id: pending.id }, data: { attempts: { increment: 1 } } });
-          }
-        }
+      if (!otp) return NextResponse.json({ error: "OTP баталгаажаагүй — кодоо шалгана уу" }, { status: 400 });
+      if (otp.attempts >= OTP_MAX_ATTEMPTS) return NextResponse.json({ error: "Хэт олон оролдлого — кодоо дахин авна уу" }, { status: 429 });
+      const ok = await verifyCode(String(code), otp.codeHash);
+      if (!ok) {
+        await prisma.otp.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
+        return NextResponse.json({ error: "Код буруу" }, { status: 400 });
       }
-      if (!verified) return NextResponse.json({ error: "OTP баталгаажаагүй — кодоо шалгана уу" }, { status: 400 });
+      otpId = otp.id;
     }
 
     step = "exists";
@@ -74,6 +74,8 @@ export async function POST(req: Request) {
         phoneVerified: new Date(),
       },
     });
+    // consume the registration grant — the same code cannot be replayed
+    if (otpId) await prisma.otp.deleteMany({ where: { id: otpId } });
     return NextResponse.json({ ok: true, id: user.id, email: user.email });
   } catch (e) {
     console.error("register-phone", step, e);

@@ -91,14 +91,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.id) {
         try {
           const db = await prisma.user.findUnique({ where: { id: token.id as string }, select: { role: true, name: true, paidAt: true, passwordChangedAt: true } });
-          if (db) {
-            // session invalidation: tokens issued before the last password reset are dead
-            const authTime = (token as unknown as { authTime?: number }).authTime;
-            if (db.passwordChangedAt && authTime && db.passwordChangedAt.getTime() > authTime) return null;
-            token.role = db.role;
-            if (db.name) token.name = db.name;
-            (token as unknown as { hasPaid: boolean }).hasPaid = db.role === "ADMIN" || !!db.paidAt;
-          }
+          // deleted user — kill the stale session instead of trusting the token
+          if (!db) return null;
+          // session invalidation: tokens issued before the last password reset are dead
+          const authTime = (token as unknown as { authTime?: number }).authTime;
+          if (db.passwordChangedAt && authTime && db.passwordChangedAt.getTime() > authTime) return null;
+          token.role = db.role;
+          if (db.name) token.name = db.name;
+          (token as unknown as { hasPaid: boolean }).hasPaid = db.role === "ADMIN" || !!db.paidAt;
         } catch {}
       }
       return token;

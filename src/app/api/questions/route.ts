@@ -2,8 +2,25 @@ import { NextResponse } from "next/server";
 import { loadQuestions } from "@/lib/questions";
 import { buildIndex } from "@/lib/questionIndexServer";
 import { refreshOverrides } from "@/lib/questionOverrides";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { canAccessCategory } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
+
+// Content modes (ids, full) are entitlement-checked server-side: non-paid
+// callers only receive free-category questions. Counts/metadata stay public.
+async function accessScope(): Promise<{ role: string | null; paidAt: Date | null }> {
+  const session = await auth();
+  const userId = (session?.user as unknown as { id?: string })?.id;
+  if (!userId) return { role: null, paidAt: null };
+  try {
+    const db = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, paidAt: true } });
+    return { role: db?.role ?? null, paidAt: db?.paidAt ?? null };
+  } catch {
+    return { role: null, paidAt: null };
+  }
+}
 
 // Modes:
 //   ?index=1              -> light index (ids + cat/sub refs + hasAnswer)
@@ -41,7 +58,8 @@ export async function GET(req: Request) {
   if (idsParam) {
     const wanted = idsParam.split("|").map((s) => s.trim()).filter(Boolean);
     const set = new Set(wanted);
-    const found = data.questions.filter((q) => set.has(q.id));
+    const access = await accessScope();
+    const found = data.questions.filter((q) => set.has(q.id) && canAccessCategory(q.category, access));
     if (sp.get("texts") === "1") {
       return NextResponse.json({ questions: found.map((q) => ({ id: q.id, question: q.question })) });
     }
@@ -69,11 +87,13 @@ export async function GET(req: Request) {
   }
 
   if (sp.get("full") === "1") {
+    const access = await accessScope();
+    const questions = data.questions.filter((q) => canAccessCategory(q.category, access));
     return NextResponse.json({
-      total: data.questions.length,
+      total: questions.length,
       sources: data.sources,
       errors: data.errors,
-      questions: data.questions,
+      questions,
     });
   }
   return NextResponse.json({

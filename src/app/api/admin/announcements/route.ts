@@ -10,10 +10,10 @@ export async function GET() {
   const rows = await prisma.announcement.findMany({
     orderBy: { createdAt: "desc" },
     take: 100,
-    select: { id: true, body: true, createdAt: true, _count: { select: { reads: true, recipients: true } } },
+    select: { id: true, body: true, broadcast: true, createdAt: true, _count: { select: { reads: true, recipients: true } } },
   });
   return NextResponse.json({
-    announcements: rows.map((a) => ({ id: a.id, body: a.body, createdAt: a.createdAt, readCount: a._count.reads, recipientCount: a._count.recipients })),
+    announcements: rows.map((a) => ({ id: a.id, body: a.body, broadcast: a.broadcast, createdAt: a.createdAt, readCount: a._count.reads, recipientCount: a._count.recipients })),
   });
 }
 
@@ -36,14 +36,16 @@ export async function POST(req: Request) {
     if (found !== userIds.length) return NextResponse.json({ error: "Зарим хэрэглэгч олдсонгүй" }, { status: 400 });
   }
   const createdById = (guard.session.user as unknown as { id?: string })?.id || null;
+  const isBroadcast = userIds.length === 0;
   const a = await prisma.announcement.create({
     data: {
       body: text.slice(0, 1000),
+      broadcast: isBroadcast,
       createdById,
       recipients: userIds.length > 0 ? { connect: userIds.map((id) => ({ id })) } : undefined,
     },
   });
-  return NextResponse.json({ ok: true, announcement: { id: a.id, body: a.body, createdAt: a.createdAt, readCount: 0, recipientCount: userIds.length } });
+  return NextResponse.json({ ok: true, announcement: { id: a.id, body: a.body, broadcast: a.broadcast, createdAt: a.createdAt, readCount: 0, recipientCount: userIds.length } });
 }
 
 export async function DELETE(req: Request) {

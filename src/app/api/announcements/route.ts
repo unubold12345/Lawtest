@@ -11,7 +11,9 @@ export async function GET() {
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   const [rows, reads] = await Promise.all([
     prisma.announcement.findMany({
-      where: { OR: [{ recipients: { none: {} } }, { recipients: { some: { id: userId } } }] },
+      // broadcast = everyone; targeted stays private even when its recipient
+      // set becomes empty (deleted recipients must not turn it global)
+      where: { OR: [{ broadcast: true }, { recipients: { some: { id: userId } } }] },
       orderBy: { createdAt: "desc" },
       take: 30,
       select: { id: true, body: true, createdAt: true },
