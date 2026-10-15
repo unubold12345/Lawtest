@@ -234,9 +234,10 @@ function Bars({ points, emptyHint }: { points: { label: string; value: number }[
   const max = Math.max(1, ...points.map((p) => p.value));
   const total = points.reduce((s, p) => s + p.value, 0);
   if (total === 0) return <p className="py-6 text-center text-xs text-zinc-500">{emptyHint}</p>;
+  const rangeLabel = `${points[0]?.label ?? ""} – ${points[points.length - 1]?.label ?? ""}: нийт ${total}`;
   return (
     <div>
-      <div className="flex h-24 items-end gap-[3px]" role="img" aria-label={emptyHint}>
+      <div className="flex h-24 items-end gap-[3px]" role="img" aria-label={rangeLabel}>
         {points.map((p) => (
           <div
             key={p.label}

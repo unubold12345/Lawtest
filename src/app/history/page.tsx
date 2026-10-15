@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
+import { clearLocalAttempts, readLocalAttempts, removeLocalAttempt, syncPendingAttempts } from "@/lib/savedExams";
 
 type Attempt = {
   id: string;
@@ -21,6 +22,7 @@ type Attempt = {
 export default function HistoryPage() {
   const { data: session, status } = useSession();
   const isAuthed = !!session?.user;
+  const userId = (session?.user as unknown as { id?: string } | undefined)?.id ?? null;
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [questionsById, setQuestionsById] = useState<Record<string, Question>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -74,29 +76,41 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (status === "loading") return;
+    let cancelled = false;
     if (isAuthed) {
-      fetch("/api/attempts")
-        .then((r) => (r.ok ? r.json() : { attempts: [] }))
-        .then((d) => { setAttempts(d.attempts || []); })
-        .catch(() => {
-          const raw = localStorage.getItem("lawtest_attempts");
-          if (raw) try { setAttempts(JSON.parse(raw)); } catch {}
-        });
+      (async () => {
+        await syncPendingAttempts(userId);
+        try {
+          const r = await fetch("/api/attempts");
+          const d = r.ok ? await r.json() : { attempts: [] };
+          const dbList: Attempt[] = Array.isArray(d?.attempts) ? d.attempts : [];
+          const pending = readLocalAttempts(userId).filter((a) => a.pendingSync);
+          if (!cancelled) setAttempts([...pending, ...dbList]);
+        } catch {
+          if (!cancelled) setAttempts(readLocalAttempts(userId));
+        }
+      })();
     } else {
-      const raw = localStorage.getItem("lawtest_attempts");
-      if (raw) try { setAttempts(JSON.parse(raw)); } catch {}
-      else setAttempts([]);
+      setAttempts(readLocalAttempts(null));
     }
-  }, [isAuthed, status]);
+    return () => { cancelled = true; };
+  }, [isAuthed, status, userId]);
 
   const clear = async () => {
     if (isAuthed) {
-      await fetch("/api/attempts", { method: "DELETE" });
+      try {
+        const r = await fetch("/api/attempts", { method: "DELETE" });
+        if (!r.ok) return;
+      } catch {
+        return;
+      }
+      clearLocalAttempts(userId);
       setAttempts([]);
     } else {
-      localStorage.removeItem("lawtest_attempts");
+      clearLocalAttempts(null);
       setAttempts([]);
     }
+    setPendingClearAll(false);
     setExpanded(null);
     setOpenReview(null);
     setOpenQ({});
@@ -104,12 +118,20 @@ export default function HistoryPage() {
 
   const removeAttempt = async (a: Attempt) => {
     if (isAuthed) {
-      await fetch(`/api/attempts?id=${encodeURIComponent(a.id)}`, { method: "DELETE" });
+      const localPending = readLocalAttempts(userId).some((x) => x.id === a.id && x.pendingSync);
+      if (localPending) {
+        removeLocalAttempt(a.id, userId);
+      } else {
+        try {
+          const r = await fetch(`/api/attempts?id=${encodeURIComponent(a.id)}`, { method: "DELETE" });
+          if (!r.ok) return;
+        } catch {
+          return;
+        }
+        removeLocalAttempt(a.id, userId);
+      }
     } else {
-      let arr: Attempt[] = [];
-      const raw = localStorage.getItem("lawtest_attempts");
-      if (raw) try { arr = JSON.parse(raw); } catch {}
-      localStorage.setItem("lawtest_attempts", JSON.stringify(arr.filter((x) => x.id !== a.id)));
+      removeLocalAttempt(a.id, null);
     }
     setAttempts((p) => p.filter((x) => x.id !== a.id));
     setPendingDelete(null);

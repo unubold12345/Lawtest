@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { loadQuestions } from "@/lib/questions";
 
 async function tally(ids: string[], userId?: string) {
   const rows = await prisma.savedAnswer.findMany({ where: { questionId: { in: ids } }, select: { questionId: true, answer: true, userId: true } });
@@ -63,18 +64,29 @@ export async function POST(req: Request) {
     const session = await auth();
     const userId = (session?.user as unknown as { id?: string })?.id;
     if (!userId) return NextResponse.json({ error: "Нэвтрээгүй" }, { status: 401 });
+    const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, paidAt: true } });
+    if (!dbUser || (dbUser.role !== "ADMIN" && !dbUser.paidAt)) {
+      return NextResponse.json({ error: "Эрх нээгдээгүй байна" }, { status: 403 });
+    }
     const { questionId, answer } = body;
-    if (!questionId) return NextResponse.json({ error: "questionId required" }, { status: 400 });
+    const qId = String(questionId || "").trim();
+    if (!qId) return NextResponse.json({ error: "questionId required" }, { status: 400 });
     if (answer === null || answer === undefined || answer === "") {
-      await prisma.savedAnswer.deleteMany({ where: { questionId: String(questionId), userId } });
+      await prisma.savedAnswer.deleteMany({ where: { questionId: qId, userId } });
       return NextResponse.json({ ok: true, cleared: true });
     }
+    const q = loadQuestions().questions.find((x) => x.id === qId);
+    if (!q || !Array.isArray(q.options) || q.options.length === 0) {
+      return NextResponse.json({ error: "Question not found" }, { status: 404 });
+    }
     const idx = Number(answer);
-    if (!Number.isInteger(idx) || idx < 0 || idx > 10) return NextResponse.json({ error: "Invalid answer" }, { status: 400 });
+    if (!Number.isInteger(idx) || idx < 0 || idx >= q.options.length) {
+      return NextResponse.json({ error: "Invalid answer" }, { status: 400 });
+    }
     await prisma.savedAnswer.upsert({
-      where: { userId_questionId: { userId, questionId: String(questionId) } },
+      where: { userId_questionId: { userId, questionId: qId } },
       update: { answer: idx },
-      create: { userId, questionId: String(questionId), answer: idx },
+      create: { userId, questionId: qId, answer: idx },
     });
     return NextResponse.json({ ok: true });
   } catch (e) {

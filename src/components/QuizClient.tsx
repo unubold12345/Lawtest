@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { Question } from "@/types/question";
 import { fileAnswer } from "@/lib/voteJudge";
-import { readLocalSavedExams, writeLocalSavedExam, removeLocalSavedExam, type SavedExam } from "@/lib/savedExams";
+import { readLocalSavedExams, writeLocalSavedExam, removeLocalSavedExam, readLocalAttempts, saveLocalAttempt, syncPendingAttempts, type SavedExam } from "@/lib/savedExams";
 import { FREE_CATEGORY } from "@/lib/access";
 import DropSelect from "@/components/DropSelect";
 import { indexMainName, indexSubName, type IndexData, type IndexRow } from "@/lib/questionIndex";
@@ -24,14 +24,6 @@ type Attempt = {
   total: number;
   elapsed?: number;
 };
-
-function readLocalAttempts(): Attempt[] {
-  try {
-    const raw = localStorage.getItem("lawtest_attempts");
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch { return []; }
-}
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -96,22 +88,32 @@ function pickMainExamRows(rows: IndexRow[]): IndexRow[] {
   return shuffle(picked);
 }
 
-function saveLocal(attempt: object) {
-  const raw = localStorage.getItem("lawtest_attempts");
-  const arr = raw ? JSON.parse(raw) : [];
-  arr.unshift(attempt);
-  localStorage.setItem("lawtest_attempts", JSON.stringify(arr.slice(0, 50)));
-}
-
-async function saveAttempt(payload: { category: string; mode: string; score: number; total: number; elapsed: number; answers: Record<string, number>; questionIds: string[] }, isAuthed: boolean) {
-  const localAttempt = { id: Date.now().toString(), date: new Date().toISOString(), category: payload.category, count: payload.total, mode: payload.mode, score: payload.score, total: payload.total, elapsed: payload.elapsed, answers: payload.answers, questionIds: payload.questionIds };
+async function saveAttempt(
+  payload: { category: string; mode: string; score: number; total: number; elapsed: number; answers: Record<string, number>; questionIds: string[] },
+  isAuthed: boolean,
+  userId?: string | null
+) {
+  const localAttempt = {
+    id: Date.now().toString(),
+    date: new Date().toISOString(),
+    category: payload.category,
+    count: payload.total,
+    mode: payload.mode,
+    score: payload.score,
+    total: payload.total,
+    elapsed: payload.elapsed,
+    answers: payload.answers,
+    questionIds: payload.questionIds,
+  };
   if (isAuthed) {
     try {
       const r = await fetch("/api/attempts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (!r.ok) saveLocal(localAttempt);
-    } catch { saveLocal(localAttempt); }
+      if (!r.ok) saveLocalAttempt({ ...localAttempt, pendingSync: true }, userId);
+    } catch {
+      saveLocalAttempt({ ...localAttempt, pendingSync: true }, userId);
+    }
   } else {
-    saveLocal(localAttempt);
+    saveLocalAttempt(localAttempt, null);
   }
 }
 
@@ -125,10 +127,13 @@ export default function QuizClient({ index }: { index: IndexData }) {
     (session?.user as unknown as { role?: string } | undefined)?.role === "ADMIN";
   // unpaid users only get the free category in exam pools (lists stay visible)
   const [paywallNote, setPaywallNote] = useState(false);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const accessRef = useRef(true);
-  accessRef.current = fullAccess;
   const userRef = useRef<string | null>(null);
-  userRef.current = userId;
+  useEffect(() => {
+    accessRef.current = fullAccess;
+    userRef.current = userId;
+  }, [fullAccess, userId]);
   const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }), []);
 
   // question index rows replace the old full-bank prop; full question data is fetched by id on demand
@@ -211,15 +216,21 @@ export default function QuizClient({ index }: { index: IndexData }) {
     let cancelled = false;
     const pick = (arr: Attempt[]) => arr.find((a) => a.mode === "exam") ?? null;
     if (isAuthed) {
-      fetch("/api/attempts")
-        .then((r) => (r.ok ? r.json() : { attempts: [] }))
-        .then((d) => { if (!cancelled) setLastExam(pick(d.attempts || [])); })
-        .catch(() => { if (!cancelled) setLastExam(pick(readLocalAttempts())); });
+      syncPendingAttempts(userId).finally(() => {
+        fetch("/api/attempts")
+          .then((r) => (r.ok ? r.json() : { attempts: [] }))
+          .then((d) => {
+            if (cancelled) return;
+            const pending = readLocalAttempts(userId).filter((a) => a.pendingSync);
+            setLastExam(pick([...pending, ...(d.attempts || [])]));
+          })
+          .catch(() => { if (!cancelled) setLastExam(pick(readLocalAttempts(userId))); });
+      });
     } else {
-      setLastExam(pick(readLocalAttempts()));
+      setLastExam(pick(readLocalAttempts(null)));
     }
     return () => { cancelled = true; };
-  }, [isAuthed]);
+  }, [isAuthed, userId]);
   const [subPick, setSubPick] = useState("");
   const [histAttempts, setHistAttempts] = useState<Array<{ category: string; score: number; total: number }>>([]);
   const [mode, setMode] = useState<Mode>("exam");
@@ -417,10 +428,14 @@ export default function QuizClient({ index }: { index: IndexData }) {
   const resume = (rec: SavedExam) => {
     const known = rec.ids.filter((id) => rowById.has(id));
     if (known.length === 0) return;
+    setLoadErr(null);
     setPreparing("resume");
     fetchItems(known)
       .then((qs) => {
-        if (qs.length === 0) return;
+        if (qs.length < known.length || qs.length === 0) {
+          setLoadErr("Хадгалсан шалгалтын сорилгуудыг бүрэн ачаалж чадсангүй. Сүлжээгээ шалгаад дахин оролдоно уу.");
+          return;
+        }
         if (!fullAccess && qs.some((q) => q.category !== FREE_CATEGORY)) {
           setPaywallNote(true);
           return;
@@ -504,6 +519,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     deleteSaved(label);
     const pickedRows = o.tag === "Үндсэн шалгалт" ? pickMainExamRows(rows) : shuffle(rows).slice(0, total);
     if (pickedRows.length === 0) return;
+    setLoadErr(null);
     setPreparing(o.tag ?? "exam");
     let picked: Question[] = [];
     try {
@@ -511,7 +527,10 @@ export default function QuizClient({ index }: { index: IndexData }) {
     } finally {
       setPreparing(null);
     }
-    if (picked.length === 0) return;
+    if (picked.length < pickedRows.length || picked.length === 0) {
+      setLoadErr("Сорилгуудыг бүрэн ачаалж чадсангүй. Сүлжээгээ шалгаад дахин оролдоно уу.");
+      return;
+    }
     // 1 minute per question in exam mode; study mode is untimed
     const dur = rm === "study" ? 0 : o.mins ?? Math.max(picked.length, 1);
     const order: Record<string, number[]> = {};
@@ -554,21 +573,25 @@ export default function QuizClient({ index }: { index: IndexData }) {
     start({ tag: "Угсарсан шалгалт", ids, n: ids.length, m: customMode, mins: customMode === "exam" ? ids.length : 0 });
   };
 
-  // subcategory-only section: load saved attempts (DB if authed + local guest history)
+  // subcategory-only section: load saved attempts (DB if authed + local user history)
   useEffect(() => {
     if (state !== "setup") return;
     try {
-      const raw = localStorage.getItem("lawtest_attempts");
-      const local = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(local)) setHistAttempts(local.filter((a) => a && typeof a.category === "string"));
+      const local = readLocalAttempts(isAuthed ? userId : null);
+      setHistAttempts(local.filter((a) => a && typeof a.category === "string"));
     } catch { /* ignore */ }
     if (isAuthed) {
       fetch("/api/attempts")
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (d && Array.isArray(d.attempts)) setHistAttempts((prev) => [...d.attempts, ...prev]); })
+        .then((d) => {
+          if (d && Array.isArray(d.attempts)) {
+            const pending = readLocalAttempts(userId).filter((a) => a.pendingSync);
+            setHistAttempts([...pending, ...d.attempts]);
+          }
+        })
         .catch(() => {});
     }
-  }, [state, isAuthed]);
+  }, [state, isAuthed, userId]);
 
   // quick exam picker — officially answered questions only, 0-count subs never show
   const subPairs = useMemo(() => {
@@ -731,37 +754,54 @@ export default function QuizClient({ index }: { index: IndexData }) {
       return c !== null && a !== undefined && a !== c;
     }).map((q) => q.id);
 
-  // timer
+  // timer: wall-clock anchored so background tab throttling or sleep does not extend exam time
+  const timeLeftRef = useRef(timeLeft);
+  const elapsedRef = useRef(elapsed);
+  useEffect(() => {
+    timeLeftRef.current = timeLeft;
+    elapsedRef.current = elapsed;
+  }, [timeLeft, elapsed]);
+
   useEffect(() => {
     if (state !== "running" || paused) return;
-    if (minutes === 0) return; // no timer
-    if (timeLeft <= 0) {
-      const s = quizQs.reduce((acc, q) => {
-        const a = answers[q.id];
-        const c = correctOf(q);
-        if (c === null) return acc;
-        return acc + (a === c ? 1 : 0);
-      }, 0);
-      // study mode never saves statistics
-      if (runMode === "exam") saveAttempt({ category: runLabel, mode: runMode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
-      if (runMode === "exam") recordMistakes(examWrongIds());
-      deleteSaved(runLabel);
-      setReviewFilter("review");
-      setExpanded({});
-      setState("result");
-      return;
-    }
-    const id = setInterval(() => { setTimeLeft((t) => t - 1); setElapsed((e) => e + 1); }, 1000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, timeLeft, minutes, quizQs, answers, runMode, isAuthed, runLabel, paused, correctOf]);
+    const wall0 = Date.now();
+    const baseLeft = timeLeftRef.current;
+    const baseElapsed = elapsedRef.current;
+    const sync = () => {
+      const deltaSec = Math.max(0, Math.floor((Date.now() - wall0) / 1000));
+      setElapsed(baseElapsed + deltaSec);
+      if (minutes > 0) {
+        setTimeLeft(Math.max(0, baseLeft - deltaSec));
+      }
+    };
+    const id = setInterval(sync, 500);
+    window.addEventListener("visibilitychange", sync);
+    window.addEventListener("focus", sync);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("visibilitychange", sync);
+      window.removeEventListener("focus", sync);
+    };
+  }, [state, paused, minutes, quizQs]);
 
-  // also count elapsed when no timer
   useEffect(() => {
-    if (state !== "running" || minutes !== 0 || paused) return;
-    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
-    return () => clearInterval(id);
-  }, [state, minutes, paused]);
+    if (state !== "running" || paused || minutes === 0) return;
+    if (timeLeft > 0) return;
+    const s = quizQs.reduce((acc, q) => {
+      const a = answers[q.id];
+      const c = correctOf(q);
+      if (c === null) return acc;
+      return acc + (a === c ? 1 : 0);
+    }, 0);
+    // study mode never saves statistics
+    if (runMode === "exam") saveAttempt({ category: runLabel, mode: runMode, score: s, total: quizQs.length, elapsed: minutes * 60, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed, userId);
+    if (runMode === "exam") recordMistakes(examWrongIds());
+    deleteSaved(runLabel);
+    setReviewFilter("review");
+    setExpanded({});
+    setState("result");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, timeLeft, minutes, quizQs, answers, runMode, isAuthed, userId, runLabel, paused, correctOf]);
 
   // ask permission on accidental reload/close during exam + autosave it
   useEffect(() => {
@@ -825,7 +865,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
 
   const submit = () => {
     // study mode never saves statistics
-    if (runMode === "exam") saveAttempt({ category: runLabel, mode: runMode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed);
+    if (runMode === "exam") saveAttempt({ category: runLabel, mode: runMode, score, total, elapsed: minutes === 0 ? elapsed : minutes * 60 - timeLeft, answers, questionIds: quizQs.map((q) => q.id) }, isAuthed, userId);
     if (runMode === "exam") recordMistakes(examWrongIds());
     deleteSaved(runLabel);
     setReviewFilter("review");
@@ -866,12 +906,14 @@ export default function QuizClient({ index }: { index: IndexData }) {
   }
 
   if (state === "setup" && !isAuthed) {
+    const qsStr = searchParams.toString();
+    const loginHref = `/login?next=${encodeURIComponent(qsStr ? `/quiz?${qsStr}` : "/quiz")}`;
     return (
       <div className="mx-auto max-w-md w-full px-3 sm:px-0 min-h-[100vh]">
         <div className="rounded-xl sm:rounded-2xl border border-zinc-200 bg-white p-6 sm:p-8 text-center dark:border-white/10 dark:bg-white/[0.04]">
           <h1 className="text-[16px] sm:text-lg font-semibold">Шалгалт өгөхийн тулд нэвтэрнэ үү</h1>
           <p className="mt-1.5 text-[12px] sm:text-sm text-zinc-500">Шалгалт өгөх, дүн харах, үргэлжлүүлэх нь бүртгэлтэй хэрэглэгчид л боломжтой.</p>
-          <Link href="/login" className="mt-5 flex w-full items-center justify-center rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
+          <Link href={loginHref} className="mt-5 flex w-full items-center justify-center rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
             Нэвтрэх →
           </Link>
         </div>
@@ -1144,6 +1186,12 @@ export default function QuizClient({ index }: { index: IndexData }) {
       </>)}
 
       {/* paywall notice (paid category / paid save action) */}
+      {loadErr && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] sm:text-sm text-rose-700 flex items-center justify-between gap-2 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300">
+          <span>{loadErr}</span>
+          <button onClick={() => setLoadErr(null)} className="shrink-0 rounded-full border border-rose-200 px-2.5 py-1 text-[11px] dark:border-rose-400/30">Хаах</button>
+        </div>
+      )}
       {paywallNote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button aria-label="close" onClick={() => setPaywallNote(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />

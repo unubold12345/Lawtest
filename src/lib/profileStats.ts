@@ -101,10 +101,11 @@ export function computeStats(attempts: RawAttempt[]) {
     return c;
   };
   const thisMonday = mondayOf(new Date());
+  const thisMondayKey = dayKey(thisMonday);
   for (let i = 7; i >= 0; i--) {
     const w = addDays(thisMonday, -i * 7);
     weeks.push({
-      key: w.toISOString().slice(0, 10),
+      key: dayKey(w),
       label: `${w.getMonth() + 1}/${w.getDate()}`,
       count: 0,
       score: 0,
@@ -117,14 +118,14 @@ export function computeStats(attempts: RawAttempt[]) {
   let thisWeekScore = 0;
   let thisWeekTotal = 0;
   for (const a of attempts) {
-    const wk = mondayOf(new Date(a.createdAt)).toISOString().slice(0, 10);
+    const wk = dayKey(mondayOf(new Date(a.createdAt)));
     const i = weekIdx.get(wk);
     if (i !== undefined) {
       weeks[i].count++;
       weeks[i].score += a.score;
       weeks[i].total += a.total;
     }
-    if (wk === thisMonday.toISOString().slice(0, 10)) {
+    if (wk === thisMondayKey) {
       thisWeekCount++;
       thisWeekTime += a.elapsed;
       thisWeekScore += a.score;

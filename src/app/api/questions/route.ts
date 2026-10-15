@@ -42,13 +42,15 @@ export async function GET(req: Request) {
   if (sp.get("filter") === "1") {
     const q = (sp.get("q") || "").trim().toLowerCase();
     if (!q) return NextResponse.json({ ids: [] });
+    const access = await accessScope();
     const byOptionsOnly = sp.get("by") === "qo";
     const ids = data.questions
       .filter(
         (x) =>
-          x.question.toLowerCase().includes(q) ||
-          x.options.some((o) => o.toLowerCase().includes(q)) ||
-          (!byOptionsOnly && (x.category?.toLowerCase().includes(q) || x.subCategory?.toLowerCase().includes(q)))
+          canAccessCategory(x.category, access) &&
+          (x.question.toLowerCase().includes(q) ||
+            x.options.some((o) => o.toLowerCase().includes(q)) ||
+            (!byOptionsOnly && (x.category?.toLowerCase().includes(q) || x.subCategory?.toLowerCase().includes(q))))
       )
       .map((x) => x.id);
     return NextResponse.json({ ids });

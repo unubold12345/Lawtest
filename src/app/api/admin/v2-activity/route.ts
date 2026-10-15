@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 
 const DAY = 24 * 60 * 60 * 1000;
+const UB_OFFSET_MS = 8 * 60 * 60 * 1000;
 const userSel = { select: { phone: true, email: true, name: true } };
 
 type Who = { phone: string | null; email: string; name: string | null };
@@ -14,7 +15,8 @@ export async function GET() {
   if (!check.ok) return NextResponse.json({ error: check.error }, { status: check.status });
 
   const now = new Date();
-  const dayStart = new Date(`${now.toISOString().slice(0, 10)}T00:00:00.000Z`);
+  const ubDay = new Date(now.getTime() + UB_OFFSET_MS).toISOString().slice(0, 10);
+  const dayStart = new Date(`${ubDay}T00:00:00+08:00`);
   const yStart = new Date(dayStart.getTime() - DAY);
   const activeSince = new Date(now.getTime() - 2 * 60 * 1000);
   const recentSince = new Date(now.getTime() - DAY);

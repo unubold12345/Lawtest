@@ -4,9 +4,10 @@ import { requireAdmin } from "@/lib/admin";
 
 const DAY = 24 * 60 * 60 * 1000;
 const DAYS = 30;
+const UB_OFFSET_MS = 8 * 60 * 60 * 1000; // Asia/Ulaanbaatar (UTC+8)
 
 function dayKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return new Date(d.getTime() + UB_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 export async function GET() {

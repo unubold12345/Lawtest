@@ -94,7 +94,7 @@ export default function SetPasswordPage() {
 
         <form onSubmit={submit} className="mt-6 sm:mt-8 grid gap-4 sm:gap-5">
           <div>
-            <input required type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Нууц үг" className="w-full rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
+            <input required aria-label="Шинэ нууц үг" autoComplete="new-password" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Нууц үг" className="w-full rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
             <ul className="mt-2.5 grid gap-1.5 pl-1 text-[12px] sm:text-[13px]">
               {[
                 { ok: pw.length >= 8 && pw.length <= 20, label: "Дор хаяж 8 тэмдэгт" },
@@ -107,7 +107,7 @@ export default function SetPasswordPage() {
               ))}
             </ul>
           </div>
-          <input required type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Нууц үг давтах" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
+          <input required aria-label="Нууц үг давтах" autoComplete="new-password" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Нууц үг давтах" className="rounded-xl border px-4 py-3.5 sm:py-4 text-sm sm:text-base dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-400/60 min-h-[48px] sm:min-h-[52px]" />
           <button disabled={loading} type="submit" className="mt-1 rounded-full bg-indigo-600 py-3.5 sm:py-4 font-semibold text-sm sm:text-base text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px] sm:min-h-[52px]">{loading ? "..." : setup.purpose === "register" ? "Бүртгүүлэх" : "Сэргээх"}</button>
         </form>
 

@@ -25,13 +25,17 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const key = String(body?.key || "").trim();
-    if (!key) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    if (!key || key.length > 100) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     if (body?.data === null) {
       await prisma.savedExam.deleteMany({ where: { userId, key } });
       return NextResponse.json({ ok: true, deleted: true });
     }
+    const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, paidAt: true } });
+    if (!dbUser || (dbUser.role !== "ADMIN" && !dbUser.paidAt)) {
+      return NextResponse.json({ error: "Эрх нээгдээгүй байна" }, { status: 403 });
+    }
     const data = body?.data;
-    if (!data || typeof data !== "object") {
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
     const row = await prisma.savedExam.upsert({

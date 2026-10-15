@@ -83,19 +83,29 @@ export default function QuestionNote({
   };
 
   const remove = async () => {
-    setText("");
+    if (saving) return;
     setSaving(true);
+    setErr("");
     try {
-      await fetch("/api/notes", {
+      const r = await fetch("/api/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ questionId, content: "" }),
       });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setErr(d.error || "Устгаж чадсангүй");
+        setSaving(false);
+        return;
+      }
+      setText("");
       setHas(false);
       onChange(questionId, false);
       setConfirmRemove(false);
       showFlash("Устгагдлаа");
-    } catch {}
+    } catch {
+      setErr("Сүлжээний алдаа");
+    }
     setSaving(false);
   };
 

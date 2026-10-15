@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FREE_CATEGORY, PLAN_PRICE } from "@/lib/access";
+import { loadQuestions } from "@/lib/questions";
 import PaymentRequestButton from "@/components/PaymentRequestButton";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export const metadata = {
 const priceFmt = new Intl.NumberFormat("mn-MN").format(PLAN_PRICE);
 
 export default async function PlanPage() {
+  const freeCount = loadQuestions().questions.filter((q) => q.category === FREE_CATEGORY).length;
   const session = await auth();
   const userId = (session?.user as unknown as { id?: string })?.id;
   let hasPaid = false;
@@ -70,7 +72,7 @@ export default async function PlanPage() {
               <p className="text-[22px] sm:text-3xl font-extrabold tracking-tight text-indigo-600 dark:text-indigo-300">{priceFmt}₮</p>
             </div>
             <div className="mt-4 grid gap-2 text-[12px] sm:text-sm">
-              <div className="flex justify-between rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5"><span>🆓 Үнэгүй</span><span className="text-zinc-500">{FREE_CATEGORY} · 1815 сорилго</span></div>
+              <div className="flex justify-between rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5"><span>🆓 Үнэгүй</span><span className="text-zinc-500">{FREE_CATEGORY} · {freeCount} сорилго</span></div>
               <div className="flex justify-between rounded-xl bg-indigo-600 text-white px-3 py-2 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25"><span>🔓 Эрхтэй</span><span>Бүх ангилал + хадгалах</span></div>
             </div>
             <div className="mt-4 grid gap-1.5 text-[12px] sm:text-sm">

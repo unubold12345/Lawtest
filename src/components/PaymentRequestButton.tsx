@@ -1,14 +1,48 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import TermsModal from "@/components/TermsModal";
 
 export default function PaymentRequestButton({ authed, initialPending }: { authed: boolean; initialPending: boolean }) {
   const [pending, setPending] = useState(initialPending);
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [err, setErr] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+
+  const checkStatus = useCallback(async (manual = false) => {
+    if (manual) setChecking(true);
+    try {
+      const r = await fetch("/api/payment-requests", { cache: "no-store" });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d?.hasPaid) {
+        window.location.reload();
+        return;
+      }
+      if (!d?.request || d.request.status !== "PENDING") {
+        setPending(false);
+      }
+    } catch {
+      // ignore transient error
+    } finally {
+      if (manual) setChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authed || !pending) return;
+    const id = setInterval(() => { void checkStatus(false); }, 10000);
+    const onFocus = () => { void checkStatus(false); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("visibilitychange", onFocus);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [authed, pending, checkStatus]);
 
   const send = async () => {
     setBusy(true);
@@ -22,8 +56,8 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
         return;
       }
       setPending(true);
-    } catch (e: any) {
-      setErr(e.message || "Алдаа гарлаа");
+    } catch (e: unknown) {
+      setErr((e instanceof Error && e.message) || "Алдаа гарлаа");
     } finally {
       setBusy(false);
     }
@@ -49,8 +83,16 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center dark:border-amber-400/30 dark:bg-amber-400/10">
         <p className="font-medium text-[14px] sm:text-base text-amber-700 dark:text-amber-300">⏳ Хүсэлт илгээгдсэн</p>
         <p className="mt-1 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">
-          Админ төлбөрийг шалгаад эрхийг нээнэ. Эрх нээгдэхэд энэ хуудас өөрчлөгдөнө.
+          Админ төлбөрийг шалгаад эрхийг нээнэ. Эрх нээгдэхэд энэ хуудас автоматаар шинэчлэгдэнэ.
         </p>
+        <button
+          type="button"
+          onClick={() => void checkStatus(true)}
+          disabled={checking}
+          className="mt-3 inline-flex items-center justify-center rounded-full border border-amber-300 bg-white px-4 py-1.5 text-[12px] font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-400/30 dark:bg-white/5 dark:text-amber-200 dark:hover:bg-white/10 min-h-[36px]"
+        >
+          {checking ? "Шалгаж байна…" : "↻ Төлөв шалгах"}
+        </button>
       </div>
     );
   }
