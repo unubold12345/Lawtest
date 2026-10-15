@@ -164,6 +164,7 @@ type ActivityPayload = {
   answered?: number;
   event?: "run_start" | "run_finish";
   score?: number;
+  subs?: string[];
 };
 
 // fire-and-forget presence/event beacon for the admin "Идэвх" tab
@@ -688,6 +689,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
   });
   const [mapMain, setMapMain] = useState<number | null>(null);
   const [mapPicks, setMapPicks] = useState<Record<string, number>>({});
+  const [finishCounts, setFinishCounts] = useState<Record<string, number>>({});
   const mapSubs =
     mapMain !== null && index.mains[mapMain]
       ? index.mains[mapMain].subs
@@ -698,6 +700,21 @@ export default function StudyClient({ index }: { index: IndexData }) {
     mapMain === null
       ? 0
       : mapSubs.reduce((a, s) => a + Math.max(0, Math.min(mapPicks[`${mapMain}\u0001${s.si}`] ?? 0, s.agg.total)), 0);
+  useEffect(() => {
+    if (mapMain === null || !userId) return;
+    let cancelled = false;
+    fetch("/api/study/activity", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d?.counts && typeof d.counts === "object") {
+          setFinishCounts(d.counts as Record<string, number>);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [mapMain, userId]);
   useEffect(() => {
     if (view !== "home") return;
     const rows = baseRows.filter(studyableOf);
@@ -1074,7 +1091,21 @@ export default function StudyClient({ index }: { index: IndexData }) {
     }
     clearStudySession(userId);
     markDay(userId);
-    if (userId)
+    if (userId) {
+      const idSet = new Set(run.ids);
+      const cover = new Map<string, { total: number; hit: number; ok: boolean }>();
+      for (const r of baseRows) {
+        if (r[1] < 0 || r[2] < 0 || !studyableOf(r)) continue;
+        const key = `${index.mains[r[1]].name}\u0001${index.mains[r[1]].subs[r[2]].name}`;
+        const c = cover.get(key) ?? { total: 0, hit: 0, ok: true };
+        c.total++;
+        if (idSet.has(r[0])) c.hit++;
+        const q = items[r[0]];
+        const cc = q ? correctOf(q) : null;
+        if (cc !== null && run.answers[r[0]] !== cc) c.ok = false;
+        cover.set(key, c);
+      }
+      const subs = [...cover].filter(([, c]) => c.total > 0 && c.hit === c.total && c.ok).map(([k]) => k);
       postActivity({
         state: "hub",
         mode: run.immediate ? "study" : "exam",
@@ -1082,7 +1113,9 @@ export default function StudyClient({ index }: { index: IndexData }) {
         total: run.ids.length,
         score: results.filter((r) => r.ok).length,
         event: "run_finish",
+        subs,
       });
+    }
     setReviewFilter("missed");
     setExpanded({});
     setPaletteOpen(false);
@@ -1870,6 +1903,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
                   const key = `${mapMain}\u0001${s.si}`;
                   const mpct = s.agg.total ? Math.round((s.agg.solved / s.agg.total) * 100) : 0;
                   const v = Math.max(0, Math.min(mapPicks[key] ?? 0, s.agg.total));
+                  const finished = finishCounts[`${index.mains[mapMain].name}\u0001${s.name}`] ?? 0;
                   return (
                     <div
                       key={s.si}
@@ -1887,6 +1921,14 @@ export default function StudyClient({ index }: { index: IndexData }) {
                           <span className="shrink-0 text-[9.5px] tabular-nums text-zinc-500 dark:text-zinc-400">
                             {s.agg.solved}/{s.agg.total} · {mpct}%
                           </span>
+                          {finished > 0 && (
+                            <span
+                              title={`Бүрэн 100% дуусгасан: ${finished}`}
+                              className="grid h-3.5 min-w-3.5 shrink-0 place-items-center rounded-full bg-emerald-500 px-0.5 text-[8.5px] font-bold leading-none tabular-nums text-white"
+                            >
+                              {finished}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-0.5">
@@ -2393,7 +2435,11 @@ export default function StudyClient({ index }: { index: IndexData }) {
       const cc = correctOf(q);
       return cc !== null && a !== cc;
     }).length;
-    const pct = answered > 0 ? Math.round((okCount / answered) * 100) : 0;
+    const judged = run.ids.filter((id) => {
+      const q = items[id];
+      return !!q && correctOf(q) !== null;
+    }).length;
+    const pct = judged > 0 ? Math.round((okCount / judged) * 100) : 0;
     const wrongCount = answered - okCount;
     const unansweredCount = runTotal - answered;
     const ring = 2 * Math.PI * 54;
@@ -2438,7 +2484,6 @@ export default function StudyClient({ index }: { index: IndexData }) {
         const cc = correctOf(q);
         if (cc === null) continue;
         const a = run.answers[id];
-        if (a === undefined) continue;
         const key = q.subCategory ? `${q.category ?? ""} / ${q.subCategory}` : q.category ?? "Бусад";
         const e = map.get(key) ?? { ok: 0, tot: 0 };
         e.tot++;
@@ -2474,7 +2519,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <p className="text-2xl sm:text-4xl font-extrabold tabular-nums leading-none">{pct}%</p>
                 <p className="mt-0.5 text-[10px] sm:text-xs text-zinc-500">
-                  {okCount} / {answered}
+                  {okCount} / {judged}
                 </p>
               </div>
             </div>

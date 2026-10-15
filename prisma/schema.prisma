@@ -233,6 +233,7 @@ model StudyEvent {
   type      String // "run_start" | "run_finish"
   mode      String? // "study" | "exam"
   label     String?
+  subs      String[] @default([]) // run_finish only: fully covered subs as "main\u0001sub"
   total     Int      @default(0)
   score     Int?
   createdAt DateTime @default(now())
