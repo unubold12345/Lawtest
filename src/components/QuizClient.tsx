@@ -563,7 +563,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     if (entries.length === 0) return;
     const ids: string[] = [];
     for (const [key, n] of entries) {
-      const sep = key.indexOf("");
+      const sep = key.indexOf("\u0001");
       const mi = Number(key.slice(0, sep));
       const si = Number(key.slice(sep + 1));
       const rows = baseRows.filter((r) => r[1] === mi && r[2] === si && r[3] === 1);
@@ -616,13 +616,13 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const answered = new Map<string, number>();
     for (const r of baseRows) {
       if (r[3] !== 1) continue;
-      const key = `${r[1]}${r[2]}`;
+      const key = `${r[1]}\u0001${r[2]}`;
       answered.set(key, (answered.get(key) ?? 0) + 1);
     }
     const out: Array<{ mi: number; si: number; key: string; main: string; sub: string; count: number }> = [];
     index.mains.forEach((m, mi) => {
       m.subs.forEach((s, si) => {
-        const key = `${mi}${si}`;
+        const key = `${mi}\u0001${si}`;
         const n = answered.get(key) ?? 0;
         if (n > 0) out.push({ mi, si, key, main: m.name, sub: s.name, count: n });
       });
