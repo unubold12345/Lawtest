@@ -1429,7 +1429,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
           </span>
           <div className="min-w-0">
             <h2 className="text-[14px] sm:text-xl font-semibold break-words">Үндсэн шалгалт</h2>
-            <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-400">Бодит шалгалтын загвараар</p>
+            <p className="mt-0.5 text-[11px] sm:text-xs leading-snug text-zinc-400">Шалгалтын тестийн горимтой дөхөхүйц байдлаар буюу Иргэний хууль, Захиргааны ерөнхий хууль, Эрүүгийн хууль болон тэдгээрийн процессын хуулиас 60%, Хуульчийн ёс зүйн тестээс 10%, Бусад салбар эрх зүйгээс 30%-ийн бүрдлээр тест ажиллах боломжтой.</p>
           </div>
         </div>
         {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Үндсэн шалгалт нь Эрх авах төлөвлөгөөнд багтдаг.</p>}
