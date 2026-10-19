@@ -9,6 +9,7 @@ import { readLocalSavedExams, writeLocalSavedExam, removeLocalSavedExam, readLoc
 import { FREE_CATEGORY } from "@/lib/access";
 import DropSelect from "@/components/DropSelect";
 import { indexMainName, indexSubName, type IndexData, type IndexRow } from "@/lib/questionIndex";
+import { pickMainExamRows } from "@/lib/mainExam";
 import { fetchQuestionsByIds } from "@/lib/fetchQuestionsByIds";
 import QuestionReport from "@/components/QuestionReport";
 
@@ -29,63 +30,6 @@ function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   return a;
-}
-
-// Main exam blueprint (expert sampling): 100 case + 100 theory, with every
-// (main, subcategory) pair represented. Each pair holding the type is
-// guaranteed 1 slot; leftover slots split proportionally to pair size via
-// the largest-remainder method (bigger subjects weigh more, like a real bar
-// exam). Final set is shuffled so case/theory are mixed, sources stay hidden.
-const MAIN_EXAM_CASE = 100;
-const MAIN_EXAM_THEORY = 100;
-
-function apportion(sizes: Map<string, number>, slots: number): Map<string, number> {
-  const out = new Map<string, number>();
-  const total = [...sizes.values()].reduce((a, b) => a + b, 0);
-  if (total <= 0 || slots <= 0) { sizes.forEach((_, k) => out.set(k, 0)); return out; }
-  const raw = new Map<string, number>();
-  sizes.forEach((n, k) => { const v = (slots * n) / total; raw.set(k, v); out.set(k, Math.floor(v)); });
-  let assigned = [...out.values()].reduce((a, b) => a + b, 0);
-  const byFrac = [...sizes.keys()].sort((a, b) => (raw.get(b)! - out.get(b)!) - (raw.get(a)! - out.get(a)!));
-  for (const k of byFrac) {
-    if (assigned >= slots) break;
-    out.set(k, out.get(k)! + 1);
-    assigned++;
-  }
-  return out;
-}
-
-function pickStratified(pool: IndexRow[], need: number): IndexRow[] {
-  const groups = new Map<string, IndexRow[]>();
-  for (const r of pool) {
-    const k = `${r[1]}:${r[2]}`;
-    const g = groups.get(k);
-    if (g) g.push(r); else groups.set(k, [r]);
-  }
-  const keys = [...groups.keys()];
-  if (keys.length === 0 || need <= 0) return [];
-  const sizes = new Map(keys.map((k) => [k, groups.get(k)!.length] as [string, number]));
-  const take = new Map<string, number>();
-  if (keys.length <= need) {
-    keys.forEach((k) => take.set(k, 1));
-    apportion(sizes, need - keys.length).forEach((n, k) => take.set(k, take.get(k)! + n));
-  } else {
-    apportion(sizes, need).forEach((n, k) => take.set(k, n));
-  }
-  const out: IndexRow[] = [];
-  take.forEach((n, k) => {
-    const g = groups.get(k)!;
-    out.push(...shuffle(g).slice(0, Math.min(n, g.length)));
-  });
-  return out;
-}
-
-function pickMainExamRows(rows: IndexRow[]): IndexRow[] {
-  const picked = [
-    ...pickStratified(rows.filter((r) => r[4] === 1), MAIN_EXAM_CASE),
-    ...pickStratified(rows.filter((r) => r[4] !== 1), MAIN_EXAM_THEORY),
-  ];
-  return shuffle(picked);
 }
 
 async function saveAttempt(
@@ -499,11 +443,13 @@ export default function QuizClient({ index }: { index: IndexData }) {
         rows = mi >= 0 ? rows.filter((r) => r[1] === mi) : [];
       }
       if (sc !== "all") rows = rows.filter((r) => indexSubName(index, r) === sc);
-      rows = rows.filter((r) => r[3] === 1);
-      if (qtype !== "all") rows = rows.filter((r) => (r[4] === 1) === (qtype === "case"));
-      if (qstr) {
-        const ids = await filterIds(qstr);
-        rows = rows.filter((r) => ids.has(r[0]));
+      if (o.tag !== "Үндсэн шалгалт") {
+        rows = rows.filter((r) => r[3] === 1);
+        if (qtype !== "all") rows = rows.filter((r) => (r[4] === 1) === (qtype === "case"));
+        if (qstr) {
+          const ids = await filterIds(qstr);
+          rows = rows.filter((r) => ids.has(r[0]));
+        }
       }
     }
     const total = Math.min(nn, rows.length);
@@ -517,7 +463,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
     const label = filters && !o.tag ? `${base} · ${filters}` : base;
     setRunLabel(label);
     deleteSaved(label);
-    const pickedRows = o.tag === "Үндсэн шалгалт" ? pickMainExamRows(rows) : shuffle(rows).slice(0, total);
+    const pickedRows = o.tag === "Үндсэн шалгалт" ? pickMainExamRows(rows, index) : shuffle(rows).slice(0, total);
     if (pickedRows.length === 0) return;
     setLoadErr(null);
     setPreparing(o.tag ?? "exam");
@@ -1483,7 +1429,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
           </span>
           <div className="min-w-0">
             <h2 className="text-[14px] sm:text-xl font-semibold break-words">Үндсэн шалгалт</h2>
-            <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-400">Бодит шалгалтын загвараар · 100 кейс + 100 онол</p>
+            <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-400">Бодит шалгалтын загвараар</p>
           </div>
         </div>
         {!fullAccess && <p className="mt-1.5 text-[11px] sm:text-xs leading-snug text-zinc-400">🔒 Үндсэн шалгалт нь Эрх авах төлөвлөгөөнд багтдаг.</p>}
@@ -1503,7 +1449,6 @@ export default function QuizClient({ index }: { index: IndexData }) {
         </div>
         <div className="mt-3 sm:mt-4 flex flex-wrap gap-1.5">
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] text-zinc-200">200 сорилго</span>
-          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] text-zinc-200">100 кейс · 100 онол</span>
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] text-zinc-200">200 минут</span>
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] text-zinc-200">1 мин/сорилго</span>
         </div>
