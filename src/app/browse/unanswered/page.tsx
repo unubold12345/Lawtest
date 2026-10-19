@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import BrowsePage from "@/components/BrowsePage";
 
-export const revalidate = 5;
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Хариултгүй сорилго",

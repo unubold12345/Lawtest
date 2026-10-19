@@ -4,7 +4,7 @@ import { buildIndex } from "@/lib/questionIndexServer";
 import { refreshOverrides } from "@/lib/questionOverrides";
 import QuizClient from "@/components/QuizClient";
 
-export const revalidate = 5;
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Шалгалт өгөх",
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function QuizPage() {
-  await refreshOverrides();
+  await refreshOverrides(true);
   const index = buildIndex();
   if (index.total === 0) {
     return (

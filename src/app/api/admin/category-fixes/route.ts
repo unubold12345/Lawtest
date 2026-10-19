@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
+import { revalidateCatalogPages } from "@/lib/revalidateCatalog";
 
 export const dynamic = "force-dynamic";
 
@@ -46,5 +47,6 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Серверт хадгалж чадсангүй" }, { status: 500 });
   }
 
+  revalidateCatalogPages();
   return NextResponse.json({ ok: true, category, subCategory, fixed });
 }

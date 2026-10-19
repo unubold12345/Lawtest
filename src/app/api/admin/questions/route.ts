@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { clearQuestionsCache, loadQuestions } from "@/lib/questions";
 import { refreshOverrides } from "@/lib/questionOverrides";
+import { revalidateCatalogPages } from "@/lib/revalidateCatalog";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +121,7 @@ export async function PATCH(req: Request) {
 
   clearQuestionsCache();
   await refreshOverrides(true);
+  revalidateCatalogPages();
 
   return NextResponse.json({
     ok: true,

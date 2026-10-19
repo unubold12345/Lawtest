@@ -8,7 +8,7 @@ import BrowseClient from "@/components/BrowseClient";
 
 // Shared server view for /browse (answered) and /browse/unanswered.
 export default async function BrowsePage({ pool }: { pool: QuestionPool }) {
-  await refreshOverrides();
+  await refreshOverrides(true);
   const index = buildIndex();
   if (index.total === 0) {
     return (
