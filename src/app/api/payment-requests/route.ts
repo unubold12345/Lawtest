@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requestUserId } from "@/lib/mobileAuth";
 import { prisma } from "@/lib/prisma";
 import { notifyAdmin } from "@/lib/notify";
 
-async function me() {
-  const session = await auth();
-  const userId = (session?.user as unknown as { id?: string })?.id;
+async function me(req: Request) {
+  const userId = await requestUserId(req);
   if (!userId) return null;
   const db = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, paidAt: true, phone: true, email: true } });
   return db;
 }
 
 // Own paid status + latest payment request (for /plan page state).
-export async function GET() {
-  const db = await me();
+export async function GET(req: Request) {
+  const db = await me(req);
   if (!db) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   const hasPaid = db.role === "ADMIN" || !!db.paidAt;
   const request = await prisma.paymentRequest.findFirst({
@@ -25,8 +24,8 @@ export async function GET() {
 }
 
 // "Төлбөр төлсөн" — user asks admin to open access after paying via QR.
-export async function POST() {
-  const db = await me();
+export async function POST(req: Request) {
+  const db = await me(req);
   if (!db) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   if (db.role === "ADMIN" || db.paidAt) return NextResponse.json({ paid: true });
   const existing = await prisma.paymentRequest.findFirst({

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requestUserId } from "@/lib/mobileAuth";
 import { prisma } from "@/lib/prisma";
 
 // Per-user mistake tracking for «Их алддаг сорилгууд».
@@ -8,8 +8,7 @@ import { prisma } from "@/lib/prisma";
 // POST { questionId, manual: true } -> flag as manually added (creates row if new)
 // DELETE ?questionId= -> remove from the section
 export async function GET(req: Request) {
-  const session = await auth();
-  const userId = (session?.user as unknown as { id?: string })?.id;
+  const userId = await requestUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   const rows = await prisma.mistake.findMany({
     where: { userId },
@@ -22,8 +21,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  const userId = (session?.user as unknown as { id?: string })?.id;
+  const userId = await requestUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   let body: { ids?: string[]; questionId?: string; manual?: boolean };
   try {
@@ -61,8 +59,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const session = await auth();
-  const userId = (session?.user as unknown as { id?: string })?.id;
+  const userId = await requestUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   const questionId = (new URL(req.url).searchParams.get("questionId") || "").trim();
   if (!questionId) return NextResponse.json({ error: "Сорилго сонгогдоогүй" }, { status: 400 });

@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requestUserId } from "@/lib/mobileAuth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 // Site-wide announcements for the navbar bell (logged-in users only)
-export async function GET() {
-  const session = await auth();
-  const userId = (session?.user as unknown as { id?: string })?.id;
+export async function GET(req: Request) {
+  const userId = await requestUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   const [rows, reads] = await Promise.all([
     prisma.announcement.findMany({

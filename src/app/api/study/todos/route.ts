@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requestUserId } from "@/lib/mobileAuth";
 import { prisma } from "@/lib/prisma";
 
 // Daily to-do items for the Сорилго төв hub (v2), synced across devices.
@@ -13,13 +13,12 @@ function clampStr(v: unknown, max: number) {
   return String(v ?? "").trim().slice(0, max);
 }
 
-async function getUserId() {
-  const session = await auth();
-  return (session?.user as unknown as { id?: string })?.id ?? null;
+async function getUserId(req: Request) {
+  return requestUserId(req);
 }
 
-export async function GET() {
-  const userId = await getUserId();
+export async function GET(req: Request) {
+  const userId = await getUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   const rows = await prisma.studyTodo.findMany({
     where: { userId },
@@ -30,7 +29,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const userId = await getUserId();
+  const userId = await getUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   let body: { id?: unknown; text?: unknown; main?: unknown; sub?: unknown; date?: unknown };
   try {
@@ -59,7 +58,7 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const userId = await getUserId();
+  const userId = await getUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   let body: { id?: unknown; done?: unknown; text?: unknown };
   try {
@@ -78,7 +77,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const userId = await getUserId();
+  const userId = await getUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   const url = new URL(req.url);
   const id = clampStr(url.searchParams.get("id"), 64);

@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requestUserId } from "@/lib/mobileAuth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
-  const session = await auth();
-  const userId = (session?.user as unknown as { id?: string })?.id;
+export async function GET(req: Request) {
+  const userId = await requestUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   const [user, attempts, saved, notes, mistakes, mistakeAgg, attemptsRaw] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true, phone: true, email: true, role: true, paidAt: true, createdAt: true, password: true },
+      select: { id: true, name: true, phone: true, email: true, role: true, paidAt: true, createdAt: true, password: true },
     }),
     prisma.attempt.aggregate({ where: { userId }, _count: { _all: true }, _sum: { score: true, total: true } }),
     prisma.savedAnswer.count({ where: { userId } }),
@@ -26,6 +25,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Хэрэглэгч олдсонгүй" }, { status: 404 });
   const total = attempts._sum.total ?? 0;
   return NextResponse.json({
+    id: user.id,
     name: user.name,
     phone: user.phone,
     email: user.email && !user.email.endsWith("@phone.local") ? user.email : null,
@@ -56,8 +56,7 @@ export async function GET() {
 const NAME_RE = /^[\p{L}][\p{L}\p{N} ._'\u2019-]{1,23}$/u;
 
 export async function PATCH(req: Request) {
-  const session = await auth();
-  const userId = (session?.user as unknown as { id?: string })?.id;
+  const userId = await requestUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   let body: { name?: unknown };
   try {

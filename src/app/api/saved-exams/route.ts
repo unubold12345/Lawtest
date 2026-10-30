@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requestUserId } from "@/lib/mobileAuth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
-  const session = await auth();
-  const userId = (session?.user as unknown as { id?: string })?.id;
+export async function GET(req: Request) {
+  const userId = await requestUserId(req);
   if (!userId) return NextResponse.json({ exams: [] }, { status: 401 });
   const rows = await prisma.savedExam.findMany({
     where: { userId },
@@ -19,8 +18,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  const userId = (session?.user as unknown as { id?: string })?.id;
+  const userId = await requestUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрээгүй байна" }, { status: 401 });
   try {
     const body = await req.json();

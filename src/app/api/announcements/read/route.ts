@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requestUserId } from "@/lib/mobileAuth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 // Mark announcements as read; no ids = mark all current
 export async function POST(req: Request) {
-  const session = await auth();
-  const userId = (session?.user as unknown as { id?: string })?.id;
+  const userId = await requestUserId(req);
   if (!userId) return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
   let body: { ids?: unknown } = {};
   try {
