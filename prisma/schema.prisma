@@ -283,6 +283,22 @@ model PaymentRequest {
   @@index([userId])
 }
 
+// Admin-entered operating costs for the finance/revenue dashboard (MNT).
+model AdminCost {
+  id          String   @id @default(cuid())
+  label       String
+  category    String   @default("custom") // neon | vercel | custom
+  amount      Int
+  month       String   // YYYY-MM in UB time
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([month])
+  @@index([category, month])
+}
+
 // Anonymous page-view tracking (guests + members; no IP/PII stored)
 model PageView {
   id        String   @id @default(cuid())
