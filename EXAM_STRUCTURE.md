@@ -15,7 +15,8 @@ Plans purchase one edition. Categories are subjects inside a bank, not products.
 
 The global header stays the same across the catalog and all editions: brand,
 theme, notifications, and account menu. Admin is available only in an admin's
-profile dropdown. Study tabs live in the edition workspace beneath its title.
+profile dropdown. Study tabs live in a sticky left sidebar in each edition workspace,
+with a collapsible navigation menu on mobile.
 In-app pricing links use `PlanLink` to open a native modal for plan selection and
 checkout without navigating away. The `/plans` routes remain direct-link fallbacks.
 The modal reads live payment status; approval refreshes access without reloading
