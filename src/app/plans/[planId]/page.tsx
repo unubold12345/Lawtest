@@ -1,8 +1,11 @@
 import Image from "next/image";
+import { notFound } from "next/navigation";
+import { getPlan, getEdition, LEGACY_EDITION_ID } from "@/lib/catalog";
+import { hasEditionAccess } from "@/lib/access";
+import { userAccessScope } from "@/lib/entitlements";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { FREE_CATEGORY, PLAN_PRICE } from "@/lib/access";
 import { loadQuestions } from "@/lib/questions";
 import PaymentRequestButton from "@/components/PaymentRequestButton";
 
@@ -10,27 +13,29 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Эрх авах",
-  description: "39,900₮ нэг удаагийн төлбөрөөр бүх сорилго, шалгалт, хадгалах цэсийг нээх",
+  description: "Сонгосон шалгалт, оны хувилбарын бүтэн эрх авах",
 };
 
-const priceFmt = new Intl.NumberFormat("mn-MN").format(PLAN_PRICE);
 
-export default async function PlanPage() {
-  const freeCount = loadQuestions().questions.filter((q) => q.category === FREE_CATEGORY).length;
+
+export default async function PlanPage({ params }: { params: Promise<{ planId: string }> }) {
+  const { planId } = await params;
+  const plan = getPlan(planId);
+  if (!plan) notFound();
+  const edition = getEdition(plan.editionId);
+  if (!edition) notFound();
+  const priceFmt = new Intl.NumberFormat("mn-MN").format(plan.price);
+  const freeCount = edition.id === LEGACY_EDITION_ID ? loadQuestions().questions.filter((q) => q.category && edition.freeCategories.includes(q.category)).length : null;
   const session = await auth();
   const userId = (session?.user as unknown as { id?: string })?.id;
   let hasPaid = false;
   let pendingRequest = false;
   if (userId) {
     try {
-      const db = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { role: true, paidAt: true },
-      });
-      hasPaid = !!db && (db.role === "ADMIN" || !!db.paidAt);
+      hasPaid = hasEditionAccess(edition.id, await userAccessScope(userId));
       if (!hasPaid) {
         const req = await prisma.paymentRequest.findFirst({
-          where: { userId, status: "PENDING" },
+          where: { userId, editionId: edition.id, status: "PENDING" },
           orderBy: { createdAt: "desc" },
           select: { id: true },
         });
@@ -41,23 +46,26 @@ export default async function PlanPage() {
   return (
     <div className="mx-auto max-w-5xl px-3 sm:px-6 py-6 sm:py-10 space-y-4 sm:space-y-6">
       <div className="text-center">
-        <p className="text-[11px] sm:text-xs font-medium uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-300">Төлбөртэй төлөвлөгөө</p>
+        <p className="text-[11px] sm:text-xs font-medium uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-300">{edition.title}</p>
         <h1 className="mt-1 text-[22px] sm:text-3xl font-extrabold tracking-tight">Эрх авах</h1>
         <p className="mt-2 text-[13px] sm:text-base text-zinc-500">
-          Нэг удаа <b className="text-indigo-600 dark:text-indigo-300">{priceFmt}₮</b> төлөөд бүх эрхээ насан туршдаа нээнэ.
+          Нэг удаа <b className="text-indigo-600 dark:text-indigo-300">{priceFmt}₮</b> төлөөд энэ хувилбарын эрхийг хугацаагүй нээнэ.
         </p>
       </div>
 
+      <p className="mx-auto max-w-3xl rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-center text-xs leading-6 text-indigo-800 dark:border-indigo-400/20 dark:bg-indigo-500/10 dark:text-indigo-200">
+        Энэ төлөвлөгөө зөвхөн {edition.title} хувилбарт үйлчилнэ. Бусад шалгалт болон шинэ оны хувилбар тусдаа төлбөртэй.
+      </p>
       {hasPaid ? (
         <div className="mx-auto w-full max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 p-5 sm:p-6 text-center dark:border-emerald-400/30 dark:bg-emerald-400/10">
           <p className="text-2xl text-emerald-600 dark:text-emerald-400">✓</p>
           <p className="mt-1 font-semibold text-[15px] sm:text-lg text-emerald-700 dark:text-emerald-300">Эрх нээгдсэн</p>
           <p className="mt-1 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">
-            Танд бүх ангилал, шалгалт, хадгалах цэс нээлттэй.
+            Танд энэ хувилбарын бүх ангилал, шалгалт, хадгалах цэс нээлттэй.
           </p>
           <div className="mt-4 flex flex-col sm:flex-row gap-2 justify-center">
-            <Link href="/browse" className="rounded-full bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[44px] inline-flex items-center justify-center">Бүх сорилго →</Link>
-            <Link href="/quiz" className="rounded-full border border-zinc-200 px-6 py-2.5 text-sm dark:border-white/15 min-h-[44px] inline-flex items-center justify-center">Шалгалт өгөх →</Link>
+            <Link href={`${edition.href}/browse`} className="rounded-full bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[44px] inline-flex items-center justify-center">Бүх сорилго →</Link>
+            <Link href={`${edition.href}/quiz`} className="rounded-full border border-zinc-200 px-6 py-2.5 text-sm dark:border-white/15 min-h-[44px] inline-flex items-center justify-center">Шалгалт өгөх →</Link>
           </div>
         </div>
       ) : (
@@ -66,13 +74,13 @@ export default async function PlanPage() {
           <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-white/10 dark:bg-white/[0.04]">
             <div className="flex items-end justify-between gap-2">
               <div>
-                <p className="font-semibold text-[14px] sm:text-base">Бүтэн эрх</p>
-                <p className="text-[11px] sm:text-xs text-zinc-500">Нэг удаагийн төлбөр · насан турш</p>
+                <p className="font-semibold text-[14px] sm:text-base">{plan.title}</p>
+                <p className="text-[11px] sm:text-xs text-zinc-500">Нэг удаагийн төлбөр · Энэ хувилбарт хугацаагүй</p>
               </div>
               <p className="text-[22px] sm:text-3xl font-extrabold tracking-tight text-indigo-600 dark:text-indigo-300">{priceFmt}₮</p>
             </div>
             <div className="mt-4 grid gap-2 text-[12px] sm:text-sm">
-              <div className="flex justify-between rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5"><span>🆓 Үнэгүй</span><span className="text-zinc-500">{FREE_CATEGORY} · {freeCount} сорилго</span></div>
+              <div className="flex justify-between rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5"><span>🆓 Үнэгүй</span><span className="text-zinc-500">{edition.freeCategories.join(" · ") || "Үнэгүй ангилал байхгүй"}{freeCount !== null && ` · ${freeCount} сорилго`}</span></div>
               <div className="flex justify-between rounded-xl bg-indigo-600 text-white px-3 py-2 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-indigo-400/25"><span>🔓 Эрхтэй</span><span>Бүх ангилал + хадгалах</span></div>
             </div>
             <div className="mt-4 grid gap-1.5 text-[12px] sm:text-sm">
@@ -106,7 +114,7 @@ export default async function PlanPage() {
                 </div>
                 <div className="flex justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-400/10">
                   <dt className="font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">Гүйлгээний утга</dt>
-                  <dd className="font-bold text-right text-amber-700 dark:text-amber-300">Бүртгэлтэй утасны дугаар</dd>
+                  <dd className="font-bold text-right text-amber-700 dark:text-amber-300">Бүртгэлтэй утасны дугаар · {plan.id}</dd>
                 </div>
               </dl>
             </div>
@@ -117,7 +125,7 @@ export default async function PlanPage() {
                   Төлбөрөө төлсний дараа доорх товчийг дарна уу — админ шалгаад эрхийг нээнэ.
                 </p>
                 <div className="mt-3">
-                  <PaymentRequestButton authed={!!userId} initialPending={pendingRequest} />
+                  <PaymentRequestButton planId={plan.id} authed={!!userId} initialPending={pendingRequest} />
                 </div>
               </div>
               <div>

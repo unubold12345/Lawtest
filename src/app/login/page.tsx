@@ -14,7 +14,7 @@ function toE164(raw: string): string | null {
   return null;
 }
 
-// Where to land after auth — /login?next=/plan returns to the plan page.
+// Where to land after auth — /login?next=/plans/lawyer-2026-full returns to the plan page.
 // Only local paths are accepted (no open redirect).
 function nextPath(): string {
   if (typeof window === "undefined") return "/";

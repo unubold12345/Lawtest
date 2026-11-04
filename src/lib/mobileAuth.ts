@@ -1,3 +1,4 @@
+import { userAccessScope } from "./entitlements";
 import { SignJWT, jwtVerify } from "jose";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -69,14 +70,9 @@ export async function requestUserId(req: Request): Promise<string | null> {
   return (session?.user as unknown as { id?: string })?.id ?? null;
 }
 
-// Reads the live role/paid status from the DB (never trusts token claims).
-export async function requestAccessScope(req: Request): Promise<{ role: string | null; paidAt: Date | null }> {
+// Reads current edition grants from the database, including mobile requests.
+export async function requestAccessScope(req: Request) {
   const userId = await requestUserId(req);
-  if (!userId) return { role: null, paidAt: null };
-  try {
-    const db = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, paidAt: true } });
-    return { role: db?.role ?? null, paidAt: db?.paidAt ?? null };
-  } catch {
-    return { role: null, paidAt: null };
-  }
+  if (!userId) return {};
+  try { return await userAccessScope(userId); } catch { return {}; }
 }

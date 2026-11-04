@@ -1582,7 +1582,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
             {!fullAccess && (
               <p className="mt-2.5 text-[10.5px] leading-snug text-zinc-400 sm:text-[11px]">
                 🔒 Үнэгүй эрхээр зөвхөн «{FREE_CATEGORY}» —{" "}
-                <Link href="/plan" className="underline hover:text-indigo-600 dark:hover:text-indigo-300">
+                <Link href="/plans/lawyer-2026-full" className="underline hover:text-indigo-600 dark:hover:text-indigo-300">
                   Эрх авах
                 </Link>{" "}
                 бол бүх ангилал нээгдэнэ.
@@ -1607,7 +1607,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
                   <span className="mt-1 text-[10px] text-zinc-500">сорилго</span>
                 </div>
                 <Link
-                  href="/login?next=/v2"
+                  href="/login?next=/exams/lawyer/2026/v2"
                   className="mt-3 inline-flex min-h-[36px] items-center rounded-full bg-indigo-600 px-4 py-2 text-[11px] font-semibold text-white transition-all hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:hover:from-indigo-400 dark:hover:to-violet-400 sm:text-xs"
                 >
                   Нэвтрэх →
@@ -1768,7 +1768,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
                   Нэвтэрснээр өдрийн идэвх, дараалал хадгалагдана.
                 </p>
                 <Link
-                  href="/login?next=/v2"
+                  href="/login?next=/exams/lawyer/2026/v2"
                   className="mt-2.5 inline-flex min-h-[36px] items-center rounded-full bg-indigo-600 px-4 py-2 text-[11px] font-semibold text-white transition-all hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 sm:text-xs"
                 >
                   Нэвтрэх →
@@ -1858,7 +1858,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
                   </p>
                 </div>
                 <Link
-                  href="/login?next=/v2"
+                  href="/login?next=/exams/lawyer/2026/v2"
                   className="inline-flex min-h-[36px] shrink-0 items-center rounded-full bg-indigo-600 px-5 py-2 text-[12px] font-medium text-white shadow-sm shadow-indigo-600/30 transition-all hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-lg dark:shadow-indigo-950/40 sm:text-sm"
                 >
                   Нэвтрэх →
@@ -1869,7 +1869,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
 
           <div className="pb-2 text-center lg:col-span-3">
             <Link
-              href="/browse"
+              href="/exams/lawyer/2026/browse"
               className="text-[11px] text-zinc-400 underline hover:text-indigo-600 dark:hover:text-indigo-300 sm:text-xs"
             >
               Бүх сорилгыг жагсаалтаар үзэх →
@@ -2011,7 +2011,7 @@ export default function StudyClient({ index }: { index: IndexData }) {
                 Бусад ангиллаар суралцах, явцаа хадгалах нь 39,900₮-ийн бүтэн эрхэд багтдаг.
               </p>
               <Link
-                href="/plan"
+                href="/plans/lawyer-2026-full"
                 className="mt-4 flex min-h-[40px] w-full items-center justify-center rounded-full bg-indigo-600 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-indigo-600/30 transition-all hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-lg dark:shadow-indigo-950/40 sm:text-sm"
               >
                 Эрх авах →

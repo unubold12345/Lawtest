@@ -15,7 +15,7 @@ export default function ProfileStats({ attempts, totalWrong }: { attempts: RawAt
       <div className={`${cardCls} text-center`}>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">Одоогоор шалгалт өгөөгүй байна.</p>
         <p className="mt-1 text-xs text-zinc-500">Статистик энд харагдана.</p>
-        <Link href="/quiz" className="mt-4 inline-flex rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[44px] items-center">
+        <Link href="/exams/lawyer/2026/quiz" className="mt-4 inline-flex rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[44px] items-center">
           Шалгалт эхлэх
         </Link>
       </div>

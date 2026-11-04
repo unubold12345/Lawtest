@@ -58,7 +58,7 @@ export async function getFinanceSummary(now = new Date()): Promise<FinanceSummar
   const [payments, costs] = await Promise.all([
     prisma.paymentRequest.findMany({
       where: { status: "APPROVED" },
-      select: { createdAt: true, decidedAt: true },
+      select: { createdAt: true, decidedAt: true, amount: true },
     }),
     prisma.adminCost.findMany({
       select: { amount: true, category: true, month: true },
@@ -81,22 +81,24 @@ export async function getFinanceSummary(now = new Date()): Promise<FinanceSummar
   }
 
   const paymentsByMonth = new Map<string, number>();
+  const revenueByMonth = new Map<string, number>();
   let currentPayments = 0;
   for (const payment of payments) {
     const month = ubMonth(payment.decidedAt ?? payment.createdAt);
     paymentsByMonth.set(month, (paymentsByMonth.get(month) || 0) + 1);
+    revenueByMonth.set(month, (revenueByMonth.get(month) || 0) + payment.amount);
     if (month === currentMonth) currentPayments += 1;
   }
 
   const series = months.map((month) => {
     const count = paymentsByMonth.get(month) ?? 0;
-    const revenue = count * PLAN_PRICE;
+    const revenue = revenueByMonth.get(month) ?? 0;
     const cost = costByMonth.get(month) ?? 0;
     return { month, revenue, cost, profit: revenue - cost, payments: count };
   });
 
   const currentRow = series[series.length - 1];
-  const allTimeRevenue = payments.length * PLAN_PRICE;
+  const allTimeRevenue = payments.reduce((sum, payment) => sum + payment.amount, 0);
   const allTimeProfit = allTimeRevenue - allTimeCost;
 
   return {

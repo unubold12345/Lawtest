@@ -40,11 +40,11 @@ export async function GET() {
       _count: { _all: true },
     }),
     prisma.pageView.findMany({
-      where: { path: "/v2", createdAt: { gte: dayStart } },
+      where: { path: { in: ["/v2", "/exams/lawyer/2026/v2"] }, createdAt: { gte: dayStart } },
       select: { sessionId: true, userId: true },
       take: 20000,
     }),
-    prisma.pageView.count({ where: { path: "/v2", createdAt: { gte: yStart, lt: dayStart } } }),
+    prisma.pageView.count({ where: { path: { in: ["/v2", "/exams/lawyer/2026/v2"] }, createdAt: { gte: yStart, lt: dayStart } } }),
   ]);
 
   const presenceRow = (p: (typeof presences)[number]) => ({

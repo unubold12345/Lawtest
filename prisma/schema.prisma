@@ -40,6 +40,7 @@ model User {
   studyPresence StudyPresence?
   studyEvents   StudyEvent[]
   paymentRequests PaymentRequest[]
+  entitlements  ExamEntitlement[]
   otps          Otp[]
   visits        PageView[]
   announcements      Announcement[] @relation("AnnouncementAuthor")
@@ -276,11 +277,29 @@ model PaymentRequest {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   status    String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  planId    String   @default("lawyer-2026-full")
+  editionId String   @default("lawyer-2026")
+  amount    Int      @default(39900) // price snapshot in MNT, never recompute from current prices
+  pendingKey String? @unique // user + edition while pending; cleared on decision
   createdAt DateTime @default(now())
   decidedAt DateTime?
 
   @@index([status, createdAt])
   @@index([userId])
+  @@index([editionId, status])
+}
+
+// A purchase grants one edition. paidAt on User is legacy 2026 compatibility only.
+model ExamEntitlement {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  editionId String
+  planId    String
+  grantedAt DateTime @default(now())
+
+  @@unique([userId, editionId])
+  @@index([editionId])
 }
 
 // Admin-entered operating costs for the finance/revenue dashboard (MNT).

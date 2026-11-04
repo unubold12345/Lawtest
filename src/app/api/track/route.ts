@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 // Anonymous page-view beacon. No IP/PII stored — only path + random session id.
-// Body: { path: "/browse", sessionId: "<random 8-64 chars>" }
+// Body: { path: "/exams/lawyer/2026/browse", sessionId: "<random 8-64 chars>" }
 export async function POST(req: Request) {
   if (!rateLimit(`track:${clientIp(req)}`, 120, 60 * 1000)) {
     return NextResponse.json({ ok: false }, { status: 429 });

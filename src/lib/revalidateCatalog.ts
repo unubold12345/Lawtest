@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 // an admin edits an answer or a category fix (the only writers are the two
 // /api/admin routes below). Keeps their time-based revalidate window long so
 // ISR writes stay low on Vercel's Hobby plan.
-const CATALOG_PAGES = ["/browse", "/browse/unanswered", "/quiz", "/v2"];
+const CATALOG_PAGES = ["/", "/exams", "/exams/lawyer/2026", "/exams/lawyer/2026/browse", "/exams/lawyer/2026/browse/unanswered", "/exams/lawyer/2026/quiz", "/exams/lawyer/2026/v2"];
 
 export function revalidateCatalogPages(): void {
   for (const page of CATALOG_PAGES) {

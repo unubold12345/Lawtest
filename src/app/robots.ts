@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin", "/api/", "/set-password", "/history"],
+        disallow: ["/admin", "/api/", "/set-password", "/exams/lawyer/2026/history"],
       },
     ],
     sitemap: "https://lexlab.site/sitemap.xml",

@@ -5,6 +5,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function HistoryLayout({ children }: LayoutProps<"/history">) {
+export default function HistoryLayout({ children }: LayoutProps<"/exams/lawyer/2026/history">) {
   return children;
 }

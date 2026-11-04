@@ -28,14 +28,14 @@ export default function HomePlanPromo() {
               <rect x="4" y="11" width="16" height="10" rx="2" />
               <path d="M8 11V7a4 4 0 0 1 7.9-1" />
             </svg>
-            Бүтэн эрх — 39,900₮
+            2026 · Бүтэн эрх — 39,900₮
           </p>
           <p className="mt-0.5 text-[11px] sm:text-sm text-zinc-300">
-            Нэг удаа төлөөд бүх ангилал, хадгалах цэсийг насан туршдаа нээнэ
+            Хуульчийн шалгалтын 2026 хувилбарын бүх ангилал, хадгалах цэсийг хугацаагүй нээнэ
           </p>
         </div>
         <Link
-          href="/plan"
+          href="/plans/lawyer-2026-full"
           className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-[12px] sm:text-sm font-medium text-zinc-900 hover:bg-zinc-200 transition-colors dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[38px]"
         >
           Эрх авах →

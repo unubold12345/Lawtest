@@ -35,7 +35,7 @@ export default function HomeCategories({ mains }: { mains: Main[] }) {
             key={main}
             className={`rounded-lg sm:rounded-xl border p-3 sm:p-4 transition-colors ${t === 0 ? "bg-amber-50/60 border-amber-200 dark:bg-amber-400/[0.06] dark:border-amber-400/20" : "bg-zinc-50 border-zinc-200 hover:border-zinc-300 dark:bg-white/[0.04] dark:border-white/10 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/10"}`}
           >
-            <Link href={`/browse?cat=${encodeURIComponent(main)}`} className="font-semibold hover:underline text-[13px] sm:text-base">
+            <Link href={`/exams/lawyer/2026/browse?cat=${encodeURIComponent(main)}`} className="font-semibold hover:underline text-[13px] sm:text-base">
               {locked && <span aria-label="төлбөртэй" className="cat-lock">🔒 </span>}{main} <span className="font-normal text-zinc-500">· {t}</span>
             </Link>
             {t === 0 && (
@@ -50,7 +50,7 @@ export default function HomeCategories({ mains }: { mains: Main[] }) {
                 visible.map(({ name: sub, count: n }) => (
                   <Link
                     key={sub}
-                    href={`/browse?cat=${encodeURIComponent(main)}&sub=${encodeURIComponent(sub)}`}
+                    href={`/exams/lawyer/2026/browse?cat=${encodeURIComponent(main)}&sub=${encodeURIComponent(sub)}`}
                     className="rounded-full bg-white border border-zinc-200 px-2 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs hover:bg-zinc-50 dark:bg-white/[0.06] dark:border-white/10 dark:hover:bg-indigo-500/15 dark:hover:border-indigo-400/30 dark:hover:text-indigo-200 transition-colors"
                   >
                     {sub} · {n}

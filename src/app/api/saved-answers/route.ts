@@ -1,3 +1,5 @@
+import { userAccessScope } from "@/lib/entitlements";
+import { hasFullAccess } from "@/lib/access";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -64,8 +66,8 @@ export async function POST(req: Request) {
     const session = await auth();
     const userId = (session?.user as unknown as { id?: string })?.id;
     if (!userId) return NextResponse.json({ error: "Нэвтрээгүй" }, { status: 401 });
-    const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, paidAt: true } });
-    if (!dbUser || (dbUser.role !== "ADMIN" && !dbUser.paidAt)) {
+    const dbUser = await userAccessScope(userId);
+    if (!hasFullAccess(dbUser)) {
       return NextResponse.json({ error: "Эрх нээгдээгүй байна" }, { status: 403 });
     }
     const { questionId, answer } = body;

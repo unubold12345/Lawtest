@@ -814,7 +814,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
 
             {isUnansweredPool && isAuthed && !fullAccess && (
               <div className="mt-3 rounded-lg border border-dashed border-amber-200 bg-amber-50 p-2.5 sm:p-3 text-[11px] sm:text-xs text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
-                Зөв хариулт хадгалах нь төлбөртэй — <Link href="/plan" className="font-medium text-zinc-900 underline hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300">Эрх авах</Link>.
+                Зөв хариулт хадгалах нь төлбөртэй — <Link href="/plans/lawyer-2026-full" className="font-medium text-zinc-900 underline hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300">Эрх авах</Link>.
               </div>
             )}
 
@@ -959,7 +959,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           <p className="flex-1 text-[12px] sm:text-sm text-amber-700 dark:text-amber-300 line-clamp-2">
             🔒 {lockedCount} сорилго түгжээтэй — бусад бүх ангилал төлбөртэй.
           </p>
-          <Link href="/plan" className="shrink-0 inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
+          <Link href="/plans/lawyer-2026-full" className="shrink-0 inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[36px]">
             Эрх авах →
           </Link>
         </div>
@@ -974,7 +974,7 @@ export default function BrowseClient({ index, initialItems, pool }: { index: Ind
           <p className="mt-1 text-[12px] sm:text-sm text-amber-700 dark:text-amber-300">
             «{mainCategory}» ангиллын сорилго үзэх, шалгалт өгөх нь <b>Эрх авах</b> төлөвлөгөөнд багтдаг. Үнэгүй: {FREE_CATEGORY}.
           </p>
-          <Link href="/plan" className="mt-4 inline-flex items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
+          <Link href="/plans/lawyer-2026-full" className="mt-4 inline-flex items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
             Эрх авах — 39,900₮ →
           </Link>
         </div>

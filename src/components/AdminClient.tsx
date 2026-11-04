@@ -43,7 +43,7 @@ type V2Activity = {
 
 type UserFilter = "all" | "active" | "single" | "dormant" | "paid";
 
-type PaymentRow = { id: string; status: string; createdAt: string; decidedAt: string | null; user: { id: string; name: string | null; phone: string | null; email: string; paidAt: string | null } };
+type PaymentRow = { editionId: string; planId: string; amount: number; id: string; status: string; createdAt: string; decidedAt: string | null; user: { id: string; name: string | null; phone: string | null; email: string; paidAt: string | null } };
 
 type ReportRow = { id: string; questionId: string; type: string; message: string; status: string; createdAt: string; user: { id: string; name: string | null; email: string; phone: string | null } };
 
@@ -583,7 +583,7 @@ export default function AdminClient() {
             <div className="mt-4 flex-1">{navList(select)}</div>
             <div className="mt-4 grid gap-1.5 border-t border-zinc-200 pt-4 dark:border-white/10">
               <Link href="/" className="rounded-full border border-zinc-200 px-4 py-2 text-center text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">Нүүр</Link>
-              <Link href="/browse" className="rounded-full border border-zinc-200 px-4 py-2 text-center text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">Сорилго</Link>
+              <Link href="/exams/lawyer/2026/browse" className="rounded-full border border-zinc-200 px-4 py-2 text-center text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">Сорилго</Link>
             </div>
           </div>
         </div>
@@ -599,7 +599,7 @@ export default function AdminClient() {
           {navList(select)}
           <div className="mt-3 grid gap-1.5 border-t border-zinc-200 pt-3 dark:border-white/10">
             <Link href="/" className="rounded-full border border-zinc-200 px-4 py-2 text-center text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">Нүүр</Link>
-            <Link href="/browse" className="rounded-full border border-zinc-200 px-4 py-2 text-center text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">Сорилго</Link>
+            <Link href="/exams/lawyer/2026/browse" className="rounded-full border border-zinc-200 px-4 py-2 text-center text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5">Сорилго</Link>
           </div>
         </aside>
 
@@ -900,7 +900,7 @@ export default function AdminClient() {
                           <div className="flex flex-wrap items-center gap-1.5">
                             <p className="truncate font-mono text-[13px] font-semibold">{u.phone || u.email}</p>
                             {u.role === "ADMIN" && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-400/15 dark:text-violet-300">ADMIN</span>}
-                            {u.paidAt && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">💰 Эрхтэй</span>}
+                            {u.paidAt && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">💰 2026 эрхтэй</span>}
                           </div>
                           <p className="truncate text-xs text-zinc-500">{u.email}</p>
                           <p className="text-[11px] text-zinc-400">Бүртгүүлсэн: {new Date(u.createdAt).toLocaleDateString("mn-MN")}</p>
@@ -921,7 +921,7 @@ export default function AdminClient() {
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-1.5 lg:flex lg:shrink-0">
-                        <button onClick={()=>togglePaid(u)} className="rounded-full border border-zinc-200 px-3 py-2 text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px] lg:min-h-[36px]">{u.paidAt ? 'Эрх хаах' : 'Эрх нээх'}</button>
+                        <button onClick={()=>togglePaid(u)} className="rounded-full border border-zinc-200 px-3 py-2 text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px] lg:min-h-[36px]">{u.paidAt ? '2026 эрх хаах' : '2026 эрх нээх'}</button>
                         <button onClick={()=>toggleRole(u)} className="rounded-full border border-zinc-200 px-3 py-2 text-xs hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 min-h-[40px] lg:min-h-[36px]">{u.role==='ADMIN' ? 'USER болгох' : 'ADMIN болгох'}</button>
                         <button onClick={()=>delUser(u)} className="rounded-full border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 dark:border-rose-400/30 dark:text-rose-400 dark:hover:bg-rose-400/10 min-h-[40px] lg:min-h-[36px]">Устгах</button>
                       </div>
@@ -971,7 +971,7 @@ export default function AdminClient() {
               </div>
             )}
             <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:bg-white/[0.04] dark:border-white/10">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">Нийт {stats.questions.total} сорилго. Жагсаалтыг дэлгэрэнгүй харах бол <Link href="/browse" className="underline">Бүх сорилго</Link> руу орно уу. Доор файл тус бүрээр харуулав.</p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">Нийт {stats.questions.total} сорилго. Жагсаалтыг дэлгэрэнгүй харах бол <Link href="/exams/lawyer/2026/browse" className="underline">Бүх сорилго</Link> руу орно уу. Доор файл тус бүрээр харуулав.</p>
               {fixedKeys.size > 0 && (
                 <p className="mt-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">Зассан: {fixedKeys.size} файл — админд /browse шүүлтүүрт ногооноор харагдана.</p>
               )}
@@ -1214,14 +1214,15 @@ export default function AdminClient() {
                   ))}
                 </div>
               </div>
-              <p className="mt-1 text-[11px] sm:text-xs text-zinc-500">Хэрэглэгч QR-аар 39,900₮ төлсний дараа хүсэлт илгээдэг — төлбөрийг шалгаад эрхийг нээнэ үү.</p>
+              <p className="mt-1 text-[11px] sm:text-xs text-zinc-500">Хүсэлт бүрийн шалгалт, хувилбар, төлбөрийн дүнг шалгаад зөвхөн тухайн хувилбарын эрхийг нээнэ үү.</p>
               <div className="mt-3 grid gap-2">
                 {payments.map((p) => (
                   <div key={p.id} className="rounded-xl border border-zinc-200 p-3 dark:border-white/10">
                     <div className="flex flex-wrap items-center justify-between gap-1.5">
                       <span className="font-mono text-xs">{p.user?.phone || p.user?.email}</span>
                       <div className="flex items-center gap-1.5">
-                        {p.user?.paidAt && <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">💰 Эрхтэй</span>}
+                        <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-300">{p.editionId} · {p.amount.toLocaleString("mn-MN")}₮</span>
+                        {p.editionId === "lawyer-2026" && p.user?.paidAt && <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">💰 2026 эрхтэй</span>}
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${p.status === "PENDING" ? "bg-amber-50 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300" : p.status === "APPROVED" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300" : "bg-rose-50 text-rose-700 dark:bg-rose-400/10 dark:text-rose-300"}`}>
                           {p.status === "PENDING" ? "Хүлээгдэж буй" : p.status === "APPROVED" ? "Зөвшөөрсөн" : "Татгалзсан"}
                         </span>

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 // Content modes (ids, full) are entitlement-checked server-side: non-paid
 // callers only receive free-category questions. Counts/metadata stay public.
 // Accepts both NextAuth sessions and mobile bearer tokens.
-async function accessScope(req: Request): Promise<{ role: string | null; paidAt: Date | null }> {
+async function accessScope(req: Request): Promise<import("@/lib/access").AccessScope> {
   return requestAccessScope(req);
 }
 
@@ -24,6 +24,10 @@ async function accessScope(req: Request): Promise<{ role: string | null; paidAt:
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const sp = url.searchParams;
+  // This compatibility API serves only the 2026 workspace. Never silently
+  // substitute this bank when a caller asks for a different edition.
+  const editionId = sp.get("editionId") || "lawyer-2026";
+  if (editionId !== "lawyer-2026") return NextResponse.json({ error: "Unknown question bank" }, { status: 404 });
   await refreshOverrides();
   const data = loadQuestions();
 

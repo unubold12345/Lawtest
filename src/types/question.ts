@@ -1,5 +1,6 @@
 export type Question = {
   id: string;
+  editionId?: string; // set by bank loader; legacy IDs stay intact
   // Main category = data/<Main>/ folder name. Fallback = filename if no subfolder.
   category?: string;
   // Subcategory = file name without extension inside data/<Main>/ . e.g. data/Гэр бүл/Хүүхэд.json -> subCategory="Хүүхэд"

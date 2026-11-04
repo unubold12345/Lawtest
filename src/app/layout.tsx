@@ -13,10 +13,10 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   metadataBase: new URL("https://lexlab.site"),
   title: {
-    default: "Хуульчийн мэргэжлийн шалгалтын сорилго — Lexlab",
+    default: "Шалгалтын бэлтгэл — Lexlab",
     template: "%s — Lexlab",
   },
-  description: "Хуульчийн мэргэжлийн шалгалтын сорилго — үндсэн ангилал, дэд ангилал, шалгалт ба сургалт.",
+  description: "Шалгалтын төрөл, оны хувилбараар бэлтгэлээ сонго. Асуултын сан, сорилго, жишиг шалгалт — нэг дор.",
   appleWebApp: {
     capable: true,
     title: "Lexlab",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Хуульчийн мэргэжлийн шалгалтын сорилго",
-    description: "Хуульчийн мэргэжлийн шалгалтын сорилго — үндсэн ангилал, дэд ангилал, шалгалт ба сургалт.",
+    description: "Шалгалтын төрөл, оны хувилбараар бэлтгэлээ сонго. Асуултын сан, сорилго, жишиг шалгалт — нэг дор.",
     url: "/",
     siteName: "Lexlab",
     locale: "mn_MN",
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Хуульчийн мэргэжлийн шалгалтын сорилго",
-    description: "Хуульчийн мэргэжлийн шалгалтын сорилго — үндсэн ангилал, дэд ангилал, шалгалт ба сургалт.",
+    description: "Шалгалтын төрөл, оны хувилбараар бэлтгэлээ сонго. Асуултын сан, сорилго, жишиг шалгалт — нэг дор.",
   },
 };
 

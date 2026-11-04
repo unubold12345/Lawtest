@@ -3,6 +3,9 @@ import path from "node:path";
 import type { Question, QuestionsLoadResult } from "@/types/question";
 import { applyOverrides, overridesStamp } from "@/lib/questionOverrides";
 
+import { LEGACY_EDITION_ID } from "@/lib/catalog";
+
+// This loader owns only the original 2026 bank.
 const DATA_DIR = path.join(process.cwd(), "data");
 
 function parseTxtBlocks(raw: string, file: string): Question[] {
@@ -91,7 +94,7 @@ export function loadQuestions(): QuestionsLoadResult {
     const a = q.answer;
     if (typeof a === "number" || (Array.isArray(a) && a.length > 0)) fileAnswered.add(q.id);
   }
-  result.questions = applyOverrides(result.questions);
+  result.questions = applyOverrides(result.questions).map((q) => ({ ...q, editionId: LEGACY_EDITION_ID }));
   cache = { stamp, result, fileAnswered };
   return result;
 }

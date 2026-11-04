@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   const [user, attempts, saved, notes, mistakes, mistakeAgg, attemptsRaw] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, phone: true, email: true, role: true, paidAt: true, createdAt: true, password: true },
+      select: { id: true, name: true, phone: true, email: true, role: true, paidAt: true, entitlements: { select: { editionId: true, planId: true, grantedAt: true } }, createdAt: true, password: true },
     }),
     prisma.attempt.aggregate({ where: { userId }, _count: { _all: true }, _sum: { score: true, total: true } }),
     prisma.savedAnswer.count({ where: { userId } }),
@@ -30,6 +30,7 @@ export async function GET(req: Request) {
     phone: user.phone,
     email: user.email && !user.email.endsWith("@phone.local") ? user.email : null,
     role: user.role,
+    entitlements: user.entitlements,
     paidAt: user.paidAt ? user.paidAt.toISOString() : null,
     createdAt: user.createdAt.toISOString(),
     hasPassword: !!user.password,

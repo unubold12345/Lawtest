@@ -1,3 +1,4 @@
+import { hasFullAccess } from "@/lib/access";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
@@ -44,6 +45,7 @@ export async function POST(req: Request) {
         email: true,
         role: true,
         paidAt: true,
+        entitlements: { select: { editionId: true } },
         createdAt: true,
         password: true,
       },
@@ -63,7 +65,8 @@ export async function POST(req: Request) {
         email: user.email && !user.email.endsWith("@phone.local") ? user.email : null,
         role: user.role,
         paidAt: user.paidAt ? user.paidAt.toISOString() : null,
-        hasPaid: user.role === "ADMIN" || !!user.paidAt,
+        hasPaid: hasFullAccess({ ...user, editionIds: user.entitlements.map((e) => e.editionId) }),
+        editionIds: user.entitlements.map((e) => e.editionId),
         createdAt: user.createdAt.toISOString(),
       },
     });

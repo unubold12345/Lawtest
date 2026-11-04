@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import TermsModal from "@/components/TermsModal";
 
-export default function PaymentRequestButton({ authed, initialPending }: { authed: boolean; initialPending: boolean }) {
+export default function PaymentRequestButton({ authed, initialPending, planId }: { authed: boolean; initialPending: boolean; planId: string }) {
   const [pending, setPending] = useState(initialPending);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -14,7 +14,7 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
   const checkStatus = useCallback(async (manual = false) => {
     if (manual) setChecking(true);
     try {
-      const r = await fetch("/api/payment-requests", { cache: "no-store" });
+      const r = await fetch(`/api/payment-requests?planId=${encodeURIComponent(planId)}`, { cache: "no-store" });
       if (!r.ok) return;
       const d = await r.json();
       if (d?.hasPaid) {
@@ -29,7 +29,7 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
     } finally {
       if (manual) setChecking(false);
     }
-  }, []);
+  }, [planId]);
 
   useEffect(() => {
     if (!authed || !pending) return;
@@ -48,7 +48,7 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
     setBusy(true);
     setErr("");
     try {
-      const r = await fetch("/api/payment-requests", { method: "POST" });
+      const r = await fetch("/api/payment-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Амжилтгүй");
       if (d.paid) {
@@ -67,7 +67,7 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
     return (
       <div>
         <Link
-          href="/login?next=/plan"
+          href={`/login?next=${encodeURIComponent(`/plans/${planId}`)}`}
           className="flex w-full items-center justify-center rounded-full bg-indigo-600 px-4 py-3 text-center leading-snug text-[14px] sm:text-base font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[48px]"
         >
           <span className="text-center leading-snug">Нэвтэрч ороод хүсэлт илгээх<span className="whitespace-nowrap"> →</span></span>
@@ -98,6 +98,7 @@ export default function PaymentRequestButton({ authed, initialPending }: { authe
   }
   return (
     <div>
+      <p className="mb-3 text-xs leading-5 text-zinc-500">Сонгосон төлөвлөгөө: {planId}. Эрх зөвхөн энэ шалгалтын хувилбарт үйлчилнэ.</p>
       <button
         onClick={send}
         disabled={busy || !accepted}

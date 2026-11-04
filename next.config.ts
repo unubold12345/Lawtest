@@ -11,7 +11,13 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   async redirects() {
-    return [{ source: "/study", destination: "/v2", permanent: true }];
+    return [
+      ...["browse", "quiz", "v2", "history", "calendar"].map((route) => ({
+        source: `/${route}/:path*`, destination: `/exams/lawyer/2026/${route}/:path*`, permanent: true,
+      })),
+      { source: "/study", destination: "/exams/lawyer/2026/v2", permanent: true },
+      { source: "/plan", destination: "/plans/lawyer-2026-full", permanent: true },
+    ];
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];

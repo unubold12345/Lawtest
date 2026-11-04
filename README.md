@@ -2,6 +2,16 @@
 
 Next.js 16 + Prisma (Postgres) + Auth.js v5. 143 асуулт (123 + 20 mock), localStorage fallback зочин.
 
+## Exam catalog and plans
+
+The platform now separates exam types, yearly editions, and plans. All existing
+questions and paid access belong to **Хуульчийн шалгалт · 2026**. Start at `/exams`
+or `/plans`; existing study links redirect into `/exams/lawyer/2026`.
+
+See [EXAM_STRUCTURE.md](EXAM_STRUCTURE.md) for the registry, access rules, migration
+rollout, and how to add independently priced exams. Apply the edition-access SQL
+migration before deploying this version; `db push` alone does not backfill purchases.
+
 ## Stack
 - Next.js 16 App Router, TypeScript, Tailwind 4, Turbopack
 - Prisma 6 + Postgres (Neon pooled) — `provider = "postgresql"` (`prisma/schema.prisma:5`)

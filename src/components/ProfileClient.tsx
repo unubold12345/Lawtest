@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { passwordProblem } from "@/lib/password";
+import { EXAM_EDITIONS } from "@/lib/catalog";
+import { hasEditionAccess } from "@/lib/access";
 import ProfileStats from "@/components/ProfileStats";
 import { computeStats, fmtDur, type RawAttempt } from "@/lib/profileStats";
 
@@ -12,6 +14,7 @@ type Profile = {
   email: string | null;
   role: string;
   paidAt: string | null;
+  entitlements?: { editionId: string; planId: string; grantedAt: string }[];
   createdAt: string;
   hasPassword: boolean;
   stats: { attempts: number; avgPct: number | null; saved: number; notes: number; mistakes: number };
@@ -207,7 +210,7 @@ export default function ProfileClient() {
 
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleDateString("mn-MN", { year: "numeric", month: "2-digit", day: "2-digit" });
-  const paid = !!p.paidAt || p.role === "ADMIN";
+  const paid = hasEditionAccess("lawyer-2026", { ...p, editionIds: p.entitlements?.map((e) => e.editionId) });
   const chips = (
     <>
       {p.role === "ADMIN" && (
@@ -217,7 +220,7 @@ export default function ProfileClient() {
       )}
       {paid && (
         <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
-          Эрхтэй
+          2026 · Эрхтэй
         </span>
       )}
     </>
@@ -332,7 +335,7 @@ export default function ProfileClient() {
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="font-semibold">Сүүлийн шалгалтууд</h3>
                   {p.attemptsRaw.length > 0 && (
-                    <Link href="/history" className="text-xs text-indigo-600 underline dark:text-indigo-400">
+                    <Link href="/exams/lawyer/2026/history" className="text-xs text-indigo-600 underline dark:text-indigo-400">
                       Бүгд →
                     </Link>
                   )}
@@ -340,7 +343,7 @@ export default function ProfileClient() {
                 {p.attemptsRaw.length === 0 ? (
                   <p className="mt-3 text-sm text-zinc-500">
                     Одоогоор шалгалт өгөөгүй.{" "}
-                    <Link href="/quiz" className="underline">
+                    <Link href="/exams/lawyer/2026/quiz" className="underline">
                       Шалгалт эхлэх
                     </Link>
                   </p>
@@ -375,10 +378,10 @@ export default function ProfileClient() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Link href="/quiz" className={`${cardCls} hover:border-indigo-300 dark:hover:border-indigo-400/40 transition-colors`}>
+                <Link href="/exams/lawyer/2026/quiz" className={`${cardCls} hover:border-indigo-300 dark:hover:border-indigo-400/40 transition-colors`}>
                   <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Шалгалт эхлэх</p>
                 </Link>
-                <Link href="/history" className={`${cardCls} hover:border-indigo-300 dark:hover:border-indigo-400/40 transition-colors`}>
+                <Link href="/exams/lawyer/2026/history" className={`${cardCls} hover:border-indigo-300 dark:hover:border-indigo-400/40 transition-colors`}>
                   <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Түүх</p>
                 </Link>
               </div>
@@ -389,6 +392,16 @@ export default function ProfileClient() {
 
           {tab === "settings" && (
             <div className="space-y-4">
+              <div className={cardCls}>
+                <h3 className="font-semibold">Миний шалгалтын эрх</h3>
+                <div className="mt-3 space-y-3">
+                  {EXAM_EDITIONS.map((edition) => {
+                    const owned = hasEditionAccess(edition.id, { ...p, editionIds: p.entitlements?.map((e) => e.editionId) });
+                    return <div key={edition.id} className="flex flex-wrap items-center justify-between gap-3 text-sm"><span>{edition.title}</span><Link href={owned ? edition.href : "/plans"} className="text-indigo-600 underline dark:text-indigo-300">{owned ? "Эрхтэй · Бэлтгэл рүү" : "Төлөвлөгөө үзэх"}</Link></div>;
+                  })}
+                </div>
+                <p className="mt-3 text-xs leading-5 text-zinc-500">Эрх бүр зөвхөн тухайн шалгалт, оны хувилбарт үйлчилнэ.</p>
+              </div>
               <div className={cardCls}>
                 <h3 className="font-semibold">Нэр солих</h3>
                 <p className="mt-1 text-xs text-zinc-500">2–24 тэмдэгт, үсгээр эхлэх ёстой.</p>
@@ -494,10 +507,10 @@ export default function ProfileClient() {
             <div className={`${cardCls} space-y-1`}>
               <h3 className="text-sm font-semibold">Шуурхай</h3>
               {[
-                { href: "/quiz", label: "Шалгалт эхлэх" },
-                { href: "/history", label: "Түүх" },
-                { href: "/calendar", label: "Календар" },
-                { href: "/browse", label: "Сорилго" },
+                { href: "/exams/lawyer/2026/quiz", label: "Шалгалт эхлэх" },
+                { href: "/exams/lawyer/2026/history", label: "Түүх" },
+                { href: "/exams/lawyer/2026/calendar", label: "Календар" },
+                { href: "/exams/lawyer/2026/browse", label: "Сорилго" },
               ].map((l) => (
                 <Link key={l.href} href={l.href} className="block rounded-lg px-2 py-1.5 text-[13px] font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-200">
                   {l.label}

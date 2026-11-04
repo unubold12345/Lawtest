@@ -1,3 +1,4 @@
+import { getPlan, getEdition, LEGACY_EDITION_ID, LEGACY_PLAN_ID } from "@/lib/catalog";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
@@ -58,25 +59,32 @@ export async function PATCH(req: Request) {
   const check = await requireAdmin();
   if (!check.ok) return NextResponse.json({ error: check.error }, { status: check.status });
   try {
-    const { id, role, paid } = await req.json();
+    const { id, role, paid, planId = LEGACY_PLAN_ID } = await req.json();
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
     // manual plan grant / revoke (төлбөрийг гараар баталгаажуулах)
     if (typeof paid === "boolean") {
-      const before = await prisma.user.findUnique({ where: { id }, select: { paidAt: true } });
-      const updated = await prisma.user.update({
-        where: { id },
-        data: { paidAt: paid ? new Date() : null },
-        select: { id: true, paidAt: true },
-      });
-      // paid-plan grant bell notification (only on unpaid → paid transition)
-      if (paid && !before?.paidAt) {
-        await prisma.announcement.create({
-          data: {
-            body: "Таны эрх амжилттай нээгдлээ. Lexlab-ийг сонгосонд баярлалаа.",
-            recipients: { connect: [{ id }] },
-          },
+      const plan = getPlan(planId);
+      if (!plan) return NextResponse.json({ error: "Unknown plan" }, { status: 400 });
+      const updated = await prisma.$transaction(async (tx) => {
+        const before = await tx.examEntitlement.findUnique({ where: { userId_editionId: { userId: id, editionId: plan.editionId } } });
+        if (paid) {
+          await tx.examEntitlement.upsert({
+            where: { userId_editionId: { userId: id, editionId: plan.editionId } },
+            create: { userId: id, editionId: plan.editionId, planId: plan.id }, update: {},
+          });
+        } else {
+          await tx.examEntitlement.deleteMany({ where: { userId: id, editionId: plan.editionId } });
+        }
+        const user = await tx.user.update({
+          where: { id },
+          data: plan.editionId === LEGACY_EDITION_ID ? { paidAt: paid ? new Date() : null } : {},
+          select: { id: true, paidAt: true, entitlements: { select: { editionId: true, planId: true } } },
         });
-      }
+        if (paid && !before) await tx.announcement.create({ data: {
+          body: `${getEdition(plan.editionId)!.title} — таны эрх амжилттай нээгдлээ.`, recipients: { connect: [{ id }] },
+        } });
+        return user;
+      });
       return NextResponse.json({ user: updated });
     }
     if (!["USER", "ADMIN"].includes(role)) return NextResponse.json({ error: "role USER|ADMIN required" }, { status: 400 });

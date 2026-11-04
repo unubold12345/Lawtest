@@ -68,13 +68,13 @@ export default function HomeHero({
 
           <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-2.5">
             <Link
-              href="/quiz"
+              href="/exams/lawyer/2026/quiz"
               className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-indigo-600 px-6 text-[13px] sm:text-sm font-semibold text-white shadow-sm shadow-indigo-600/30 transition-colors hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400"
             >
               Шалгалт эхлэх <span aria-hidden>→</span>
             </Link>
             <Link
-              href="/browse"
+              href="/exams/lawyer/2026/browse"
               className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full border border-zinc-200 bg-white px-6 text-[13px] sm:text-sm font-semibold text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/10"
             >
               Сорилго үзэх

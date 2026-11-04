@@ -23,7 +23,8 @@ export default function Header() {
   // session not resolved yet — show invisible placeholders instead of flashing guest UI
   const authPending = !user && status === "loading";
   const pathname = usePathname();
-  const browseActive = pathname === "/browse" || pathname === "/browse/unanswered" || pathname === "/v2";
+  const inWorkspace = pathname.startsWith("/exams/lawyer/2026");
+  const browseActive = pathname === "/exams/lawyer/2026/browse" || pathname === "/exams/lawyer/2026/browse/unanswered" || pathname === "/exams/lawyer/2026/v2";
   const [open, setOpen] = useState(false);
   const [browseOpen, setBrowseOpen] = useState(false);
   const [mobileBrowse, setMobileBrowse] = useState(false);
@@ -77,6 +78,9 @@ export default function Header() {
             </span>
           </Link>
           <nav className="hidden sm:flex items-center gap-1">
+            <Link href="/exams" className={linkCls("/exams", pathname === "/" || pathname === "/exams")}>Шалгалтын сан</Link>
+            <Link href="/plans" prefetch={false} className={linkCls("/plans", pathname.startsWith("/plans"))}>Төлөвлөгөө</Link>
+            {inWorkspace && <>
             <div
               className="relative"
               onMouseEnter={() => setBrowseOpen(true)}
@@ -88,23 +92,23 @@ export default function Header() {
                 type="button"
                 aria-haspopup="true"
                 aria-expanded={browseOpen}
-                className={`${linkCls("/browse", browseActive)} gap-1`}
+                className={`${linkCls("/exams/lawyer/2026/browse", browseActive)} gap-1`}
               >
                 Сорилго
                 <span className="text-[9px] opacity-70" aria-hidden>▼</span>
               </button>
               <div className={`absolute left-0 top-full z-40 pt-2 transition-opacity ${browseOpen ? "visible opacity-100" : "invisible opacity-0"}`}>
                 <div className="w-52 rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-white/10 dark:bg-[#0b0b12]">
-                  <Link href="/browse" prefetch={false} onClick={() => setBrowseOpen(false)} className={menuCls("/browse")}>Хариулттай сорилго</Link>
-                  <Link href="/browse/unanswered" prefetch={false} onClick={() => setBrowseOpen(false)} className={menuCls("/browse/unanswered")}>Хариултгүй сорилго</Link>
-                  <Link href="/v2" prefetch={false} onClick={() => setBrowseOpen(false)} className={menuCls("/v2")}>v2(beta)</Link>
+                  <Link href="/exams/lawyer/2026/browse" prefetch={false} onClick={() => setBrowseOpen(false)} className={menuCls("/exams/lawyer/2026/browse")}>Хариулттай сорилго</Link>
+                  <Link href="/exams/lawyer/2026/browse/unanswered" prefetch={false} onClick={() => setBrowseOpen(false)} className={menuCls("/exams/lawyer/2026/browse/unanswered")}>Хариултгүй сорилго</Link>
+                  <Link href="/exams/lawyer/2026/v2" prefetch={false} onClick={() => setBrowseOpen(false)} className={menuCls("/exams/lawyer/2026/v2")}>Сургалтын төв</Link>
                 </div>
               </div>
             </div>
-            <Link href="/quiz" prefetch={false} className={linkCls("/quiz")}>Шалгалт</Link>
-            <Link href="/history" prefetch={false} className={linkCls("/history")}>Түүх</Link>
-            <Link href="/calendar" prefetch={false} className={linkCls("/calendar")}>Календар</Link>
-            {!authPending && user?.hasPaid !== true && <Link href="/plan" prefetch={false} className={linkCls("/plan")}>Эрх авах</Link>}
+            <Link href="/exams/lawyer/2026/quiz" prefetch={false} className={linkCls("/exams/lawyer/2026/quiz")}>Шалгалт</Link>
+            <Link href="/exams/lawyer/2026/history" prefetch={false} className={linkCls("/exams/lawyer/2026/history")}>Түүх</Link>
+            <Link href="/exams/lawyer/2026/calendar" prefetch={false} className={linkCls("/exams/lawyer/2026/calendar")}>Календар</Link>
+            </>}
             {user && isAdmin && <Link href="/admin" prefetch={false} className={linkCls("/admin")}>Админ</Link>}
           </nav>
         </div>
@@ -183,7 +187,9 @@ export default function Header() {
           <Link href="/" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/")}>
             Нүүр
           </Link>
-          <div>
+          <Link href="/exams" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/exams")}>Шалгалтын сан</Link>
+          <Link href="/plans" onClick={() => setOpen(false)} className={mobileRowCls(pathname.startsWith("/plans"))}>Төлөвлөгөө</Link>
+          {inWorkspace && <div>
             <button
               type="button"
               aria-expanded={mobileBrowse}
@@ -196,23 +202,25 @@ export default function Header() {
             </button>
             {mobileBrowse && (
               <div id="mobile-browse-menu" className="mt-1 space-y-1 pl-3">
-                <Link href="/browse" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/browse", true)}>
+                <Link href="/exams/lawyer/2026/browse" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/exams/lawyer/2026/browse", true)}>
                   Хариулттай сорилго
                 </Link>
-                <Link href="/browse/unanswered" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/browse/unanswered", true)}>
+                <Link href="/exams/lawyer/2026/browse/unanswered" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/exams/lawyer/2026/browse/unanswered", true)}>
                   Хариултгүй сорилго
                 </Link>
-                <Link href="/v2" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/v2", true)}>
-                  v2(beta)
+                <Link href="/exams/lawyer/2026/v2" onClick={() => setOpen(false)} className={mobileRowCls(pathname === "/exams/lawyer/2026/v2", true)}>
+                  Сургалтын төв
                 </Link>
               </div>
             )}
-          </div>
+          </div>}
           {[
-            { href: "/quiz", label: "Шалгалт" },
-            { href: "/history", label: "Түүх" },
-            { href: "/calendar", label: "Календар" },
-            ...(!authPending && user?.hasPaid !== true ? [{ href: "/plan", label: "Эрх авах" }] : []),
+            ...(inWorkspace ? [
+            { href: "/exams/lawyer/2026/quiz", label: "Шалгалт" },
+            { href: "/exams/lawyer/2026/history", label: "Түүх" },
+            { href: "/exams/lawyer/2026/calendar", label: "Календар" },
+            ] : []),
+
             ...(user && isAdmin ? [{ href: "/admin", label: "Админ" }] : []),
           ].map((l) => (
             <Link
