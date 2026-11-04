@@ -1,4 +1,5 @@
 "use client";
+import { PlanLink } from "@/components/PlansProvider";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -1582,9 +1583,9 @@ export default function StudyClient({ index }: { index: IndexData }) {
             {!fullAccess && (
               <p className="mt-2.5 text-[10.5px] leading-snug text-zinc-400 sm:text-[11px]">
                 🔒 Үнэгүй эрхээр зөвхөн «{FREE_CATEGORY}» —{" "}
-                <Link href="/plans/lawyer-2026-full" className="underline hover:text-indigo-600 dark:hover:text-indigo-300">
+                <PlanLink href="/plans/lawyer-2026-full" className="underline hover:text-indigo-600 dark:hover:text-indigo-300">
                   Эрх авах
-                </Link>{" "}
+                </PlanLink>{" "}
                 бол бүх ангилал нээгдэнэ.
               </p>
             )}
@@ -2010,12 +2011,12 @@ export default function StudyClient({ index }: { index: IndexData }) {
               <p className="mt-1 text-[12px] text-zinc-500 sm:text-sm">
                 Бусад ангиллаар суралцах, явцаа хадгалах нь 39,900₮-ийн бүтэн эрхэд багтдаг.
               </p>
-              <Link
+              <PlanLink
                 href="/plans/lawyer-2026-full"
                 className="mt-4 flex min-h-[40px] w-full items-center justify-center rounded-full bg-indigo-600 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-indigo-600/30 transition-all hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:shadow-lg dark:shadow-indigo-950/40 sm:text-sm"
               >
                 Эрх авах →
-              </Link>
+              </PlanLink>
               <button
                 onClick={() => setPaywallNote(false)}
                 className="mt-2 min-h-[40px] w-full rounded-full border border-zinc-200 py-2.5 text-[13px] transition-colors hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5 sm:text-sm"

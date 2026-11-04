@@ -1,3 +1,4 @@
+import { PlanLink } from "@/components/PlansProvider";
 import Link from "next/link";
 import { EXAM_EDITIONS, editionPlans, LEGACY_EDITION_ID } from "@/lib/catalog";
 import { getQuestionCount } from "@/lib/questions";
@@ -12,7 +13,7 @@ export default function ExamCatalog() {
         <p className="mt-5 max-w-xl text-sm leading-7 text-zinc-600 sm:text-base dark:text-zinc-400">Шалгалтын төрөл, оны хувилбараар бэлтгэлээ сонгоорой. Асуултын сан, сорилго, жишиг шалгалт — нэг дор.</p>
         <div className="mt-7 flex flex-wrap gap-3">
           <a href="#exam-catalog" className="rounded-full bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-500">Шалгалтуудыг үзэх ↓</a>
-          <Link href="/plans" className="rounded-full border border-zinc-300 px-6 py-3 text-sm font-medium hover:bg-white/50 dark:border-white/20 dark:hover:bg-white/5">Төлөвлөгөө, үнэ →</Link>
+          <PlanLink href="/plans" className="rounded-full border border-zinc-300 px-6 py-3 text-sm font-medium hover:bg-white/50 dark:border-white/20 dark:hover:bg-white/5">Төлөвлөгөө, үнэ →</PlanLink>
         </div>
       </section>
 
@@ -32,7 +33,7 @@ export default function ExamCatalog() {
               <p className="mt-5 text-sm font-medium">{count !== null ? `${count.toLocaleString("mn-MN")} асуулт` : "Асуултын сан"}{edition.freeCategories.length > 0 && <><span className="px-2 text-zinc-400">·</span> Үнэгүй турших боломжтой</>}</p>
               <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-zinc-100 pt-5 dark:border-white/10">
                 <Link href={edition.href} className="rounded-full bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-500">{edition.year} бэлтгэл рүү →</Link>
-                {plan && <Link href={`/plans/${plan.id}`} className="text-sm font-semibold text-indigo-600 dark:text-indigo-300">{plan.price.toLocaleString("mn-MN")}₮ · Бүтэн эрх</Link>}
+                {plan && <PlanLink href={`/plans/${plan.id}`} className="text-sm font-semibold text-indigo-600 dark:text-indigo-300">{plan.price.toLocaleString("mn-MN")}₮ · Бүтэн эрх</PlanLink>}
               </div>
             </article>;
           })}

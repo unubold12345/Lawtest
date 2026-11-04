@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PlanLink } from "@/components/PlansProvider";
 import { auth } from "@/lib/auth";
 import { EXAM_PLANS, getEdition } from "@/lib/catalog";
 import { hasEditionAccess } from "@/lib/access";
@@ -24,7 +24,7 @@ export default async function PlansPage() {
           <p className="mt-5 text-4xl font-extrabold">{plan.price.toLocaleString("mn-MN")}<span className="text-xl">₮</span></p>
           <p className="mt-2 text-xs text-zinc-500">Нэг удаагийн төлбөр · Сонгосон хувилбарт хугацаагүй</p>
           <ul className="mt-6 space-y-3 text-sm"><li>✓ {edition.year} оны бүх ангиллын асуулт</li><li>✓ Сорилго, сургалт, жишиг шалгалт</li><li>✓ Хариулт хадгалах, шалгалт үргэлжлүүлэх</li></ul>
-          <Link href={owned ? edition.href : `/plans/${plan.id}`} className="mt-7 flex min-h-12 items-center justify-center rounded-full bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-500">{owned ? "✓ Эрхтэй · Бэлтгэл рүү →" : "Эрх авах →"}</Link>
+          <PlanLink href={owned ? edition.href : `/plans/${plan.id}`} className="mt-7 flex min-h-12 items-center justify-center rounded-full bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-500">{owned ? "✓ Эрхтэй · Бэлтгэл рүү →" : "Эрх авах →"}</PlanLink>
         </article>;
       })}
     </div>

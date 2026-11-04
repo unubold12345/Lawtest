@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { passwordProblem } from "@/lib/password";
-import { EXAM_EDITIONS } from "@/lib/catalog";
+import { PlanLink } from "@/components/PlansProvider";
+import { EXAM_EDITIONS, editionPlans } from "@/lib/catalog";
 import { hasEditionAccess } from "@/lib/access";
 import ProfileStats from "@/components/ProfileStats";
 import { computeStats, fmtDur, type RawAttempt } from "@/lib/profileStats";
@@ -397,7 +398,7 @@ export default function ProfileClient() {
                 <div className="mt-3 space-y-3">
                   {EXAM_EDITIONS.map((edition) => {
                     const owned = hasEditionAccess(edition.id, { ...p, editionIds: p.entitlements?.map((e) => e.editionId) });
-                    return <div key={edition.id} className="flex flex-wrap items-center justify-between gap-3 text-sm"><span>{edition.title}</span><Link href={owned ? edition.href : "/plans"} className="text-indigo-600 underline dark:text-indigo-300">{owned ? "Эрхтэй · Бэлтгэл рүү" : "Төлөвлөгөө үзэх"}</Link></div>;
+                    return <div key={edition.id} className="flex flex-wrap items-center justify-between gap-3 text-sm"><span>{edition.title}</span><PlanLink href={owned ? `/plans/${p.entitlements?.find((grant) => grant.editionId === edition.id)?.planId || editionPlans(edition.id)[0]?.id}` : "/plans"} className="text-indigo-600 underline dark:text-indigo-300">{owned ? "Эрхтэй · Дэлгэрэнгүй" : "Төлөвлөгөө үзэх"}</PlanLink></div>;
                   })}
                 </div>
                 <p className="mt-3 text-xs leading-5 text-zinc-500">Эрх бүр зөвхөн тухайн шалгалт, оны хувилбарт үйлчилнэ.</p>

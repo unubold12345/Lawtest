@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import TermsModal from "@/components/TermsModal";
 
-export default function PaymentRequestButton({ authed, initialPending, planId }: { authed: boolean; initialPending: boolean; planId: string }) {
+export default function PaymentRequestButton({ authed, initialPending, planId, onPaid }: { authed: boolean; initialPending: boolean; planId: string; onPaid?: () => void }) {
   const [pending, setPending] = useState(initialPending);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -18,7 +18,7 @@ export default function PaymentRequestButton({ authed, initialPending, planId }:
       if (!r.ok) return;
       const d = await r.json();
       if (d?.hasPaid) {
-        window.location.reload();
+        if (onPaid) onPaid(); else window.location.reload();
         return;
       }
       if (!d?.request || d.request.status !== "PENDING") {
@@ -29,7 +29,7 @@ export default function PaymentRequestButton({ authed, initialPending, planId }:
     } finally {
       if (manual) setChecking(false);
     }
-  }, [planId]);
+  }, [planId, onPaid]);
 
   useEffect(() => {
     if (!authed || !pending) return;
@@ -52,7 +52,7 @@ export default function PaymentRequestButton({ authed, initialPending, planId }:
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Амжилтгүй");
       if (d.paid) {
-        window.location.reload();
+        if (onPaid) onPaid(); else window.location.reload();
         return;
       }
       setPending(true);

@@ -1,4 +1,5 @@
 "use client";
+import { PlanLink } from "@/components/PlansProvider";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -1145,7 +1146,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
             <p className="text-3xl">🔒</p>
             <h3 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй эрх шаардлагатай</h3>
               <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Үндсэн шалгалт, шалгалт тохиргоо, бусад ангилал болон хадгалах нь 39,900₮-ийн бүтэн эрхэд багтдаг.</p>
-              <Link href="/plans/lawyer-2026-full" className="mt-4 flex w-full items-center justify-center rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">Эрх авах →</Link>
+              <PlanLink href="/plans/lawyer-2026-full" className="mt-4 flex w-full items-center justify-center rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">Эрх авах →</PlanLink>
               <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border border-zinc-200 py-2.5 text-[13px] sm:text-sm dark:border-white/15 min-h-[40px]">Хаах</button>
             </div>
           </div>
@@ -1253,7 +1254,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
           </div>
           {!fullAccess && mainCategory !== "all" && mainCategory !== FREE_CATEGORY && (
             <div className="rounded-lg sm:rounded-xl border border-dashed border-zinc-200 p-3 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400 dark:border-white/15">
-              🔒 «{mainCategory}» нь төлбөртэй ангилал — <Link href="/plans/lawyer-2026-full" className="font-medium text-indigo-600 underline dark:text-indigo-300">Эрх авах</Link> үед нээгдэнэ. Үнэгүй: {FREE_CATEGORY}.
+              🔒 «{mainCategory}» нь төлбөртэй ангилал — <PlanLink href="/plans/lawyer-2026-full" className="font-medium text-indigo-600 underline dark:text-indigo-300">Эрх авах</PlanLink> үед нээгдэнэ. Үнэгүй: {FREE_CATEGORY}.
             </div>
           )}
           <div className="grid gap-1.5 sm:gap-2 min-w-0">
@@ -1378,9 +1379,9 @@ export default function QuizClient({ index }: { index: IndexData }) {
             <p className="text-2xl">🔒</p>
             <p className="mt-1 font-medium text-[13px] sm:text-sm">Төлбөртэй дэд ангилал</p>
             <p className="mt-1 text-[11px] sm:text-xs text-zinc-500">«{subPair.sub}»-аар шалгалт өгөх нь Эрх авах төлөвлөгөөнд багтдаг.</p>
-            <Link href="/plans/lawyer-2026-full" className="mt-3 inline-flex items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
+            <PlanLink href="/plans/lawyer-2026-full" className="mt-3 inline-flex items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 text-[12px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">
               Эрх авах — 39,900₮ →
-            </Link>
+            </PlanLink>
           </div>
         ) : (
           <div className="mt-3 sm:mt-4 min-w-0">
@@ -1682,7 +1683,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
               <p className="text-3xl">🔒</p>
               <h3 className="mt-2 font-semibold text-[15px] sm:text-lg">Төлбөртэй эрх шаардлагатай</h3>
               <p className="mt-1 text-[12px] sm:text-sm text-zinc-500">Бусад ангиллаар шалгалт өгөх, хадгалах нь 39,900₮-ийн бүтэн эрхэд багтдаг.</p>
-              <Link href="/plans/lawyer-2026-full" className="mt-4 flex w-full items-center justify-center rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">Эрх авах →</Link>
+              <PlanLink href="/plans/lawyer-2026-full" className="mt-4 flex w-full items-center justify-center rounded-full bg-indigo-600 py-2.5 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">Эрх авах →</PlanLink>
               <button onClick={() => setPaywallNote(false)} className="mt-2 w-full rounded-full border border-zinc-200 py-2.5 text-[13px] sm:text-sm dark:border-white/15 min-h-[40px]">Хаах</button>
             </div>
           </div>
@@ -1698,7 +1699,7 @@ export default function QuizClient({ index }: { index: IndexData }) {
                   <h3 className="font-semibold text-[14px] sm:text-base">🔒 Хадгалах нь төлбөртэй</h3>
                   <p className="mt-2 text-[12px] sm:text-sm text-zinc-600 dark:text-zinc-400">Шалгалт түр зогсоож, үргэлжлүүлэх нь Эрх авах төлөвлөгөөнд багтдаг.</p>
                   <div className="mt-4 grid gap-2">
-                    <Link href="/plans/lawyer-2026-full" className="flex w-full items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">Эрх авах — 39,900₮ →</Link>
+                    <PlanLink href="/plans/lawyer-2026-full" className="flex w-full items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-[13px] sm:text-sm font-medium text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-violet-500 dark:text-white dark:shadow-lg dark:shadow-indigo-950/40 dark:hover:from-indigo-400 dark:hover:to-violet-400 min-h-[40px]">Эрх авах — 39,900₮ →</PlanLink>
                     <button onClick={() => { setConfirmExit(false); setShowStudyFeedback(false); setState("setup"); }} className="rounded-full border border-zinc-200 px-5 py-2 text-[13px] sm:text-sm dark:border-white/15 min-h-[36px]">Хадгалахгүй гарах</button>
                   </div>
                 </>

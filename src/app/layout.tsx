@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
+import PlansProvider from "@/components/PlansProvider";
 import Header from "@/components/Header";
 import PaidFlag from "@/components/PaidFlag";
 import IosHardNav from "@/components/IosHardNav";
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col">
         <SessionProvider>
+          <PlansProvider>
           <PaidFlag />
           <IosHardNav />
           <VisitTracker />
@@ -66,6 +68,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               © {new Date().getFullYear()} Lexlab
             </p>
           </footer>
+          </PlansProvider>
         </SessionProvider>
       </body>
     </html>

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 const INTRO =
   "Энэхүү үйлчилгээний нөхцөлөөр Lexlab сайт (цаашид “Үйлчилгээ үзүүлэгч” гэх) болон Сайтыг ашиглаж байгаа этгээд (цаашид “Хэрэглэгч” гэх) нарын үүсэх эрх зүйн харилцааг зохицуулна. Сайтад байршуулсан сорил, тест, ажиллагааны программчлал нь хувь хүний өмч болно.";
@@ -83,29 +83,24 @@ const SECTIONS: { title: string; items: { n: string; t: string }[] }[] = [
 ];
 
 export default function TermsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
+    const dialog = dialogRef.current;
+    if (!open || !dialog) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open, onClose]);
+    dialog.showModal();
+    return () => { dialog.close(); document.body.style.overflow = prevOverflow; };
+  }, [open]);
 
-  if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-label="Үйлчилгээний нөхцөл">
-      <div className="absolute inset-0 bg-black/60 dark:bg-black/70" onClick={onClose} />
+    <dialog ref={dialogRef} aria-label="Үйлчилгээний нөхцөл" className="m-auto w-[calc(100%-1.5rem)] max-w-2xl overflow-hidden rounded-2xl border-0 bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-black/60 dark:bg-[#0c0c14] dark:text-zinc-100" onCancel={(event) => { event.preventDefault(); event.stopPropagation(); onClose(); }} onClick={(event) => { event.stopPropagation(); if (event.target === event.currentTarget) onClose(); }}>
       <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl dark:border dark:border-white/10 dark:bg-[#0c0c14]/95 dark:backdrop-blur-xl">
         <div className="flex items-center justify-between gap-2 border-b border-zinc-200 p-4 sm:p-5 dark:border-white/10">
           <p className="text-[14px] sm:text-base font-semibold">Үйлчилгээний нөхцөл</p>
           <button
+            autoFocus
             onClick={onClose}
             aria-label="Хаах"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-[13px] hover:bg-zinc-100 dark:border-white/15 dark:hover:bg-white/5"
@@ -128,6 +123,6 @@ export default function TermsModal({ open, onClose }: { open: boolean; onClose: 
           ))}
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }

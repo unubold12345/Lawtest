@@ -12,7 +12,7 @@ function handleClick(e: MouseEvent) {
 
   const target = e.target as Element | null;
   const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;
-  if (!anchor) return;
+  if (!anchor || anchor.dataset.planModal === "true") return;
 
   if (anchor.target && anchor.target !== "_self") return;
   if (anchor.hasAttribute("download")) return;

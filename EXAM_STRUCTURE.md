@@ -13,6 +13,15 @@ Plans purchase one edition. Categories are subjects inside a bank, not products.
 - Accounts, profile, and administration remain platform-wide.
 - Old study URLs redirect permanently; query strings are preserved by Next.js.
 
+The global header stays the same across the catalog and all editions: brand,
+theme, notifications, and account menu. Admin is available only in an admin's
+profile dropdown. Study tabs live in the edition workspace beneath its title.
+In-app pricing links use `PlanLink` to open a native modal for plan selection and
+checkout without navigating away. The `/plans` routes remain direct-link fallbacks.
+The modal reads live payment status; approval refreshes access without reloading
+the underlying study page. Native dialogs provide focus trapping and Escape dismissal,
+including a separate nested terms dialog.
+
 All existing files under `data/` are exclusively lawyer 2026. Existing question IDs,
 saved answers, notes, local storage keys, and history remain intact. Loading the bank
 adds an edition ID without modifying the source questions.
