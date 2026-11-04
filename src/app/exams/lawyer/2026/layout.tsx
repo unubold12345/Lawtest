@@ -4,7 +4,7 @@ import EditionNavigation from "@/components/EditionNavigation";
 import { PlanLink } from "@/components/PlansProvider";
 
 export default function EditionLayout({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto min-h-[calc(100dvh-65px)] max-w-[1600px] lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
+  return <div className="min-h-[calc(100dvh-65px)] w-full min-w-0 lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
     <EditionNavigation href={LAWYER_2026_PATH} />
     <div className="min-w-0">
       <div className="border-b border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-white/[0.02]">
